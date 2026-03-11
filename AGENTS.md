@@ -31,6 +31,7 @@ Naming rule:
 - keep this convention consistent across all folders
 
 - `AGENTS.md` — workflow rules for future agents
+- `IDEA.md` — the shortest possible description of what the video is about
 - `PROJECT.md` — brief, goals, runtime, audience, emotional target, current phase
 - `MODELS.md` — research notes for each supported video model
 - `STORY.md` — premise, synopsis, beats, arc, themes, scene goals
@@ -44,6 +45,7 @@ Naming rule:
 - `<SUBJECT>/` — non-markdown reference asset folders such as `CHARACTER_NAME/`, `LOCATION_NAME/`, or `SCENE_NAME/`
 
 Keep responsibilities separate:
+- `IDEA.md` captures the irreducible core of the assignment or concept
 - canonical creative truth lives in the root markdown files
 - model-specific prompting tactics live in `MODELS.md`
 - final executable prompts live in `PROMPT-PACK.md`
@@ -87,6 +89,18 @@ Example:
 - `bun generate-imagen-options.ts --prompt "cinematic portrait of LENA, 35mm lens, soft overcast daylight, muted teal and rust palette, grounded realistic styling" --n 4 --aspect-ratio "16:9" --output-dir "output/lena-exploration"`
 
 ## File Contracts
+
+### `IDEA.md`
+Maintain:
+- a super concise description of the video concept
+- the assignment brief or original task if the project started from a course or external prompt
+- the essential sequence of events or images, kept as short as possible
+
+Rules:
+- treat `IDEA.md` as the fastest way to understand what this project is about
+- keep it shorter and more compressed than `PROJECT.md` or `STORY.md`
+- preserve the original assignment intent when the project comes from a course brief
+- expand on `IDEA.md` in other files, but do not overload `IDEA.md` with full story development
 
 ### `PROJECT.md`
 Maintain:
@@ -220,16 +234,17 @@ Maintain:
 Unless the user explicitly asks to skip ahead, follow this order:
 
 1. Clarify the idea and intended outcome.
-2. Update `PROJECT.md`.
-3. Build story foundation in `STORY.md`.
-4. Lock characters in `CHARACTERS.md`.
-5. Lock visual language in `STYLE.md`.
-6. Record reference assets in `REFERENCES.md` when they exist or are needed.
-7. Build the scene and shot plan in `STORYBOARD.md`.
-8. Record continuity dependencies in `CONTINUITY.md`.
-9. Read `MODELS.md` for the chosen model.
-10. Write or adapt prompts in `PROMPT-PACK.md`.
-11. Review generated output and log findings in `GENERATION-LOG.md`.
+2. Update `IDEA.md` with the super concise concept or assignment brief.
+3. Update `PROJECT.md`.
+4. Build story foundation in `STORY.md`.
+5. Lock characters in `CHARACTERS.md`.
+6. Lock visual language in `STYLE.md`.
+7. Record reference assets in `REFERENCES.md` when they exist or are needed.
+8. Build the scene and shot plan in `STORYBOARD.md`.
+9. Record continuity dependencies in `CONTINUITY.md`.
+10. Read `MODELS.md` for the chosen model.
+11. Write or adapt prompts in `PROMPT-PACK.md`.
+12. Review generated output and log findings in `GENERATION-LOG.md`.
 
 If a source-of-truth file does not exist yet and the workflow needs it, create it.
 
@@ -309,6 +324,7 @@ You should:
 - make low-risk assumptions only when necessary, and record them clearly
 - keep markdown filenames uppercase and preserve the repo naming convention
 - treat external visual references as part of the working context, not just attachments
+- check `IDEA.md` first when orienting to the project, then expand into the richer source-of-truth files
 
 ## Preferred Deliverables
 
@@ -326,7 +342,7 @@ Prefer delivering work in these forms when useful:
 This file should guide future agents to behave correctly in these cases:
 
 1. The user starts with only a vague idea.  
-   Update `PROJECT.md`, then gather enough story and style context before writing prompts.
+   Update `IDEA.md` and `PROJECT.md`, then gather enough story and style context before writing prompts.
 
 2. The user wants a recurring protagonist across many shots.  
    Use `CHARACTERS.md` and `CONTINUITY.md` before writing shot prompts.
@@ -346,6 +362,9 @@ This file should guide future agents to behave correctly in these cases:
 7. The user provides reference images or videos.  
    Register them in `REFERENCES.md`, place them in a relevant subject folder, decide whether they are canon or inspiration, and connect them to the affected prompts.
 
+8. The project starts from a course assignment or exercise brief.  
+   Preserve the brief in `IDEA.md`, then expand it into `PROJECT.md`, `STORYBOARD.md`, and the prompt workflow.
+
 ## Defaults
 
 Assume the following unless the user says otherwise:
@@ -354,6 +373,7 @@ Assume the following unless the user says otherwise:
 - posture: structured and proactive
 - model strategy: model-agnostic canon with model-specific prompt adaptation
 - model research location: `MODELS.md`
+- concept anchor location: `IDEA.md`
 - markdown naming convention: uppercase filenames such as `STYLE.md`
 - revision method: diagnose failure, update memory, then rewrite prompts
 - repo purpose: creative preproduction and prompt design, not software development
