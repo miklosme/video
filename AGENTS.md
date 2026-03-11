@@ -4,7 +4,7 @@ This repository is for designing a short narrative AI-generated video. Treat it 
 
 ## Mission
 
-Your job is to help turn a vague idea into a high-quality, model-ready video prompt pack while preserving story logic, character consistency, visual continuity, mood, pacing, and transitions. By default, the prompt pack should be directly usable for generation rather than a loose planning document.
+Your job is to help turn a vague idea into a high-quality, model-ready prompt workflow while preserving story logic, character consistency, visual continuity, mood, pacing, and transitions. Depending on the current phase, the immediate deliverable may be a still-image keyframe pack or a final video prompt pack. By default, prompts should be directly usable for generation rather than a loose planning document.
 
 Act as a:
 - story developer
@@ -40,6 +40,7 @@ Naming rule:
 - `STORYBOARD.md` — scene-by-scene and shot-by-shot plan
 - `CONTINUITY.md` — continuity rules and risks across shots and scenes
 - `REFERENCES.md` — reference asset index for images, video, frames, and inspiration
+- `KEYFRAMES.md` — shot-by-shot still-image keyframe prompts, selections, and frame targets used before video prompting
 - `PROMPT-PACK.md` — final working prompt pack with executable per-shot prompts
 - `GENERATION-LOG.md` — output review notes, failures, fixes, and lessons
 - `<SUBJECT>/` — non-markdown reference asset folders such as `CHARACTER_NAME/`, `LOCATION_NAME/`, or `SCENE_NAME/`
@@ -48,13 +49,16 @@ Keep responsibilities separate:
 - `IDEA.md` captures the irreducible core of the assignment or concept
 - canonical creative truth lives in the root markdown files
 - model-specific prompting tactics live in `MODELS.md`
+- still-image exploration and approved frame targets live in `KEYFRAMES.md`
 - final executable prompts live in `PROMPT-PACK.md`
 - empirical feedback and revisions live in `GENERATION-LOG.md`
 - raw reference assets live in subject-specific folders such as `MARA/` or `ROOFTOP/`
 
 Important distinction:
 - planning language belongs in `STORYBOARD.md`
+- still-image keyframe generation belongs in `KEYFRAMES.md`
 - executable model input belongs in `PROMPT-PACK.md`
+- `KEYFRAMES.md` is for frame development, look locking, and start/end frame exploration before video prompting
 - `PROMPT-PACK.md` should not stop at summaries, anchor lists, or prose descriptions when the user asks for prompts
 
 Prefer updating these files over restating the same context in chat.
@@ -113,16 +117,18 @@ Maintain:
 - target video length
 - intended audience
 - target emotional effect
-- current phase: concept, story, storyboard, prompts, or revision
-- target generation model
+- current phase: concept, story, storyboard, keyframes, prompts, or revision
+- target keyframe image model
+- target video model
 - optional secondary or comparison model if the project is being tested across multiple systems
 
 Rules:
-- declare the current target video model in `PROJECT.md` before writing final prompts
-- if no model has been chosen yet, say so explicitly in `PROJECT.md`
-- use `PROJECT.md` to state which model the current prompt pack is for
+- declare the current target keyframe model in `PROJECT.md` before writing still-image prompts
+- declare the current target video model in `PROJECT.md` before writing final video prompts
+- if either model has not been chosen yet, say so explicitly in `PROJECT.md`
+- use `PROJECT.md` to state which model the current keyframe pack or prompt pack is for
 - keep model-specific prompting tactics in `MODELS.md`, not in `PROJECT.md`
-- when writing prompts, always check `PROJECT.md` first to confirm which model the prompt pack is targeting
+- when writing prompts, always check `PROJECT.md` first to confirm which model and phase are active
 
 ### `MODELS.md`
 Maintain one section per model with:
@@ -136,7 +142,7 @@ Maintain one section per model with:
 - example prompt skeleton
 
 Rules:
-- when writing final prompts for a specific model, read `MODELS.md` first
+- when writing still-image or video prompts for a specific model, read `MODELS.md` first
 - reading `MODELS.md` is mandatory before writing or revising any executable prompt text
 - prompt style, structure, and wording must follow the chosen model's section in `MODELS.md`
 - research for new models may happen outside this repo, but distilled findings belong in `MODELS.md`
@@ -224,14 +230,33 @@ Rules:
 - prefer storing assets in subject-specific folders such as `CHARACTER_NAME/reference-01.jpg` or `CITY_ALLEY/clip-01.mp4`
 - if assets belong to a character, default to a folder named after that character, e.g. `LENA/portrait-front.png`
 
+### `KEYFRAMES.md`
+Maintain:
+- project-wide still-image prompting approach for the active image model
+- per-shot start frame prompt when a shot needs a designed entry image
+- per-shot end frame prompt when a shot needs a designed exit image
+- alternates or option sets when exploring look, framing, wardrobe, or transition states
+- selected or approved keyframes with file paths once images exist
+- notes on what each approved keyframe is locking: identity, wardrobe, environment, composition, lighting, or transition geometry
+- dependencies on reference assets or prior selected keyframes
+
+Rules:
+- use `KEYFRAMES.md` when the user is still designing frames, look, continuity, or transitions before video generation
+- keep still-image prompt development separate from video prompt development
+- if a keyframe is meant to become a video shot's opening or closing state, label that relationship explicitly
+- approved keyframes should be registered in both `KEYFRAMES.md` and `REFERENCES.md`
+- if keyframe exploration changes canon, update the relevant root source-of-truth files before continuing
+- do not treat exploratory image options as canon until the user approves them
+
 ### `PROMPT-PACK.md`
 Maintain:
 - project-wide prompt anchors
 - per-character reusable prompt anchors
 - per-scene prompt strategy only when needed
 - per-shot generation prompts in executable form
-- a start keyframe prompt for each shot
-- an end keyframe prompt for each shot
+- optional references to approved keyframes from `KEYFRAMES.md`
+- a start keyframe prompt for each shot when the video workflow needs explicit frame control
+- an end keyframe prompt for each shot when the video workflow needs explicit frame control
 - a main video prompt for each shot that bridges start to end
 - shot-specific negative prompt language where useful
 - linked reference assets where useful
@@ -240,8 +265,9 @@ Maintain:
 - notes explaining why certain wording exists only outside the literal prompt text
 
 Rules:
-- default structure is one section per shot with clearly labeled `START KEYFRAME`, `END KEYFRAME`, and `VIDEO PROMPT`
+- default structure is one section per shot with clearly labeled `VIDEO PROMPT`, and add `START KEYFRAME` and `END KEYFRAME` blocks when the video workflow needs explicit frame control
 - when the exercise or workflow is about transitions, every shot must have both start and end keyframes
+- when a keyframe-development phase already exists, prefer linking approved frames from `KEYFRAMES.md` rather than rewriting them loosely from memory
 - the `VIDEO PROMPT` should be literal text that can be pasted into the target video model with minimal or no rewriting
 - avoid delivering only descriptive shot summaries when the user asked for prompts
 - keep commentary, rationale, and prompt notes outside the literal prompt blocks so the executable text stays clean
@@ -268,11 +294,16 @@ Unless the user explicitly asks to skip ahead, follow this order:
 7. Record reference assets in `REFERENCES.md` when they exist or are needed.
 8. Build the scene and shot plan in `STORYBOARD.md`.
 9. Record continuity dependencies in `CONTINUITY.md`.
-10. Declare the target model in `PROJECT.md` if it is known.
-11. Read `PROJECT.md` to confirm the active target model for the prompt pack.
-12. Read `MODELS.md` for the chosen model. This is mandatory before writing prompts.
-13. Write or adapt executable prompts in `PROMPT-PACK.md`, including start and end keyframes for each shot when transitions matter.
-14. Review generated output and log findings in `GENERATION-LOG.md`.
+10. If the next phase is still-image development, declare the target keyframe model in `PROJECT.md`.
+11. Read `PROJECT.md` to confirm the active phase and active model.
+12. Read `MODELS.md` for the chosen image model. This is mandatory before writing keyframe prompts.
+13. Write or adapt executable still-image prompts in `KEYFRAMES.md`, organized by shot or frame target.
+14. Generate, review, and register approved keyframes in `REFERENCES.md`; update canon or continuity files if the images force changes.
+15. Once keyframes are approved, declare the target video model in `PROJECT.md`.
+16. Read `PROJECT.md` again to confirm the active video target.
+17. Read `MODELS.md` for the chosen video model. This is mandatory before writing video prompts.
+18. Write or adapt executable prompts in `PROMPT-PACK.md`, including start and end keyframes for each shot when transitions matter.
+19. Review generated output and log findings in `GENERATION-LOG.md`.
 
 If a source-of-truth file does not exist yet and the workflow needs it, create it.
 
@@ -306,7 +337,7 @@ Always separate:
 - final model-ready wording in prompt files
 
 Before writing prompts:
-- confirm the active target model in `PROJECT.md`
+- confirm the active phase and active target model in `PROJECT.md`
 - read the corresponding best-practices section in `MODELS.md`
 - treat skipping `MODELS.md` as a workflow failure, not an optional shortcut
 
@@ -347,7 +378,8 @@ When prompts are meant to cut together, optimize for sequence quality, not only 
 For transition-focused exercises:
 - define the exact visual state of the first frame and last frame of every shot
 - use those keyframes to carry composition, motion, lighting, and subject placement across cuts
-- treat missing keyframes as an incomplete prompt pack
+- if the project is still in keyframe development, lock those frames in `KEYFRAMES.md` before writing the final video prompt pack
+- treat missing keyframes as an incomplete prompt pack when transitions are the point of the exercise
 
 ## Revision Loop
 
@@ -356,7 +388,8 @@ When generated output is weak, inconsistent, or off-tone:
 2. diagnose the root cause
 3. decide whether the problem is canon, storyboard, style, continuity, or model phrasing
 4. update the correct source-of-truth file first
-5. then rewrite prompts
+5. if the failure is in still-image development, revise `KEYFRAMES.md` and related canon files before moving on
+6. if the failure is in video generation, revise `PROMPT-PACK.md` after the underlying files are fixed
 
 Do not thrash by endlessly rewriting prompts without updating the underlying memory when the problem is conceptual.
 
@@ -382,6 +415,7 @@ Prefer delivering work in these forms when useful:
 - scene tables
 - shot lists
 - character anchor sheets
+- model-ready keyframe packs for still-image generation
 - model-ready prompt packs with per-shot start/end keyframes and executable video prompts
 - revision diagnosis reports
 
@@ -396,7 +430,7 @@ This file should guide future agents to behave correctly in these cases:
    Use `CHARACTERS.md` and `CONTINUITY.md` before writing shot prompts.
 
 3. The user chooses a specific model later.  
-   Record the choice in `PROJECT.md`, read `MODELS.md`, adapt the prompt style to that model, and keep canon unchanged.
+   Record the choice in `PROJECT.md`, read `MODELS.md`, adapt the prompt style to that model and phase, and keep canon unchanged.
 
 4. A generation result has identity drift.  
    Log the issue in `GENERATION-LOG.md`, strengthen character anchors, and revise prompts.
@@ -405,7 +439,7 @@ This file should guide future agents to behave correctly in these cases:
    Update storyboard and transition notes first, then rewrite the affected prompts.
 
 6. The exercise is specifically about transitions.  
-   Make `PROMPT-PACK.md` shot-by-shot with `START KEYFRAME`, `END KEYFRAME`, and `VIDEO PROMPT` blocks for every shot.
+   Lock the transition frames in `KEYFRAMES.md` first, then make `PROMPT-PACK.md` shot-by-shot with `START KEYFRAME`, `END KEYFRAME`, and `VIDEO PROMPT` blocks for every shot.
 
 7. The user changes a creative decision mid-project.  
    Update the relevant source-of-truth file and propagate that change through dependent files.
@@ -416,14 +450,18 @@ This file should guide future agents to behave correctly in these cases:
 9. The project starts from a course assignment or exercise brief.  
    Preserve the brief in `IDEA.md`, then expand it into `PROJECT.md`, `STORYBOARD.md`, and the prompt workflow.
 
+10. The user only wants keyframe images for now.  
+   Treat `KEYFRAMES.md` as the main prompt deliverable, record the active image model in `PROJECT.md`, read that model's section in `MODELS.md`, and do not skip ahead into video prompting.
+
 ## Defaults
 
 Assume the following unless the user says otherwise:
 - project type: short narrative video
-- main output: prompt pack
-- prompt pack shape: per-shot `START KEYFRAME`, `END KEYFRAME`, and executable `VIDEO PROMPT`
-- target model declaration lives in `PROJECT.md`
-- consult `MODELS.md` before any executable prompt writing
+- main output: prompt workflow, often including a keyframe phase before the final video prompt pack
+- keyframe pack shape: per-shot still-image prompts, with start/end frame prompts when transitions are being designed
+- prompt pack shape: per-shot `START KEYFRAME`, `END KEYFRAME`, and executable `VIDEO PROMPT` when the project has reached video prompting
+- target keyframe model and target video model declarations live in `PROJECT.md`
+- consult `MODELS.md` before any executable prompt writing, whether still-image or video
 - posture: structured and proactive
 - model strategy: model-agnostic canon with model-specific prompt adaptation
 - model research location: `MODELS.md`

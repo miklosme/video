@@ -18,11 +18,15 @@ Tenderness and stillness at first, then dread, then a final sense of historical 
 
 ## Current Phase
 
-Storyboard.
+Keyframes.
 
-## Target Generation Model
+## Target Keyframe Image Model
 
 Imagen 4 Fast (model card `google/imagen-4.0-fast-generate-001`)
+
+## Target Video Model
+
+Not chosen yet.
 
 ## Secondary or Comparison Model
 
@@ -34,4 +38,4 @@ Imagen 4 Fast (model card `google/imagen-4.0-fast-generate-001`)
 - The opening house and the final target house are the same house.
 - The husband belongs to an older war era; the ending lands in a contemporary warfare language through the FPV shot.
 - The film is visual-first, with no spoken exposition required.
-- Until a target model is selected, prompts should be treated as model-agnostic drafts rather than final executable generation text.
+- Until a target video model is selected, video prompts should be treated as model-agnostic drafts rather than final executable generation text.
