@@ -11,6 +11,7 @@ async function main() {
     '--aspect-ratio': String,
     '--safety-filter-level': String,
     '--output-dir': String,
+    '--name-prefix': String,
     '-p': '--prompt',
     '-m': '--model',
     '-n': '--n',
@@ -27,6 +28,7 @@ async function main() {
   const aspectRatio = args['--aspect-ratio'] ?? '16:9';
   const safetyFilterLevel = args['--safety-filter-level'] ?? 'OFF';
   const outputDir = path.join(process.cwd(), args['--output-dir'] ?? 'output');
+  const namePrefix = args['--name-prefix'] ? `${args['--name-prefix']}-` : '';
 
   const openai = new OpenAI({
     apiKey: process.env.AI_GATEWAY_API_KEY,
@@ -46,22 +48,15 @@ async function main() {
   } as any);
 
   await mkdir(outputDir, { recursive: true });
-  const createdAtPrefix = new Date()
-    .toISOString()
-    .replace(/[-:]/g, '')
-    .replace(/\..+/, '')
-    .replace('T', '-');
+  const createdAtPrefix = new Date().toISOString().replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-');
 
   for (const [index, image] of (result.data ?? []).entries()) {
     if (image.b64_json) {
-      const outputPath = path.join(
-        outputDir,
-        `${createdAtPrefix}-imagen-option-${index + 1}.png`,
-      );
+      const outputPath = path.join(outputDir, `${namePrefix}${createdAtPrefix}-imagen-option-${index + 1}.png`);
       const imageBuffer = Buffer.from(image.b64_json, 'base64');
 
       await writeFile(outputPath, imageBuffer);
-      console.log(`Saved generated image to ${outputPath}`);
+      // console.log(`Saved generated image to ${outputPath}`);
     }
   }
 }
