@@ -20,9 +20,18 @@ Tenderness and stillness at first, then dread, then a final sense of historical 
 
 Storyboard.
 
+## Target Generation Model
+
+Imagen 4 Fast (model card `google/imagen-4.0-fast-generate-001`)
+
+## Secondary or Comparison Model
+
+(No secondary model, just use the target one.)
+
 ## Working Assumptions
 
 - The setting is an unnamed Central or Eastern European countryside.
 - The opening house and the final target house are the same house.
 - The husband belongs to an older war era; the ending lands in a contemporary warfare language through the FPV shot.
 - The film is visual-first, with no spoken exposition required.
+- Until a target model is selected, prompts should be treated as model-agnostic drafts rather than final executable generation text.
