@@ -52,6 +52,40 @@ Keep responsibilities separate:
 
 Prefer updating these files over restating the same context in chat.
 
+## Available Script
+
+### `generate-imagen-options.ts`
+This script can generate image options through the AI Gateway and save them locally as `.png` files. Use it when the user wants still-image explorations for characters, wardrobe, locations, compositions, or mood frames before final video prompting.
+
+Behavior:
+- requires `AI_GATEWAY_API_KEY` in the environment
+- calls the image generation API through `https://ai-gateway.vercel.sh/v1`
+- writes generated images to `output/` by default, or to a custom directory
+- defaults to model `google/imagen-4.0-fast-generate-001`
+- defaults to `--n 1`
+- defaults to `--aspect-ratio 16:9`
+- defaults to `--safety-filter-level OFF`
+
+Supported options:
+- `--prompt` or `-p` — required
+- `--model` or `-m`
+- `--n`
+- `--aspect-ratio`
+- `--safety-filter-level`
+- `--output-dir`
+
+Usage policy:
+- do not run this script automatically
+- when image generation would help, offer the user a parameterized command instead of executing it yourself
+- tailor the command to the current project context, including prompt text, output directory, aspect ratio, and image count
+- if relevant, explain which reference folder the outputs should later be moved into
+
+Command pattern:
+- `bun generate-imagen-options.ts --prompt "<PROMPT>" --model "<MODEL>" --n <COUNT> --aspect-ratio "<RATIO>" --safety-filter-level "<LEVEL>" --output-dir "<DIR>"`
+
+Example:
+- `bun generate-imagen-options.ts --prompt "cinematic portrait of LENA, 35mm lens, soft overcast daylight, muted teal and rust palette, grounded realistic styling" --n 4 --aspect-ratio "16:9" --output-dir "output/lena-exploration"`
+
 ## File Contracts
 
 ### `PROJECT.md`
