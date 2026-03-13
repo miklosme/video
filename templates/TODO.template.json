@@ -1,0 +1,48 @@
+{
+  "instructions": [
+    "Copy this file into workspace/TODO.json before tracking workflow state for a new project.",
+    "Use sections to mirror real project phases and checklist gates, then replace every placeholder item with project-relevant checks.",
+    "Keep sourceFiles aligned with the workspace files that prove each item is complete."
+  ],
+  "version": 1,
+  "sections": [
+    {
+      "sectionId": "current-state",
+      "title": "Current State Snapshot",
+      "items": [
+        {
+          "itemId": "phase-confirmed",
+          "text": "Current phase is confirmed in PROJECT.json.",
+          "checked": false,
+          "sourceFiles": [
+            "PROJECT.json"
+          ]
+        },
+        {
+          "itemId": "next-step-clear",
+          "text": "The next workflow step is clear.",
+          "checked": false,
+          "sourceFiles": [
+            "PROJECT.json",
+            "TODO.json"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "project-stage",
+      "title": "Project Stage",
+      "items": [
+        {
+          "itemId": "replace-with-project-specific-check",
+          "text": "Replace with a concrete checklist item for this project.",
+          "checked": false,
+          "sourceFiles": [
+            "IDEA.md",
+            "PROJECT.json"
+          ]
+        }
+      ]
+    }
+  ]
+}

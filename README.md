@@ -72,6 +72,14 @@ Use Markdown for prose-heavy canon and JSON or JSONL for operational data.
 - `workspace/PROJECT.md`: short overview of the canonical `workspace/PROJECT.json`
 - `workspace/STORYBOARD.md`: short overview of the canonical `workspace/STORYBOARD.json`
 
+### Template Scaffolds
+
+- `templates/` is the scaffold library for `workspace/`.
+- Each `workspace/NAME.ext` file should have a matching `templates/NAME.template.ext` starter file.
+- Templates preserve expected shape, headings, and schema, but they are not live project records.
+- When creating a missing workspace file, copy the matching template first and then replace its placeholder or example content with project-specific content.
+- `templates/GENERATION-LOG.template.jsonl` contains example entries only. Replace or clear them before treating a copied `workspace/GENERATION-LOG.jsonl` as real history.
+
 ### Assets
 
 - Subject folders such as `MARA/` or `ROOFTOP/` store raw reference assets.
@@ -83,22 +91,24 @@ Keep responsibilities separate:
 - Operational planning and prompt execution state live in JSON.
 - Generation history lives in `workspace/GENERATION-LOG.jsonl`.
 - `workspace/PROJECT.md` and `workspace/STORYBOARD.md` are summaries, not canonical records.
+- Templates in `templates/` are reusable scaffolds, not a second source of truth.
 
 ## Workflow
 
 The default workflow is:
 
 1. Start from the idea or assignment brief.
-2. Capture the irreducible concept in `workspace/IDEA.md`.
-3. Set goals, phase, and target models in `workspace/PROJECT.json`.
-4. Lock canon in `workspace/STORY.md`, `workspace/CHARACTERS.md`, `workspace/STYLE.md`, `workspace/CONTINUITY.md`, and `workspace/SOUND.md` as needed.
-5. Register visual inputs and collection targets in `workspace/REFERENCES.json`.
-6. Build the sequence and shot plan in `workspace/STORYBOARD.json`.
-7. If the project is in look development, choose the image model, read its guidance in `workspace/MODELS.md`, and write still-image prompts in `workspace/KEYFRAMES.json`.
-8. Approve keyframes, register them in `workspace/REFERENCES.json`, and update canon if they force changes.
-9. Choose the video model, read its guidance in `workspace/MODELS.md`, and write executable per-shot prompts in `workspace/PROMPT-PACK.json`.
-10. Review generations through `workspace/GENERATION-LOG.jsonl`, `workspace/QC.json`, and the actual media outputs.
-11. Diagnose the real failure source, update the correct source-of-truth file first, then revise prompts.
+2. If a workspace file does not exist yet, copy its matching template from `templates/` and replace the scaffold content.
+3. Capture the irreducible concept in `workspace/IDEA.md`.
+4. Set goals, phase, and target models in `workspace/PROJECT.json`.
+5. Lock canon in `workspace/STORY.md`, `workspace/CHARACTERS.md`, `workspace/STYLE.md`, `workspace/CONTINUITY.md`, and `workspace/SOUND.md` as needed.
+6. Register visual inputs and collection targets in `workspace/REFERENCES.json`.
+7. Build the sequence and shot plan in `workspace/STORYBOARD.json`.
+8. If the project is in look development, choose the image model, read its guidance in `workspace/MODELS.md`, and write still-image prompts in `workspace/KEYFRAMES.json`.
+9. Approve keyframes, register them in `workspace/REFERENCES.json`, and update canon if they force changes.
+10. Choose the video model, read its guidance in `workspace/MODELS.md`, and write executable per-shot prompts in `workspace/PROMPT-PACK.json`.
+11. Review generations through `workspace/GENERATION-LOG.jsonl`, `workspace/QC.json`, and the actual media outputs.
+12. Diagnose the real failure source, update the correct source-of-truth file first, then revise prompts.
 
 ```mermaid
 flowchart TD
@@ -256,6 +266,8 @@ Do not thrash by endlessly rewriting prompts when the real problem is conceptual
 - `bun validate-workflow-data.ts` validates all structured workflow files in `workspace/` and checks cross-file consistency.
 - `./generate-keyframes.sh` is the compatibility entrypoint for keyframe generation and now reads prompts from `workspace/KEYFRAMES.json`.
 - `generate-imagen-options.ts` preserves the existing CLI contract, supports `AI_GATEWAY_API_KEY`, and appends structured generation records to `workspace/GENERATION-LOG.jsonl`.
+- Templates live in `templates/` and should be copied before creating a missing `workspace/` file; do not treat them as live project state.
+- If you copy `templates/GENERATION-LOG.template.jsonl`, replace or clear its example entries before using the workspace log for real generations.
 
 ## Collaboration Defaults
 
@@ -264,3 +276,4 @@ Do not thrash by endlessly rewriting prompts when the real problem is conceptual
 - Treat external visual references as first-class working inputs.
 - Check `workspace/IDEA.md` first when orienting, then expand into the richer project files.
 - Keep `workspace/PROJECT.md` and `workspace/STORYBOARD.md` concise summaries and treat the JSON files as canonical.
+- When creating a new workspace file, start from the matching template in `templates/` and then replace scaffold-only instructions and placeholders.

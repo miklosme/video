@@ -1,0 +1,38 @@
+{
+  "instructions": [
+    "Copy this file into workspace/REFERENCES.json before tracking project references.",
+    "Use collectionTargets for assets you still need to gather and assets for real supplied, approved, or generated materials.",
+    "Replace every placeholder ID, path, note, and purpose with project-specific data."
+  ],
+  "version": 1,
+  "collectionTargets": [
+    {
+      "targetId": "target-primary-subject",
+      "title": "REPLACE WITH TARGET TITLE",
+      "filePath": null,
+      "assetType": "imageLookbook",
+      "guides": [
+        "replace-with-guide-category",
+        "replace-with-another-guide-category"
+      ],
+      "status": "planned",
+      "notes": "Replace with what this target should help define or verify."
+    }
+  ],
+  "assets": [
+    {
+      "assetId": "asset-example-001",
+      "filePath": "path/to/reference.ext",
+      "assetType": "referenceImage",
+      "purpose": [
+        "replace-with-purpose-tag"
+      ],
+      "status": "candidate",
+      "influence": "Replace with how this asset should influence the project.",
+      "notes": "Replace with evaluation notes or why the asset matters.",
+      "source": "manualCollection",
+      "shotId": "S1-SH01",
+      "frameType": "start"
+    }
+  ]
+}

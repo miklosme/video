@@ -1,0 +1,32 @@
+{
+  "instructions": [
+    "Copy this file into workspace/QC.json before defining review categories and logging evaluation results.",
+    "Keep categories stable enough to compare outputs over time, then add reviews only when real generations exist.",
+    "Replace every placeholder category and review entry with project-specific criteria and findings."
+  ],
+  "version": 1,
+  "categories": [
+    {
+      "categoryId": "replace-with-category-id",
+      "label": "Replace With Review Category",
+      "description": "Replace with what this review category should check."
+    }
+  ],
+  "reviews": [
+    {
+      "reviewId": "review-template-001",
+      "generationId": "template-generation-001",
+      "shotId": "S1-SH01",
+      "result": "maybe",
+      "createdAt": "2026-01-01T00:00:00.000Z",
+      "summary": "Replace or remove this template review entry when the file becomes live.",
+      "findings": [
+        {
+          "categoryId": "replace-with-category-id",
+          "result": "maybe",
+          "notes": "Replace with an example finding or remove this entry before real use."
+        }
+      ]
+    }
+  ]
+}

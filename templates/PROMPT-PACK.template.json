@@ -1,0 +1,20 @@
+{
+  "instructions": [
+    "Copy this file into workspace/PROMPT-PACK.json before drafting executable video prompts for a new project.",
+    "Use this file for per-shot video generation prompts and keep reusable canon or reference logic elsewhere.",
+    "Replace every placeholder note, shot entry, and model choice with project-specific content."
+  ],
+  "version": 1,
+  "status": "planned",
+  "targetVideoModel": null,
+  "shots": [
+    {
+      "shotId": "S1-SH01",
+      "status": "pending",
+      "videoPromptId": null,
+      "videoPrompt": null,
+      "approvedKeyframeAssetIds": [],
+      "notes": "Replace with what is blocking or defining this shot's executable prompt."
+    }
+  ]
+}

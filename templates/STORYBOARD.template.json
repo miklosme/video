@@ -1,0 +1,46 @@
+{
+  "instructions": [
+    "Copy this file into workspace/STORYBOARD.json before planning a new project.",
+    "Preserve the scene and shot structure while replacing every placeholder with the real plan.",
+    "Use concrete transition logic, motion language, and first/last-frame states so adjacent shots can connect cleanly."
+  ],
+  "version": 1,
+  "sequenceOverview": {
+    "targetRuntimeSeconds": 30,
+    "sceneCount": 1,
+    "shotCount": 1,
+    "structure": "Replace with a short description of the sequence structure.",
+    "escalationRule": "Replace with how the sequence builds or transforms over time."
+  },
+  "scenes": [
+    {
+      "sceneId": "S1",
+      "title": "Replace with scene title",
+      "purpose": "Replace with what the scene must accomplish.",
+      "emotionalBeat": "Replace with the scene's dominant feeling.",
+      "locationAndTime": "Replace with the location and time context.",
+      "participants": [
+        "Replace with the people, objects, or forces active in this scene."
+      ],
+      "whatChanges": "Replace with what shifts by the end of the scene.",
+      "transitionIn": "Replace with how the scene begins relative to the previous beat.",
+      "transitionOut": "Replace with how the scene hands off to the next beat.",
+      "shots": [
+        {
+          "shotId": "S1-SH01",
+          "durationSeconds": 5,
+          "framing": "Replace with framing description.",
+          "cameraMotion": "Replace with camera movement description.",
+          "subjectAction": "Replace with what the subject or environment is doing.",
+          "mood": "Replace with the shot's emotional or tonal quality.",
+          "continuityDependencies": [
+            "Replace with a continuity dependency that must survive revisions."
+          ],
+          "intendedTransition": "Replace with how this shot should connect to the next one.",
+          "firstFrameState": "Replace with the opening frame condition.",
+          "lastFrameState": "Replace with the closing frame condition."
+        }
+      ]
+    }
+  ]
+}

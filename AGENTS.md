@@ -10,15 +10,19 @@ When a technical task depends on creative context, treat these as the source of 
   - Markdown canon and guidance such as `workspace/IDEA.md`, `workspace/STORY.md`, `workspace/CHARACTERS.md`, `workspace/STYLE.md`, `workspace/CONTINUITY.md`, `workspace/MODELS.md`, and `workspace/SOUND.md`
   - structured workflow files such as `workspace/PROJECT.json`, `workspace/STORYBOARD.json`, `workspace/REFERENCES.json`, `workspace/KEYFRAMES.json`, `workspace/PROMPT-PACK.json`, `workspace/QC.json`, `workspace/EDIT.json`, `workspace/TESTS.json`, `workspace/TODO.json`, and `workspace/GENERATION-LOG.jsonl`
   - summary files `workspace/PROJECT.md` and `workspace/STORYBOARD.md`, which are non-canonical
+- `templates/` as the scaffold library that mirrors `workspace/` file shapes for new project setup
 
 Do not silently rewrite story canon, style decisions, prompt content, continuity, or structured workflow state in `workspace/` unless the user explicitly asks for those edits.
 
 ## Structure Rules
 
 - Keep workspace source-of-truth filename stems uppercase in the form `NAME.ext`.
+- Keep template scaffold filenames in the form `templates/NAME.template.ext`.
 - When creating new Markdown files, prefer concise uppercase names such as `STYLE.md` or `SHOTS.md`.
 - When creating new structured files, prefer concise uppercase stems such as `QC.json` or `CUT.json`.
 - Keep creative canon in the existing `workspace/` source-of-truth files.
+- When creating a missing workspace file, copy the matching file from `templates/` first and then replace the scaffold-only content.
+- Keep `templates/` and `workspace/` aligned: if a workspace file's headings, schema, or expected shape changes, update the matching template in the same change.
 - Keep raw reference assets in subject folders such as `MARA/` or `ROOFTOP/`.
 - Preserve the separation between canon docs, structured planning data, keyframe data, prompt packs, and revision logs.
 
@@ -27,6 +31,7 @@ Do not silently rewrite story canon, style decisions, prompt content, continuity
 - Make technical changes without breaking the repo's creative file structure.
 - Prefer updating repo files over leaving important technical decisions only in chat.
 - If you create tooling or scripts that interact with creative files, preserve file responsibilities, schemas, and naming conventions.
+- If you change a `workspace/` file's expected structure, update the matching file in `templates/` at the same time.
 - If a requested technical change conflicts with established creative content, stop and surface the conflict instead of guessing.
 - After finishing technical work, run the relevant QA scripts to validate correctness before handing off: `bun run validate:data`, `bun run typecheck`, and `bun run format:check`.
 
@@ -48,3 +53,5 @@ Do not run image-generation scripts automatically unless the user explicitly ask
 - Be concise, structured, and careful around user-authored creative files.
 - When a task is purely creative rather than technical, prefer updating `README.md` or the project source-of-truth files only if the user explicitly asks for those edits.
 - When touching shared documentation, keep `README.md` as the creative-agent guide and keep `AGENTS.md` limited to coding-agent instructions.
+- Treat `templates/` instructions, placeholders, and example entries as scaffold-only content that should be replaced or cleared when copied into `workspace/`.
+- If you copy `templates/GENERATION-LOG.template.jsonl`, replace or clear its example entries before treating the workspace log as real generation history.

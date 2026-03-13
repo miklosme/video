@@ -1,0 +1,22 @@
+{
+  "instructions": [
+    "Copy this file into workspace/EDIT.json before tracking intended cut order or approved generation bindings.",
+    "Keep one selection per planned shot and update the file only when the editorial decision changes.",
+    "Replace every placeholder shot, note, and cut identifier with project-specific values."
+  ],
+  "version": 1,
+  "cutId": "cut-v0",
+  "status": "planning",
+  "selections": [
+    {
+      "shotId": "S1-SH01",
+      "order": 1,
+      "include": true,
+      "approvedGenerationId": null,
+      "notes": "Replace with why this shot belongs in the current cut."
+    }
+  ],
+  "notes": [
+    "Replace with an editorial rule, gating note, or handoff reminder."
+  ]
+}
