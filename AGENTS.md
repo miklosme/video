@@ -28,6 +28,7 @@ Do not silently rewrite story canon, style decisions, prompt content, continuity
 - Prefer updating repo files over leaving important technical decisions only in chat.
 - If you create tooling or scripts that interact with creative files, preserve file responsibilities, schemas, and naming conventions.
 - If a requested technical change conflicts with established creative content, stop and surface the conflict instead of guessing.
+- After finishing technical work, run the relevant QA scripts to validate correctness before handing off: `bun run validate:data`, `bun run typecheck`, and `bun run format:check`.
 
 ## Script Notes
 
