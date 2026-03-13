@@ -3,6 +3,10 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "generate:keyframes": "./generate-keyframes.sh",
+    "validate:data": "bun validate-workflow-data.ts"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },

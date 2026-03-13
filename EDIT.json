@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "cutId": "cut-v0",
+  "status": "planning",
+  "selections": [
+    {
+      "shotId": "S1-SH01",
+      "order": 1,
+      "include": true,
+      "approvedGenerationId": null,
+      "notes": "Opening exterior anchor."
+    },
+    {
+      "shotId": "S1-SH02",
+      "order": 2,
+      "include": true,
+      "approvedGenerationId": null,
+      "notes": "Interior stillness and knitting rhythm."
+    },
+    {
+      "shotId": "S1-SH03",
+      "order": 3,
+      "include": true,
+      "approvedGenerationId": null,
+      "notes": "Portrait threshold shot."
+    },
+    {
+      "shotId": "S2-SH04",
+      "order": 4,
+      "include": true,
+      "approvedGenerationId": null,
+      "notes": "Portrait becoming battlefield."
+    },
+    {
+      "shotId": "S2-SH05",
+      "order": 5,
+      "include": true,
+      "approvedGenerationId": null,
+      "notes": "Soldier run into tank path."
+    },
+    {
+      "shotId": "S3-SH06",
+      "order": 6,
+      "include": true,
+      "approvedGenerationId": null,
+      "notes": "Tank tunnel conversion."
+    },
+    {
+      "shotId": "S3-SH07",
+      "order": 7,
+      "include": true,
+      "approvedGenerationId": null,
+      "notes": "FPV barrel exit."
+    },
+    {
+      "shotId": "S4-SH08",
+      "order": 8,
+      "include": true,
+      "approvedGenerationId": null,
+      "notes": "House recognition before impact."
+    },
+    {
+      "shotId": "S4-SH09",
+      "order": 9,
+      "include": true,
+      "approvedGenerationId": null,
+      "notes": "Terminal impact shot."
+    }
+  ],
+  "notes": [
+    "Use this file to track the intended cut order and later bind approved generations to each shot.",
+    "Do not promote a generation into the cut until it has a matching QC review."
+  ]
+}

@@ -1,36 +1,18 @@
 # PROJECT
 
+Canonical project state now lives in `PROJECT.json`.
+This file is a short human-readable summary for quick orientation.
+
+## Snapshot
+
+- Current phase: `keyframes`
+- Target video length: 45 to 60 seconds
+- Active keyframe model: Imagen 4 Fast (`google/imagen-4.0-fast-generate-001`)
+- Target video model: not chosen yet
+
 ## Concept
 
-A short anti-war visual poem that begins in still rural memory and ends in violent aerial impact. The film links an elderly woman's private domestic space to her husband's battlefield past, then folds that past into a present-day drone strike on the same home. The piece should feel emotionally precise rather than explanatory: quiet, intimate, uncanny, then brutal.
-
-## Target Video Length
-
-45 to 60 seconds.
-
-## Intended Audience
-
-Viewers open to artful short-form cinema, anti-war imagery, and festival-style visual storytelling with minimal or no dialogue.
-
-## Target Emotional Effect
-
-Tenderness and stillness at first, then dread, then a final sense of historical collapse: the idea that war never stayed in the frame where it began.
-
-## Current Phase
-
-Keyframes.
-
-## Target Keyframe Image Model
-
-Imagen 4 Fast (model card `google/imagen-4.0-fast-generate-001`)
-
-## Target Video Model
-
-Not chosen yet.
-
-## Secondary or Comparison Model
-
-(No secondary model, just use the target one.)
+An anti-war visual poem that begins in still rural memory and ends in violent aerial impact. A woman's domestic space connects to her husband's battlefield past, which returns in the form of a contemporary FPV strike on the same house.
 
 ## Working Assumptions
 
@@ -38,4 +20,4 @@ Not chosen yet.
 - The opening house and the final target house are the same house.
 - The husband belongs to an older war era; the ending lands in a contemporary warfare language through the FPV shot.
 - The film is visual-first, with no spoken exposition required.
-- Until a target video model is selected, video prompts should be treated as model-agnostic drafts rather than final executable generation text.
+- Until a target video model is selected, video prompts remain model-agnostic drafts.
