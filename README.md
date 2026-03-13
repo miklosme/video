@@ -40,36 +40,37 @@ The creative agent should not:
 
 These files are the project memory system. Update them as decisions solidify instead of restating the same context in chat.
 
+Creative source-of-truth files live under `workspace/`.
 Keep uppercase filename stems in the form `NAME.ext`.
 Use Markdown for prose-heavy canon and JSON or JSONL for operational data.
 
 ### Canon And Guidance
 
-- `IDEA.md`: shortest possible version of the concept or assignment brief
-- `STORY.md`: premise, synopsis, beats, arc, themes, and scene goals
-- `CHARACTERS.md`: recurring character canon and prompt-safe identity anchors
-- `STYLE.md`: visual language, palette, camera language, mood, and stylistic constraints
-- `CONTINUITY.md`: canon checkpoints, continuity dependencies, and known risks
-- `MODELS.md`: model-specific research, best practices, constraints, and prompt structures
-- `SOUND.md`: sound direction, sonic continuity, and audio constraints
+- `workspace/IDEA.md`: shortest possible version of the concept or assignment brief
+- `workspace/STORY.md`: premise, synopsis, beats, arc, themes, and scene goals
+- `workspace/CHARACTERS.md`: recurring character canon and prompt-safe identity anchors
+- `workspace/STYLE.md`: visual language, palette, camera language, mood, and stylistic constraints
+- `workspace/CONTINUITY.md`: canon checkpoints, continuity dependencies, and known risks
+- `workspace/MODELS.md`: model-specific research, best practices, constraints, and prompt structures
+- `workspace/SOUND.md`: sound direction, sonic continuity, and audio constraints
 
 ### Structured Workflow Files
 
-- `PROJECT.json`: goals, runtime, audience, emotional target, current phase, and active target models
-- `STORYBOARD.json`: scene-by-scene and shot-by-shot plan
-- `REFERENCES.json`: reference asset registry and collection targets
-- `KEYFRAMES.json`: still-image prompt development, frame goals, and prompt IDs
-- `PROMPT-PACK.json`: final executable video prompts and keyframe links
-- `TODO.json`: structured workflow checklist
-- `QC.json`: generation review categories and shot-level QC records
-- `EDIT.json`: cut order and selected generation bindings
-- `TESTS.json`: targeted workflow experiments and acceptance checks
-- `GENERATION-LOG.jsonl`: append-only generation history
+- `workspace/PROJECT.json`: goals, runtime, audience, emotional target, current phase, and active target models
+- `workspace/STORYBOARD.json`: scene-by-scene and shot-by-shot plan
+- `workspace/REFERENCES.json`: reference asset registry and collection targets
+- `workspace/KEYFRAMES.json`: still-image prompt development, frame goals, and prompt IDs
+- `workspace/PROMPT-PACK.json`: final executable video prompts and keyframe links
+- `workspace/TODO.json`: structured workflow checklist
+- `workspace/QC.json`: generation review categories and shot-level QC records
+- `workspace/EDIT.json`: cut order and selected generation bindings
+- `workspace/TESTS.json`: targeted workflow experiments and acceptance checks
+- `workspace/GENERATION-LOG.jsonl`: append-only generation history
 
 ### Human-Readable Summaries
 
-- `PROJECT.md`: short overview of the canonical `PROJECT.json`
-- `STORYBOARD.md`: short overview of the canonical `STORYBOARD.json`
+- `workspace/PROJECT.md`: short overview of the canonical `workspace/PROJECT.json`
+- `workspace/STORYBOARD.md`: short overview of the canonical `workspace/STORYBOARD.json`
 
 ### Assets
 
@@ -80,124 +81,124 @@ Keep responsibilities separate:
 
 - Canon lives in the Markdown source-of-truth files.
 - Operational planning and prompt execution state live in JSON.
-- Generation history lives in `GENERATION-LOG.jsonl`.
-- `PROJECT.md` and `STORYBOARD.md` are summaries, not canonical records.
+- Generation history lives in `workspace/GENERATION-LOG.jsonl`.
+- `workspace/PROJECT.md` and `workspace/STORYBOARD.md` are summaries, not canonical records.
 
 ## Workflow
 
 The default workflow is:
 
 1. Start from the idea or assignment brief.
-2. Capture the irreducible concept in `IDEA.md`.
-3. Set goals, phase, and target models in `PROJECT.json`.
-4. Lock canon in `STORY.md`, `CHARACTERS.md`, `STYLE.md`, `CONTINUITY.md`, and `SOUND.md` as needed.
-5. Register visual inputs and collection targets in `REFERENCES.json`.
-6. Build the sequence and shot plan in `STORYBOARD.json`.
-7. If the project is in look development, choose the image model, read its guidance in `MODELS.md`, and write still-image prompts in `KEYFRAMES.json`.
-8. Approve keyframes, register them in `REFERENCES.json`, and update canon if they force changes.
-9. Choose the video model, read its guidance in `MODELS.md`, and write executable per-shot prompts in `PROMPT-PACK.json`.
-10. Review generations through `GENERATION-LOG.jsonl`, `QC.json`, and the actual media outputs.
+2. Capture the irreducible concept in `workspace/IDEA.md`.
+3. Set goals, phase, and target models in `workspace/PROJECT.json`.
+4. Lock canon in `workspace/STORY.md`, `workspace/CHARACTERS.md`, `workspace/STYLE.md`, `workspace/CONTINUITY.md`, and `workspace/SOUND.md` as needed.
+5. Register visual inputs and collection targets in `workspace/REFERENCES.json`.
+6. Build the sequence and shot plan in `workspace/STORYBOARD.json`.
+7. If the project is in look development, choose the image model, read its guidance in `workspace/MODELS.md`, and write still-image prompts in `workspace/KEYFRAMES.json`.
+8. Approve keyframes, register them in `workspace/REFERENCES.json`, and update canon if they force changes.
+9. Choose the video model, read its guidance in `workspace/MODELS.md`, and write executable per-shot prompts in `workspace/PROMPT-PACK.json`.
+10. Review generations through `workspace/GENERATION-LOG.jsonl`, `workspace/QC.json`, and the actual media outputs.
 11. Diagnose the real failure source, update the correct source-of-truth file first, then revise prompts.
 
 ```mermaid
 flowchart TD
-    A["Idea or assignment brief"] --> B["IDEA.md"]
-    B --> C["PROJECT.json"]
-    C --> D["Lock canon<br/>STORY.md + CHARACTERS.md + STYLE.md + CONTINUITY.md + SOUND.md"]
-    D --> E["REFERENCES.json"]
-    E --> F["STORYBOARD.json"]
+    A["Idea or assignment brief"] --> B["workspace/IDEA.md"]
+    B --> C["workspace/PROJECT.json"]
+    C --> D["Lock canon<br/>workspace/STORY.md + workspace/CHARACTERS.md + workspace/STYLE.md + workspace/CONTINUITY.md + workspace/SOUND.md"]
+    D --> E["workspace/REFERENCES.json"]
+    E --> F["workspace/STORYBOARD.json"]
     F --> G{"Keyframe phase first?"}
-    G -->|Yes| H["MODELS.md<br/>image model guidance"]
-    H --> I["KEYFRAMES.json"]
-    I --> J["Approve keyframes<br/>update REFERENCES.json and canon if needed"]
-    G -->|No| K["MODELS.md<br/>video model guidance"]
+    G -->|Yes| H["workspace/MODELS.md<br/>image model guidance"]
+    H --> I["workspace/KEYFRAMES.json"]
+    I --> J["Approve keyframes<br/>update workspace/REFERENCES.json and canon if needed"]
+    G -->|No| K["workspace/MODELS.md<br/>video model guidance"]
     J --> K
-    K --> L["PROMPT-PACK.json"]
-    L --> M["GENERATION-LOG.jsonl + QC.json + EDIT.json"]
+    K --> L["workspace/PROMPT-PACK.json"]
+    L --> M["workspace/GENERATION-LOG.jsonl + workspace/QC.json + workspace/EDIT.json"]
 ```
 
 ## File Contracts
 
 ### Markdown Files
 
-`IDEA.md`
+`workspace/IDEA.md`
 
 - Capture the irreducible concept.
 - Preserve the original assignment brief if one exists.
-- Keep it shorter and more compressed than `STORY.md`.
+- Keep it shorter and more compressed than `workspace/STORY.md`.
 
-`STORY.md`
+`workspace/STORY.md`
 
 - Maintain the logline, synopsis, beginning, middle, end, emotional arc, themes, and scene goals.
 
-`CHARACTERS.md`
+`workspace/CHARACTERS.md`
 
 - For each recurring character, maintain role, vibe, appearance anchors, wardrobe anchors, movement behavior, emotional baseline, non-negotiable rules, and prompt-safe description guidance.
 
-`STYLE.md`
+`workspace/STYLE.md`
 
 - Maintain tone, mood, genre, references, palette, lighting, texture cues, camera language, movement style, editing rhythm, and forbidden drift.
 
-`CONTINUITY.md`
+`workspace/CONTINUITY.md`
 
 - Maintain immutable canon checkpoints, wardrobe and prop continuity, environment continuity, lighting and time continuity, emotional continuity, motion direction, and open risks.
 
-`MODELS.md`
+`workspace/MODELS.md`
 
 - Keep one section per model.
 - Record strengths, weaknesses, preferred structure, wording patterns, constraints, and things to avoid.
 - Read the relevant section before writing executable prompt text.
 
-`SOUND.md`
+`workspace/SOUND.md`
 
 - Track the sound arc, key environmental details, music guidance, and forbidden sonic drift.
 
 ### Structured Files
 
-`PROJECT.json`
+`workspace/PROJECT.json`
 
 - Stores phase, runtime, audience, emotional effect, target models, and working assumptions.
 
-`STORYBOARD.json`
+`workspace/STORYBOARD.json`
 
 - Stores scene IDs, shot IDs, durations, motion, transitions, and first-frame or last-frame states.
 
-`REFERENCES.json`
+`workspace/REFERENCES.json`
 
 - Registers every supplied or approved image, frame, clip, lookbook, or animatic.
 - Distinguishes collection targets from actual assets.
 - Tracks asset status: `planned`, `candidate`, `approved`, or `rejected`.
 
-`KEYFRAMES.json`
+`workspace/KEYFRAMES.json`
 
 - Stores still-image prompts by shot and frame type.
 - Uses stable `promptId` values so prompts can be tied to logs and QC.
 - Includes start and end frame prompts where transitions need explicit control.
 
-`PROMPT-PACK.json`
+`workspace/PROMPT-PACK.json`
 
 - Stores one executable video prompt entry per shot.
 - Links approved keyframe assets when the workflow depends on them.
 - Keeps rationale outside the final literal prompt fields.
 
-`TODO.json`
+`workspace/TODO.json`
 
 - Stores workflow checklist sections and item states.
 
-`QC.json`
+`workspace/QC.json`
 
 - Stores review categories and per-generation QC entries.
-- QC results should reference `generationId` values from `GENERATION-LOG.jsonl`.
+- QC results should reference `generationId` values from `workspace/GENERATION-LOG.jsonl`.
 
-`EDIT.json`
+`workspace/EDIT.json`
 
 - Stores the intended cut order and later binds approved generations to shots.
 
-`TESTS.json`
+`workspace/TESTS.json`
 
 - Stores focused technical or creative experiments with explicit acceptance criteria.
 
-`GENERATION-LOG.jsonl`
+`workspace/GENERATION-LOG.jsonl`
 
 - Append one structured record per generation attempt.
 - Record timestamps, model, prompt ID, settings, outputs, and success or failure state.
@@ -220,13 +221,13 @@ Prompt packs should:
 - separate reusable anchors from final pasted prompt text
 - make transition intent explicit when shots must cut together
 - specify visible first and last frames when start or end keyframes matter
-- reflect the active model recorded in `PROJECT.json`
-- follow the prompt patterns recorded in `MODELS.md`
+- reflect the active model recorded in `workspace/PROJECT.json`
+- follow the prompt patterns recorded in `workspace/MODELS.md`
 
 Before writing prompts:
 
-- confirm the active phase and active target model in `PROJECT.json`
-- read the relevant model guidance in `MODELS.md`
+- confirm the active phase and active target model in `workspace/PROJECT.json`
+- read the relevant model guidance in `workspace/MODELS.md`
 - keep canon model-agnostic and adapt only wording, not story truth
 
 ## Continuity And Revision
@@ -245,21 +246,21 @@ When generated output is weak, inconsistent, or off-tone:
 2. Diagnose the root cause.
 3. Decide whether the problem is canon, storyboard, style, continuity, sound, or model phrasing.
 4. Update the correct source-of-truth file first.
-5. If the failure is in still-image development, revise `KEYFRAMES.json` after the underlying canon is fixed.
-6. If the failure is in video generation, revise `PROMPT-PACK.json` after the underlying files are fixed.
+5. If the failure is in still-image development, revise `workspace/KEYFRAMES.json` after the underlying canon is fixed.
+6. If the failure is in video generation, revise `workspace/PROMPT-PACK.json` after the underlying files are fixed.
 
 Do not thrash by endlessly rewriting prompts when the real problem is conceptual.
 
 ## Tooling Notes
 
-- `bun validate-workflow-data.ts` validates all structured workflow files and checks cross-file consistency.
-- `./generate-keyframes.sh` is the compatibility entrypoint for keyframe generation and now reads prompts from `KEYFRAMES.json`.
-- `generate-imagen-options.ts` preserves the existing CLI contract, supports `AI_GATEWAY_API_KEY`, and appends structured generation records to `GENERATION-LOG.jsonl`.
+- `bun validate-workflow-data.ts` validates all structured workflow files in `workspace/` and checks cross-file consistency.
+- `./generate-keyframes.sh` is the compatibility entrypoint for keyframe generation and now reads prompts from `workspace/KEYFRAMES.json`.
+- `generate-imagen-options.ts` preserves the existing CLI contract, supports `AI_GATEWAY_API_KEY`, and appends structured generation records to `workspace/GENERATION-LOG.jsonl`.
 
 ## Collaboration Defaults
 
 - Prefer updating repo files over leaving important decisions only in chat.
 - Make low-risk assumptions only when necessary, and record them clearly.
 - Treat external visual references as first-class working inputs.
-- Check `IDEA.md` first when orienting, then expand into the richer project files.
-- Keep `PROJECT.md` and `STORYBOARD.md` concise summaries and treat the JSON files as canonical.
+- Check `workspace/IDEA.md` first when orienting, then expand into the richer project files.
+- Keep `workspace/PROJECT.md` and `workspace/STORYBOARD.md` concise summaries and treat the JSON files as canonical.

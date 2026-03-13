@@ -28,6 +28,10 @@ function resolvePath(maybeRelativePath: string) {
   return path.resolve(process.cwd(), maybeRelativePath)
 }
 
+function resolveDefaultLogFile() {
+  return path.resolve(process.cwd(), 'workspace', 'GENERATION-LOG.jsonl')
+}
+
 async function appendGenerationLog(entry: GenerationLogEntry) {
   await mkdir(path.dirname(entry.logFile), { recursive: true })
   await appendFile(entry.logFile, `${JSON.stringify(entry)}\n`, 'utf8')
@@ -49,7 +53,7 @@ export async function generateImagenOptions(
   const aspectRatio = input.aspectRatio ?? '16:9'
   const safetyFilterLevel = input.safetyFilterLevel ?? 'OFF'
   const outputDir = resolvePath(input.outputDir ?? 'output')
-  const logFile = resolvePath(input.logFile ?? 'GENERATION-LOG.jsonl')
+  const logFile = input.logFile ? resolvePath(input.logFile) : resolveDefaultLogFile()
   const namePrefix = input.namePrefix ? `${input.namePrefix}-` : ''
   const createdAtPrefix = startedAt.replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-')
   const outputPaths: string[] = []

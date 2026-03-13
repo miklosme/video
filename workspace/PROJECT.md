@@ -1,6 +1,6 @@
 # PROJECT
 
-Canonical project state now lives in `PROJECT.json`.
+Canonical project state now lives in `workspace/PROJECT.json`.
 This file is a short human-readable summary for quick orientation.
 
 ## Snapshot

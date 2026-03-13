@@ -268,8 +268,10 @@ export const WORKFLOW_FILES = {
   generationLog: 'GENERATION-LOG.jsonl',
 } as const
 
+const WORKSPACE_DIR = 'workspace'
+
 function resolveWorkflowPath(fileName: string, cwd = process.cwd()) {
-  return path.resolve(cwd, fileName)
+  return path.resolve(cwd, WORKSPACE_DIR, fileName)
 }
 
 function isObject(value: unknown): value is JsonObject {

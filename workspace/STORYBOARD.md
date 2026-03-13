@@ -1,6 +1,6 @@
 # STORYBOARD
 
-Canonical shot planning now lives in `STORYBOARD.json`.
+Canonical shot planning now lives in `workspace/STORYBOARD.json`.
 This file is a short overview for quick reading and handoff.
 
 ## Sequence Overview

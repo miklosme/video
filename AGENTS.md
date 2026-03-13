@@ -6,19 +6,19 @@ Do not start coding unless the user explicitly asks for tooling, automation, scr
 When a technical task depends on creative context, treat these as the source of truth:
 
 - `README.md` for the creative workflow and expectations
-- root source-of-truth files across formats:
-  - Markdown canon and guidance such as `IDEA.md`, `STORY.md`, `CHARACTERS.md`, `STYLE.md`, `CONTINUITY.md`, `MODELS.md`, and `SOUND.md`
-  - structured workflow files such as `PROJECT.json`, `STORYBOARD.json`, `REFERENCES.json`, `KEYFRAMES.json`, `PROMPT-PACK.json`, `QC.json`, `EDIT.json`, `TESTS.json`, `TODO.json`, and `GENERATION-LOG.jsonl`
-  - summary files `PROJECT.md` and `STORYBOARD.md`, which are non-canonical
+- `workspace/` source-of-truth files across formats:
+  - Markdown canon and guidance such as `workspace/IDEA.md`, `workspace/STORY.md`, `workspace/CHARACTERS.md`, `workspace/STYLE.md`, `workspace/CONTINUITY.md`, `workspace/MODELS.md`, and `workspace/SOUND.md`
+  - structured workflow files such as `workspace/PROJECT.json`, `workspace/STORYBOARD.json`, `workspace/REFERENCES.json`, `workspace/KEYFRAMES.json`, `workspace/PROMPT-PACK.json`, `workspace/QC.json`, `workspace/EDIT.json`, `workspace/TESTS.json`, `workspace/TODO.json`, and `workspace/GENERATION-LOG.jsonl`
+  - summary files `workspace/PROJECT.md` and `workspace/STORYBOARD.md`, which are non-canonical
 
-Do not silently rewrite story canon, style decisions, prompt content, continuity, or structured workflow state unless the user explicitly asks for those edits.
+Do not silently rewrite story canon, style decisions, prompt content, continuity, or structured workflow state in `workspace/` unless the user explicitly asks for those edits.
 
 ## Structure Rules
 
-- Keep root source-of-truth filename stems uppercase in the form `NAME.ext`.
+- Keep workspace source-of-truth filename stems uppercase in the form `NAME.ext`.
 - When creating new Markdown files, prefer concise uppercase names such as `STYLE.md` or `SHOTS.md`.
 - When creating new structured files, prefer concise uppercase stems such as `QC.json` or `CUT.json`.
-- Keep creative canon in the existing root source-of-truth files.
+- Keep creative canon in the existing `workspace/` source-of-truth files.
 - Keep raw reference assets in subject folders such as `MARA/` or `ROOFTOP/`.
 - Preserve the separation between canon docs, structured planning data, keyframe data, prompt packs, and revision logs.
 
