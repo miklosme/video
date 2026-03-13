@@ -3,6 +3,12 @@
 This repository is primarily a creative preproduction and prompt-design workspace.
 Do not start coding unless the user explicitly asks for tooling, automation, scripts, or other software changes.
 
+## Placeholder Conventions
+
+- `TODO` is reserved for the coding agent and technical implementation follow-up.
+- `TBD` is reserved for the creative agent when required creative information is still unknown.
+- When a creative agent copies a file from `templates/` into `workspace/`, any section that cannot yet be filled with real project information should stay `TBD` instead of being guessed.
+
 When a technical task depends on creative context, treat these as the source of truth:
 
 - `README.md` for the creative workflow and expectations
@@ -22,6 +28,7 @@ Do not silently rewrite story canon, style decisions, prompt content, continuity
 - When creating new structured files, prefer concise uppercase stems such as `QC.json` or `CUT.json`.
 - Keep creative canon in the existing `workspace/` source-of-truth files.
 - When creating a missing workspace file, copy the matching file from `templates/` first and then replace the scaffold-only content.
+- Keep the placeholder convention consistent: `TBD` for unresolved creative content, `TODO` for coding-agent work.
 - Keep `templates/` and `workspace/` aligned: if a workspace file's headings, schema, or expected shape changes, update the matching template in the same change.
 - Keep raw reference assets in subject folders such as `MARA/` or `ROOFTOP/`.
 - Preserve the separation between canon docs, structured planning data, keyframe data, prompt packs, and revision logs.
@@ -54,4 +61,5 @@ Do not run image-generation scripts automatically unless the user explicitly ask
 - When a task is purely creative rather than technical, prefer updating `README.md` or the project source-of-truth files only if the user explicitly asks for those edits.
 - When touching shared documentation, keep `README.md` as the creative-agent guide and keep `AGENTS.md` limited to coding-agent instructions.
 - Treat `templates/` instructions, placeholders, and example entries as scaffold-only content that should be replaced or cleared when copied into `workspace/`.
+- If creative information is still unknown after copying a template, leave `TBD` in the relevant section rather than inventing content.
 - If you copy `templates/GENERATION-LOG.template.jsonl`, replace or clear its example entries before treating the workspace log as real generation history.

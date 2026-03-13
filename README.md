@@ -7,6 +7,15 @@ Fork this repo when starting a new project. Fill the source-of-truth files colla
 `README.md` is the creative-agent guide and project manual.
 `AGENTS.md` is reserved for coding-agent instructions.
 
+## Placeholder Conventions
+
+Use placeholders with strict ownership:
+
+- `TBD` is for the creative agent when required creative information is not known yet.
+- `TODO` is for the coding agent when technical work or implementation follow-up is needed.
+
+When the creative agent creates or fills a file from `templates/`, any section that cannot yet be completed with real project information should be left as `TBD` rather than guessed.
+
 ## Mission
 
 Use this repo as a preproduction, prompt-design, and review workspace for small-scale AI shorts.
@@ -77,7 +86,8 @@ Use Markdown for prose-heavy canon and JSON or JSONL for operational data.
 - `templates/` is the scaffold library for `workspace/`.
 - Each `workspace/NAME.ext` file should have a matching `templates/NAME.template.ext` starter file.
 - Templates preserve expected shape, headings, and schema, but they are not live project records.
-- When creating a missing workspace file, copy the matching template first and then replace its placeholder or example content with project-specific content.
+- When creating a missing workspace file, copy the matching template first and then replace its scaffold content with project-specific content.
+- If a copied template section cannot yet be completed with known creative information, leave `TBD` in that section until the decision is made.
 - `templates/GENERATION-LOG.template.jsonl` contains example entries only. Replace or clear them before treating a copied `workspace/GENERATION-LOG.jsonl` as real history.
 
 ### Assets
@@ -276,4 +286,5 @@ Do not thrash by endlessly rewriting prompts when the real problem is conceptual
 - Treat external visual references as first-class working inputs.
 - Check `workspace/IDEA.md` first when orienting, then expand into the richer project files.
 - Keep `workspace/PROJECT.md` and `workspace/STORYBOARD.md` concise summaries and treat the JSON files as canonical.
-- When creating a new workspace file, start from the matching template in `templates/` and then replace scaffold-only instructions and placeholders.
+- When creating a new workspace file, start from the matching template in `templates/`, replace scaffold-only instructions, and leave `TBD` anywhere real creative information is still unknown.
+- Reserve `TODO` for coding-agent technical follow-ups; use `TBD` for unresolved creative information.
