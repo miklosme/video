@@ -5,6 +5,7 @@ An elderly woman knits alone in a rural house while her soldier husband's portra
 Core meaning: war changes form, but it always finds its way back home.
 
 Core sequence:
+
 1. House in a field.
 2. Elderly woman knitting in a peasant house room.
 3. Portrait of her soldier husband.

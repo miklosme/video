@@ -1,9 +1,9 @@
-import { loadWorkflowData, validateWorkflowConsistency } from './workflow-data';
+import { loadWorkflowData, validateWorkflowConsistency } from './workflow-data'
 
 async function main() {
-  const data = await loadWorkflowData();
-  validateWorkflowConsistency(data);
-  const shotCount = data.storyboard.scenes.reduce((total, scene) => total + scene.shots.length, 0);
+  const data = await loadWorkflowData()
+  validateWorkflowConsistency(data)
+  const shotCount = data.storyboard.scenes.reduce((total, scene) => total + scene.shots.length, 0)
 
   console.log(
     JSON.stringify(
@@ -19,10 +19,10 @@ async function main() {
       null,
       2,
     ),
-  );
+  )
 }
 
 main().catch((error) => {
-  console.error(error);
-  process.exitCode = 1;
-});
+  console.error(error)
+  process.exitCode = 1
+})

@@ -6,11 +6,7 @@
       "title": "HOUSE EXTERIOR",
       "filePath": null,
       "assetType": "imageOrFrameSequence",
-      "guides": [
-        "environment",
-        "architecture",
-        "field geography"
-      ],
+      "guides": ["environment", "architecture", "field geography"],
       "status": "planned",
       "notes": "Prioritize a whitewashed rural house with a dark pitched roof and enough front-facing clarity to support the final FPV recognition."
     },
@@ -19,12 +15,7 @@
       "title": "INTERIOR ROOM",
       "filePath": null,
       "assetType": "imageLookbook",
-      "guides": [
-        "room layout",
-        "wall texture",
-        "furniture",
-        "portrait placement"
-      ],
+      "guides": ["room layout", "wall texture", "furniture", "portrait placement"],
       "status": "planned",
       "notes": "Should reinforce modest peasant-house realism, not museum nostalgia."
     },
@@ -33,11 +24,7 @@
       "title": "WOMAN WARDROBE",
       "filePath": null,
       "assetType": "imageLookbook",
-      "guides": [
-        "character",
-        "wardrobe",
-        "textile detail"
-      ],
+      "guides": ["character", "wardrobe", "textile detail"],
       "status": "planned",
       "notes": "Focus on authentic folk textures and aged fabrics; avoid costume-pageant styling."
     },
@@ -46,11 +33,7 @@
       "title": "SOLDIER PORTRAIT / UNIFORM",
       "filePath": null,
       "assetType": "imageLookbook",
-      "guides": [
-        "identity",
-        "uniform silhouette",
-        "portrait treatment"
-      ],
+      "guides": ["identity", "uniform silhouette", "portrait treatment"],
       "status": "planned",
       "notes": "The portrait and battlefield look need a shared face shape and non-glamorous military styling."
     },
@@ -59,12 +42,7 @@
       "title": "FPV APPROACH FEEL",
       "filePath": null,
       "assetType": "videoReference",
-      "guides": [
-        "camera motion",
-        "speed",
-        "height over field",
-        "attack trajectory"
-      ],
+      "guides": ["camera motion", "speed", "height over field", "attack trajectory"],
       "status": "planned",
       "notes": "Use only for motion logic; do not import HUD overlays, timestamps, or interface graphics into prompts."
     }
@@ -74,10 +52,7 @@
       "assetId": "asset-keyframe-s1-sh01-start-20260311-200042",
       "filePath": "keyframes/S1-SH01/start-20260311-200042-imagen-option-1.png",
       "assetType": "generatedImage",
-      "purpose": [
-        "houseExterior",
-        "openingKeyframe"
-      ],
+      "purpose": ["houseExterior", "openingKeyframe"],
       "status": "candidate",
       "influence": "Environment, architecture, and front-facade recognition for the opening shot.",
       "notes": "Existing generated option from a pre-migration run. Not approved yet.",
@@ -89,10 +64,7 @@
       "assetId": "asset-keyframe-s1-sh01-end-20260311-200051",
       "filePath": "keyframes/S1-SH01/end-20260311-200051-imagen-option-1.png",
       "assetType": "generatedImage",
-      "purpose": [
-        "houseExterior",
-        "closerFacadeRead"
-      ],
+      "purpose": ["houseExterior", "closerFacadeRead"],
       "status": "candidate",
       "influence": "Environment continuity and facade geometry for the approach beat.",
       "notes": "Existing generated option from a pre-migration run. Not approved yet.",
@@ -104,10 +76,7 @@
       "assetId": "asset-keyframe-s1-sh02-start-20260311-200059",
       "filePath": "keyframes/S1-SH02/start-20260311-200059-imagen-option-1.png",
       "assetType": "generatedImage",
-      "purpose": [
-        "womanInterior",
-        "knittingHands"
-      ],
+      "purpose": ["womanInterior", "knittingHands"],
       "status": "candidate",
       "influence": "Character pose, interior realism, and knitting emphasis.",
       "notes": "Existing generated option from a pre-migration run. Not approved yet.",
@@ -119,10 +88,7 @@
       "assetId": "asset-keyframe-s1-sh02-end-20260311-200107",
       "filePath": "keyframes/S1-SH02/end-20260311-200107-imagen-option-1.png",
       "assetType": "generatedImage",
-      "purpose": [
-        "womanInterior",
-        "portraitComposition"
-      ],
+      "purpose": ["womanInterior", "portraitComposition"],
       "status": "candidate",
       "influence": "Character continuity and portrait emphasis in composition.",
       "notes": "Existing generated option from a pre-migration run. Not approved yet.",
@@ -134,10 +100,7 @@
       "assetId": "asset-keyframe-s1-sh03-start-20260311-200114",
       "filePath": "keyframes/S1-SH03/start-20260311-200114-imagen-option-1.png",
       "assetType": "generatedImage",
-      "purpose": [
-        "portraitObject",
-        "thresholdSetup"
-      ],
+      "purpose": ["portraitObject", "thresholdSetup"],
       "status": "candidate",
       "influence": "Portrait realism, frame treatment, and transition setup.",
       "notes": "Existing generated option from a pre-migration run. Not approved yet.",
@@ -149,10 +112,7 @@
       "assetId": "asset-keyframe-s1-sh03-end-20260311-200123",
       "filePath": "keyframes/S1-SH03/end-20260311-200123-imagen-option-1.png",
       "assetType": "generatedImage",
-      "purpose": [
-        "portraitObject",
-        "portraitPushIn"
-      ],
+      "purpose": ["portraitObject", "portraitPushIn"],
       "status": "candidate",
       "influence": "Transition feel from wall object into the Soldier's face.",
       "notes": "Existing generated option from a pre-migration run. Not approved yet.",
@@ -164,10 +124,7 @@
       "assetId": "asset-keyframe-s2-sh04-start-20260311-200129",
       "filePath": "keyframes/S2-SH04/start-20260311-200129-imagen-option-1.png",
       "assetType": "generatedImage",
-      "purpose": [
-        "soldierIdentity",
-        "portraitBecomingSpace"
-      ],
+      "purpose": ["soldierIdentity", "portraitBecomingSpace"],
       "status": "candidate",
       "influence": "Shared facial anchors and uncanny dimensional shift.",
       "notes": "Existing generated option from a pre-migration run. Not approved yet.",
@@ -179,10 +136,7 @@
       "assetId": "asset-keyframe-s2-sh05-start-20260311-200143",
       "filePath": "keyframes/S2-SH05/start-20260311-200143-imagen-option-1.png",
       "assetType": "generatedImage",
-      "purpose": [
-        "battlefieldEntry",
-        "soldierMotion"
-      ],
+      "purpose": ["battlefieldEntry", "soldierMotion"],
       "status": "candidate",
       "influence": "Battlefield tone, early motion energy, and tank setup.",
       "notes": "Existing generated option from a pre-migration run. Not approved yet.",

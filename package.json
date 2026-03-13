@@ -5,10 +5,16 @@
   "private": true,
   "scripts": {
     "generate:keyframes": "./generate-keyframes.sh",
-    "validate:data": "bun validate-workflow-data.ts"
+    "validate:data": "bun validate-workflow-data.ts",
+    "typecheck": "tsc --noEmit --pretty",
+    "format": "prettier --write .",
+    "format:check": "prettier --check src"
   },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "prettier": "^3.8.1",
+    "prettier-plugin-organize-imports": "^4.3.0",
+    "prettier-plugin-tailwindcss": "^0.7.2"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -16,5 +22,17 @@
   "dependencies": {
     "arg": "^5.0.2",
     "openai": "^6.27.0"
+  },
+  "prettier": {
+    "printWidth": 100,
+    "singleQuote": true,
+    "trailingComma": "all",
+    "arrowParens": "always",
+    "semi": false,
+    "organizeImportsSkipDestructiveCodeActions": true,
+    "plugins": [
+      "prettier-plugin-organize-imports",
+      "prettier-plugin-tailwindcss"
+    ]
   }
 }
