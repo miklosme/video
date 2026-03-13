@@ -14,18 +14,13 @@
           "itemId": "phase-confirmed",
           "text": "Current phase is confirmed in PROJECT.json.",
           "checked": false,
-          "sourceFiles": [
-            "PROJECT.json"
-          ]
+          "sourceFiles": ["PROJECT.json"]
         },
         {
           "itemId": "next-step-clear",
           "text": "The next workflow step is clear.",
           "checked": false,
-          "sourceFiles": [
-            "PROJECT.json",
-            "TODO.json"
-          ]
+          "sourceFiles": ["PROJECT.json", "TODO.json"]
         }
       ]
     },
@@ -37,10 +32,7 @@
           "itemId": "replace-with-project-specific-check",
           "text": "Replace with a concrete checklist item for this project.",
           "checked": false,
-          "sourceFiles": [
-            "IDEA.md",
-            "PROJECT.json"
-          ]
+          "sourceFiles": ["IDEA.md", "PROJECT.json"]
         }
       ]
     }

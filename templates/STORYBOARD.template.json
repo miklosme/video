@@ -19,9 +19,7 @@
       "purpose": "Replace with what the scene must accomplish.",
       "emotionalBeat": "Replace with the scene's dominant feeling.",
       "locationAndTime": "Replace with the location and time context.",
-      "participants": [
-        "Replace with the people, objects, or forces active in this scene."
-      ],
+      "participants": ["Replace with the people, objects, or forces active in this scene."],
       "whatChanges": "Replace with what shifts by the end of the scene.",
       "transitionIn": "Replace with how the scene begins relative to the previous beat.",
       "transitionOut": "Replace with how the scene hands off to the next beat.",

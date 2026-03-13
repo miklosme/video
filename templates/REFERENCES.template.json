@@ -11,10 +11,7 @@
       "title": "REPLACE WITH TARGET TITLE",
       "filePath": null,
       "assetType": "imageLookbook",
-      "guides": [
-        "replace-with-guide-category",
-        "replace-with-another-guide-category"
-      ],
+      "guides": ["replace-with-guide-category", "replace-with-another-guide-category"],
       "status": "planned",
       "notes": "Replace with what this target should help define or verify."
     }
@@ -24,9 +21,7 @@
       "assetId": "asset-example-001",
       "filePath": "path/to/reference.ext",
       "assetType": "referenceImage",
-      "purpose": [
-        "replace-with-purpose-tag"
-      ],
+      "purpose": ["replace-with-purpose-tag"],
       "status": "candidate",
       "influence": "Replace with how this asset should influence the project.",
       "notes": "Replace with evaluation notes or why the asset matters.",

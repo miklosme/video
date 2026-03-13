@@ -10,9 +10,7 @@
       "testId": "test-example",
       "title": "Replace with test title",
       "status": "pending",
-      "shotIds": [
-        "S1-SH01"
-      ],
+      "shotIds": ["S1-SH01"],
       "goal": "Replace with what this test is trying to confirm.",
       "acceptanceCriteria": [
         "Replace with one concrete acceptance criterion.",
