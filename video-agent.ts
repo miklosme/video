@@ -2,13 +2,12 @@ import { access, copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promis
 import path from 'node:path'
 import process from 'node:process'
 
-import { createCliRenderer, type InputRenderable } from '@opentui/core'
+import { createCliRenderer, createTextAttributes, type InputRenderable } from '@opentui/core'
 import { createRoot } from '@opentui/react'
 import { stepCountIs, tool, ToolLoopAgent, type LanguageModel } from 'ai'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { z } from 'zod'
 
-import { renderStatusChecklist } from './status-checklist-format'
 import {
   loadEdit,
   loadGenerationLog,
@@ -82,7 +81,7 @@ interface WorkflowMilestoneSummary {
 interface WorkflowSummary {
   ideaExists: boolean
   statusBootstrapped: boolean
-  statusChecklist: string
+  status: TodoData
   phase: ProjectData['currentPhase'] | null
   checkedItems: number
   totalItems: number
@@ -135,6 +134,8 @@ const persistedAgentStateSchema = z.object({
   recentChanges: z.array(z.string()),
   runtimeError: z.string().nullable(),
 })
+
+const DIM_TEXT_ATTRIBUTES = createTextAttributes({ dim: true })
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -228,7 +229,7 @@ async function loadWorkflowSummary(): Promise<WorkflowSummary> {
   return {
     ideaExists,
     statusBootstrapped,
-    statusChecklist: renderStatusChecklist(status, { phase }),
+    status,
     phase,
     checkedItems,
     totalItems,
@@ -284,6 +285,156 @@ function buildAgentPrompt(
     'Use tools when you need repo state or need to update workspace files.',
     'Respect the current milestone and keep STATUS.json aligned with the actual file state.',
   ].join('\n')
+}
+
+function formatStatusItemText(text: string, sectionTitle?: string) {
+  return sectionTitle ? `${text} (${sectionTitle})` : text
+}
+
+function renderStatusItem(item: TodoItem, key: string, sectionTitle?: string) {
+  const itemText = formatStatusItemText(item.text, sectionTitle)
+
+  if (!item.checked) {
+    return React.createElement('text', {
+      key,
+      content: `- [ ] ${itemText}`,
+      wrapMode: 'word',
+    })
+  }
+
+  return React.createElement(
+    'text',
+    {
+      key,
+      wrapMode: 'word',
+    },
+    React.createElement(
+      'span',
+      {
+        fg: 'brightBlack',
+        attributes: DIM_TEXT_ATTRIBUTES,
+      },
+      '- [',
+    ),
+    React.createElement(
+      'span',
+      {
+        fg: 'green',
+      },
+      'x',
+    ),
+    React.createElement(
+      'span',
+      {
+        fg: 'brightBlack',
+        attributes: DIM_TEXT_ATTRIBUTES,
+      },
+      `] ${itemText}`,
+    ),
+  )
+}
+
+function renderStatusSidebar(workflow: WorkflowSummary) {
+  const pendingItems = workflow.status.sections.flatMap((section) =>
+    section.items
+      .filter((item) => !item.checked)
+      .map((item) => ({ item, sectionTitle: section.title })),
+  )
+  const elements: React.ReactElement[] = []
+
+  if (workflow.phase) {
+    elements.push(
+      React.createElement(
+        'box',
+        {
+          key: 'phase',
+          marginBottom: 1,
+        },
+        React.createElement('text', {
+          content: `Current phase: ${workflow.phase}`,
+          wrapMode: 'word',
+        }),
+      ),
+    )
+  }
+
+  elements.push(
+    React.createElement(
+      'box',
+      {
+        key: 'progress',
+        marginBottom: 1,
+      },
+      React.createElement('text', {
+        content: `Progress: ${workflow.checkedItems}/${workflow.totalItems} complete`,
+        wrapMode: 'word',
+      }),
+    ),
+  )
+
+  if (pendingItems.length > 0) {
+    elements.push(
+      React.createElement(
+        'box',
+        {
+          key: 'next-up',
+          marginBottom: 1,
+          flexDirection: 'column',
+        },
+        React.createElement(
+          'box',
+          {
+            marginBottom: 1,
+          },
+          React.createElement('text', {
+            content: 'Next Up',
+          }),
+        ),
+        ...pendingItems.slice(0, 5).map(({ item, sectionTitle }) =>
+          React.createElement(
+            'box',
+            {
+              key: `next-${item.itemId}`,
+            },
+            renderStatusItem(item, `next-item-${item.itemId}`, sectionTitle),
+          ),
+        ),
+      ),
+    )
+  }
+
+  for (const section of workflow.status.sections) {
+    elements.push(
+      React.createElement(
+        'box',
+        {
+          key: section.sectionId,
+          marginBottom: 1,
+          flexDirection: 'column',
+        },
+        React.createElement(
+          'box',
+          {
+            marginBottom: 1,
+          },
+          React.createElement('text', {
+            content: section.title,
+          }),
+        ),
+        ...section.items.map((item) =>
+          React.createElement(
+            'box',
+            {
+              key: item.itemId,
+            },
+            renderStatusItem(item, `section-item-${item.itemId}`),
+          ),
+        ),
+      ),
+    )
+  }
+
+  return elements
 }
 
 function normalizeFileContent(fileName: string, content: string) {
@@ -921,6 +1072,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
     () => buildDisplayTranscript(transcript, activeAssistantEntryIdRef.current, isBusy),
     [isBusy, transcript],
   )
+  const statusSidebar = useMemo(() => renderStatusSidebar(workflow), [workflow])
 
   async function submitPrompt(input: string) {
     const trimmedInput = input.trim()
@@ -1154,10 +1306,13 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
             flexGrow: 1,
             paddingRight: 1,
           },
-          React.createElement('text', {
-            content: workflow.statusChecklist,
-            wrapMode: 'word',
-          }),
+          React.createElement(
+            'box',
+            {
+              flexDirection: 'column',
+            },
+            ...statusSidebar,
+          ),
         ),
       ),
     ),
