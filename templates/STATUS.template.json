@@ -1,38 +1,220 @@
 {
   "instructions": [
     "Copy this file into workspace/STATUS.json before tracking workflow state for a new project.",
-    "Use sections to mirror real project phases and checklist gates, then replace every placeholder item with project-relevant checks.",
+    "Use this as the default end-to-end workflow scaffold for the repo, then adapt item wording only if the project truly needs a different process.",
+    "Keep each item as a durable milestone that proves a workflow step is established, not a promise that all future iteration is finished.",
     "Keep sourceFiles aligned with the workspace files that prove each item is complete."
   ],
   "version": 1,
   "sections": [
     {
       "sectionId": "current-state",
-      "title": "Current State Snapshot",
+      "title": "Current State",
       "items": [
         {
           "itemId": "phase-confirmed",
-          "text": "Current phase is confirmed in PROJECT.json.",
+          "text": "Current phase is confirmed and up to date in PROJECT.json.",
           "checked": false,
           "sourceFiles": ["PROJECT.json"]
         },
         {
           "itemId": "next-step-clear",
-          "text": "The next workflow step is clear.",
+          "text": "STATUS.json reflects the next concrete workflow step.",
           "checked": false,
           "sourceFiles": ["PROJECT.json", "STATUS.json"]
         }
       ]
     },
     {
-      "sectionId": "project-stage",
-      "title": "Project Stage",
+      "sectionId": "project-foundation",
+      "title": "Project Foundation",
       "items": [
         {
-          "itemId": "replace-with-project-specific-check",
-          "text": "Replace with a concrete checklist item for this project.",
+          "itemId": "idea-captured",
+          "text": "IDEA.md captures the irreducible concept, core meaning, and core sequence.",
           "checked": false,
-          "sourceFiles": ["IDEA.md", "PROJECT.json"]
+          "sourceFiles": ["IDEA.md"]
+        },
+        {
+          "itemId": "project-metadata-set",
+          "text": "PROJECT.json defines the project metadata, target runtime, audience, emotional effect, phase, and active model choices.",
+          "checked": false,
+          "sourceFiles": ["PROJECT.json"]
+        },
+        {
+          "itemId": "project-summary-synced",
+          "text": "PROJECT.md is updated as a readable summary of the current canonical project state.",
+          "checked": false,
+          "sourceFiles": ["PROJECT.md"]
+        }
+      ]
+    },
+    {
+      "sectionId": "canon-lock",
+      "title": "Canon Lock",
+      "items": [
+        {
+          "itemId": "story-locked",
+          "text": "STORY.md locks the logline, synopsis, arc, themes, and scene goals.",
+          "checked": false,
+          "sourceFiles": ["STORY.md"]
+        },
+        {
+          "itemId": "characters-locked",
+          "text": "CHARACTERS.md defines recurring character canon and prompt-safe identity anchors.",
+          "checked": false,
+          "sourceFiles": ["CHARACTERS.md"]
+        },
+        {
+          "itemId": "style-locked",
+          "text": "STYLE.md locks the visual language, palette, lighting, camera behavior, and forbidden drift.",
+          "checked": false,
+          "sourceFiles": ["STYLE.md"]
+        },
+        {
+          "itemId": "continuity-locked",
+          "text": "CONTINUITY.md records the canon checkpoints, dependencies, risks, and mitigation notes that must survive revisions.",
+          "checked": false,
+          "sourceFiles": ["CONTINUITY.md"]
+        },
+        {
+          "itemId": "sound-locked",
+          "text": "SOUND.md defines the sound arc, sonic continuity, music guidance, and forbidden drift.",
+          "checked": false,
+          "sourceFiles": ["SOUND.md"]
+        }
+      ]
+    },
+    {
+      "sectionId": "research-and-inputs",
+      "title": "Research and Inputs",
+      "items": [
+        {
+          "itemId": "model-guidance-captured",
+          "text": "MODELS.md captures the model-specific guidance needed for the active image and video workflow.",
+          "checked": false,
+          "sourceFiles": ["MODELS.md"]
+        },
+        {
+          "itemId": "reference-targets-defined",
+          "text": "REFERENCES.json defines the collection targets needed to guide look, subject, environment, or shot planning.",
+          "checked": false,
+          "sourceFiles": ["REFERENCES.json"]
+        },
+        {
+          "itemId": "reference-assets-tracked",
+          "text": "REFERENCES.json tracks the real supplied, candidate, approved, or rejected assets relevant to the project.",
+          "checked": false,
+          "sourceFiles": ["REFERENCES.json"]
+        }
+      ]
+    },
+    {
+      "sectionId": "sequence-planning",
+      "title": "Sequence Planning",
+      "items": [
+        {
+          "itemId": "storyboard-structured",
+          "text": "STORYBOARD.json defines the scene and shot plan with durations, transitions, continuity dependencies, and frame states.",
+          "checked": false,
+          "sourceFiles": ["STORYBOARD.json"]
+        },
+        {
+          "itemId": "storyboard-summary-synced",
+          "text": "STORYBOARD.md is updated as a readable summary of the canonical shot plan.",
+          "checked": false,
+          "sourceFiles": ["STORYBOARD.md"]
+        }
+      ]
+    },
+    {
+      "sectionId": "look-development",
+      "title": "Look Development",
+      "items": [
+        {
+          "itemId": "keyframe-workflow-configured",
+          "text": "KEYFRAMES.json defines the active image model, reusable anchors, and workflow notes for still-image development.",
+          "checked": false,
+          "sourceFiles": ["KEYFRAMES.json"]
+        },
+        {
+          "itemId": "keyframe-prompts-written",
+          "text": "KEYFRAMES.json contains per-shot frame goals and still-image prompts for the key moments that need visual proof.",
+          "checked": false,
+          "sourceFiles": ["KEYFRAMES.json"]
+        },
+        {
+          "itemId": "approved-keyframes-promoted",
+          "text": "Approved keyframes are reflected back into REFERENCES.json and any canon files that changed because the images established new project truth.",
+          "checked": false,
+          "sourceFiles": [
+            "KEYFRAMES.json",
+            "REFERENCES.json",
+            "STORY.md",
+            "CHARACTERS.md",
+            "STYLE.md",
+            "CONTINUITY.md"
+          ]
+        }
+      ]
+    },
+    {
+      "sectionId": "prompt-build",
+      "title": "Prompt Build",
+      "items": [
+        {
+          "itemId": "prompt-pack-authored",
+          "text": "PROMPT-PACK.json contains executable per-shot video prompts, model choice, and keyframe links where required.",
+          "checked": false,
+          "sourceFiles": ["PROMPT-PACK.json"]
+        },
+        {
+          "itemId": "tests-defined",
+          "text": "TESTS.json records the targeted experiments or acceptance checks needed to de-risk the workflow.",
+          "checked": false,
+          "sourceFiles": ["TESTS.json"]
+        }
+      ]
+    },
+    {
+      "sectionId": "generation-review",
+      "title": "Generation Review",
+      "items": [
+        {
+          "itemId": "generation-log-started",
+          "text": "GENERATION-LOG.jsonl contains the first real generation records tied to prompts, shots, and outputs.",
+          "checked": false,
+          "sourceFiles": ["GENERATION-LOG.jsonl"]
+        },
+        {
+          "itemId": "qc-categories-defined",
+          "text": "QC.json defines stable review categories for evaluating generations consistently.",
+          "checked": false,
+          "sourceFiles": ["QC.json"]
+        },
+        {
+          "itemId": "qc-reviews-recorded",
+          "text": "QC.json contains real shot-level review entries tied to generation IDs from GENERATION-LOG.jsonl.",
+          "checked": false,
+          "sourceFiles": ["QC.json", "GENERATION-LOG.jsonl"]
+        }
+      ]
+    },
+    {
+      "sectionId": "edit-and-iteration",
+      "title": "Edit and Iteration",
+      "items": [
+        {
+          "itemId": "edit-structure-ready",
+          "text": "EDIT.json tracks the intended cut order and can bind approved generations to planned shots.",
+          "checked": false,
+          "sourceFiles": ["EDIT.json"]
+        },
+        {
+          "itemId": "phase-and-status-resynced",
+          "text": "PROJECT.json and STATUS.json are resynced after the latest review cycle or phase change.",
+          "checked": false,
+          "sourceFiles": ["PROJECT.json", "STATUS.json"]
         }
       ]
     }
