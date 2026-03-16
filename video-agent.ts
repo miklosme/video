@@ -8,6 +8,7 @@ import { stepCountIs, tool, ToolLoopAgent, type LanguageModel } from 'ai'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { z } from 'zod'
 
+import { renderStatusChecklist } from './status-checklist-format'
 import {
   loadEdit,
   loadGenerationLog,
@@ -31,7 +32,7 @@ const WORKSPACE_DIR = path.resolve(ROOT_DIR, 'workspace')
 const TEMPLATES_DIR = path.resolve(ROOT_DIR, 'templates')
 const CREATIVE_PROMPT_PATH = path.resolve(ROOT_DIR, 'CREATIVE_AGENTS.md')
 const STATUS_TEMPLATE_PATH = path.resolve(TEMPLATES_DIR, 'STATUS.template.json')
-const AGENT_STATE_PATH = path.resolve(ROOT_DIR, '.video-agent-state.json')
+const AGENT_STATE_PATH = path.resolve(ROOT_DIR, '.history.json')
 const SESSION_HISTORY_LIMIT = 12
 const PERSISTED_AGENT_STATE_VERSION = 1
 
@@ -81,6 +82,7 @@ interface WorkflowMilestoneSummary {
 interface WorkflowSummary {
   ideaExists: boolean
   statusBootstrapped: boolean
+  statusChecklist: string
   phase: ProjectData['currentPhase'] | null
   checkedItems: number
   totalItems: number
@@ -107,6 +109,12 @@ interface PersistedAgentState {
   composerValue: string
   recentChanges: string[]
   runtimeError: string | null
+}
+
+interface DisplayTranscriptEntry {
+  id: string
+  role: TranscriptRole
+  text: string
 }
 
 interface AgentStatePersistence {
@@ -220,51 +228,13 @@ async function loadWorkflowSummary(): Promise<WorkflowSummary> {
   return {
     ideaExists,
     statusBootstrapped,
+    statusChecklist: renderStatusChecklist(status, { phase }),
     phase,
     checkedItems,
     totalItems,
     nextMilestone,
     scopedFiles,
   }
-}
-
-function renderWorkflowSummary(summary: WorkflowSummary, recentChanges: string[]) {
-  const lines = [
-    `IDEA.md present: ${summary.ideaExists ? 'yes' : 'no'}`,
-    `Current phase: ${summary.phase ?? 'not set yet'}`,
-    `Progress: ${summary.checkedItems}/${summary.totalItems}`,
-  ]
-
-  if (summary.nextMilestone) {
-    lines.push('')
-    lines.push(`Next milestone: ${summary.nextMilestone.sectionTitle}`)
-    lines.push(summary.nextMilestone.text)
-
-    if (summary.scopedFiles.length > 0) {
-      lines.push('')
-      lines.push('Files in scope:')
-
-      for (const scopedFile of summary.scopedFiles) {
-        lines.push(`- ${scopedFile.fileName} (${scopedFile.exists ? 'exists' : 'missing'})`)
-      }
-    }
-  } else {
-    lines.push('')
-    lines.push('All milestones are currently checked.')
-  }
-
-  lines.push('')
-  lines.push('Recent changes:')
-
-  if (recentChanges.length === 0) {
-    lines.push('- none in this session')
-  } else {
-    for (const fileName of recentChanges) {
-      lines.push(`- ${fileName}`)
-    }
-  }
-
-  return lines.join('\n')
 }
 
 function buildSessionContext(transcript: TranscriptEntry[]) {
@@ -393,6 +363,7 @@ async function safeWriteWorkspaceFile(fileName: string, content: string) {
   }
 
   const normalizedContent = normalizeFileContent(fileName, content)
+  const lineChanges = countChangedLines(previousContent, normalizedContent)
 
   await writeFile(workspacePath, normalizedContent, 'utf8')
 
@@ -411,6 +382,7 @@ async function safeWriteWorkspaceFile(fileName: string, content: string) {
   return {
     bootstrappedFromTemplate,
     bytesWritten: normalizedContent.length,
+    lineChanges,
     workspacePath,
   }
 }
@@ -446,16 +418,128 @@ async function readWorkspaceFileContents(fileName: string) {
 
 function formatInitialAssistantMessage(workflow: WorkflowSummary) {
   if (!workflow.ideaExists) {
-    return [
-      'workspace/IDEA.md is missing, so the first step is to capture the irreducible concept.',
-    ]
+    return 'workspace/IDEA.md is missing, so the first step is to capture the irreducible concept.'
   }
 
   if (workflow.statusBootstrapped) {
-    return ['Creative workflow agent ready. Bootstrapped workspace/STATUS.json from the template.']
+    return 'Creative workflow agent ready. Bootstrapped workspace/STATUS.json from the template.'
   }
 
-  return ['Creative workflow agent ready.']
+  return 'Creative workflow agent ready.'
+}
+
+function parseReadToolEvent(message: string) {
+  const match = /^Read (.+)$/.exec(message)
+
+  if (!match || !match[1]) {
+    return null
+  }
+
+  return { fileName: match[1] }
+}
+
+function parseWriteToolEvent(message: string) {
+  const match = /^Updated (.+?) \(\+(\d+) -(\d+)\)(?: .*)?$/.exec(message)
+
+  if (!match) {
+    return null
+  }
+
+  return {
+    fileName: match[1],
+    added: Number(match[2]),
+    removed: Number(match[3]),
+  }
+}
+
+function collapseToolEntries(entries: TranscriptEntry[]) {
+  const collapsedEntries: DisplayTranscriptEntry[] = []
+  const pendingReadFiles = new Set<string>()
+  let readEntryId: string | null = null
+
+  const flushReadSummary = () => {
+    if (pendingReadFiles.size === 0 || !readEntryId) {
+      return
+    }
+
+    collapsedEntries.push({
+      id: readEntryId,
+      role: 'tool',
+      text: `Explored ${pendingReadFiles.size} ${pendingReadFiles.size === 1 ? 'file' : 'files'}`,
+    })
+    pendingReadFiles.clear()
+    readEntryId = null
+  }
+
+  for (const entry of entries) {
+    const readEvent = parseReadToolEvent(entry.text)
+
+    if (readEvent) {
+      pendingReadFiles.add(readEvent.fileName)
+      readEntryId ??= entry.id
+      continue
+    }
+
+    const writeEvent = parseWriteToolEvent(entry.text)
+
+    if (writeEvent) {
+      flushReadSummary()
+      collapsedEntries.push({
+        id: entry.id,
+        role: 'tool',
+        text: `Edited ${writeEvent.fileName} +${writeEvent.added} -${writeEvent.removed}`,
+      })
+    }
+  }
+
+  flushReadSummary()
+
+  return collapsedEntries
+}
+
+function buildDisplayTranscript(
+  transcript: TranscriptEntry[],
+  activeAssistantEntryId: string | null,
+  isBusy: boolean,
+) {
+  const displayEntries: DisplayTranscriptEntry[] = []
+  let pendingToolEntries: TranscriptEntry[] = []
+
+  const flushToolEntries = (nextEntry?: TranscriptEntry) => {
+    if (pendingToolEntries.length === 0) {
+      return
+    }
+
+    const shouldRenderLive =
+      (nextEntry?.id === activeAssistantEntryId && nextEntry.text.trim().length === 0) ||
+      (nextEntry === undefined && isBusy)
+
+    if (shouldRenderLive) {
+      displayEntries.push(...pendingToolEntries)
+      pendingToolEntries = []
+      return
+    }
+
+    displayEntries.push(...collapseToolEntries(pendingToolEntries))
+    pendingToolEntries = []
+  }
+
+  for (const entry of transcript) {
+    if (entry.role === 'tool') {
+      pendingToolEntries.push(entry)
+      continue
+    }
+
+    flushToolEntries(entry)
+
+    if (entry.text.trim().length > 0) {
+      displayEntries.push(entry)
+    }
+  }
+
+  flushToolEntries()
+
+  return displayEntries
 }
 
 function createDefaultPersistedAgentState(workflow: WorkflowSummary): PersistedAgentState {
@@ -563,6 +647,54 @@ function updateTranscriptEntry(
   return transcript.map((entry) => (entry.id === entryId ? updater(entry) : entry))
 }
 
+function insertTranscriptEntryBefore(
+  transcript: TranscriptEntry[],
+  anchorEntryId: string,
+  nextEntry: TranscriptEntry,
+) {
+  const anchorIndex = transcript.findIndex((entry) => entry.id === anchorEntryId)
+
+  if (anchorIndex === -1) {
+    return [...transcript, nextEntry]
+  }
+
+  return [...transcript.slice(0, anchorIndex), nextEntry, ...transcript.slice(anchorIndex)]
+}
+
+function countChangedLines(previousContent: string | null, nextContent: string) {
+  const previousLines =
+    previousContent === null || previousContent.length === 0
+      ? []
+      : previousContent.replace(/\n$/, '').split('\n')
+  const nextLines = nextContent.length === 0 ? [] : nextContent.replace(/\n$/, '').split('\n')
+
+  let prefixLength = 0
+
+  while (
+    prefixLength < previousLines.length &&
+    prefixLength < nextLines.length &&
+    previousLines[prefixLength] === nextLines[prefixLength]
+  ) {
+    prefixLength += 1
+  }
+
+  let suffixLength = 0
+
+  while (
+    suffixLength < previousLines.length - prefixLength &&
+    suffixLength < nextLines.length - prefixLength &&
+    previousLines[previousLines.length - 1 - suffixLength] ===
+      nextLines[nextLines.length - 1 - suffixLength]
+  ) {
+    suffixLength += 1
+  }
+
+  return {
+    added: Math.max(0, nextLines.length - prefixLength - suffixLength),
+    removed: Math.max(0, previousLines.length - prefixLength - suffixLength),
+  }
+}
+
 function createVideoAgent(creativePrompt: string, bridgeRef: React.RefObject<AgentBridge>) {
   return new ToolLoopAgent({
     model: 'openai/gpt-5.4',
@@ -612,7 +744,7 @@ function createVideoAgent(creativePrompt: string, bridgeRef: React.RefObject<Age
           const result = await safeWriteWorkspaceFile(fileName, content)
 
           bridgeRef.current?.recordToolEvent(
-            `Updated ${fileName}${result.bootstrappedFromTemplate ? ' (bootstrapped from template)' : ''}`,
+            `Updated ${fileName} (+${result.lineChanges.added} -${result.lineChanges.removed})${result.bootstrappedFromTemplate ? ' (bootstrapped from template)' : ''}`,
           )
           bridgeRef.current?.recordFileChange(fileName)
           await bridgeRef.current?.refreshWorkflow()
@@ -686,6 +818,8 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   const composerValueRef = useRef(initialSession.composerValue)
   const recentChangesRef = useRef<string[]>(initialSession.recentChanges)
   const runtimeErrorRef = useRef<string | null>(initialSession.runtimeError)
+  const activeAssistantEntryIdRef = useRef<string | null>(null)
+  const assistantHasStartedRef = useRef(false)
   const bridgeRef = useRef<AgentBridge>({
     recordToolEvent: () => {},
     recordFileChange: () => {},
@@ -710,6 +844,10 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
 
   const appendTranscriptEntries = (...entries: TranscriptEntry[]) => {
     replaceTranscript([...transcriptRef.current, ...entries])
+  }
+
+  const insertTranscriptEntryBeforeState = (anchorEntryId: string, entry: TranscriptEntry) => {
+    replaceTranscript(insertTranscriptEntryBefore(transcriptRef.current, anchorEntryId, entry))
   }
 
   const patchTranscriptEntry = (
@@ -742,11 +880,18 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   }, [])
 
   bridgeRef.current.recordToolEvent = (message) => {
-    appendTranscriptEntries({
+    const toolEntry = {
       id: createId('tool'),
       role: 'tool',
       text: message,
-    })
+    } satisfies TranscriptEntry
+
+    if (activeAssistantEntryIdRef.current && !assistantHasStartedRef.current) {
+      insertTranscriptEntryBeforeState(activeAssistantEntryIdRef.current, toolEntry)
+      return
+    }
+
+    appendTranscriptEntries(toolEntry)
   }
 
   bridgeRef.current.recordFileChange = (fileName) => {
@@ -765,6 +910,10 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   }
 
   const agent = useMemo(() => createVideoAgent(creativePrompt, bridgeRef), [creativePrompt])
+  const displayTranscript = useMemo(
+    () => buildDisplayTranscript(transcript, activeAssistantEntryIdRef.current, isBusy),
+    [isBusy, transcript],
+  )
 
   async function submitPrompt(input: string) {
     const trimmedInput = input.trim()
@@ -779,6 +928,8 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
 
     const assistantEntryId = createId('assistant')
     const priorTranscript = transcriptRef.current
+    activeAssistantEntryIdRef.current = assistantEntryId
+    assistantHasStartedRef.current = false
 
     appendTranscriptEntries(
       {
@@ -815,6 +966,10 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
       })
 
       for await (const delta of result.textStream) {
+        if (!assistantHasStartedRef.current && delta.length > 0) {
+          assistantHasStartedRef.current = true
+        }
+
         patchTranscriptEntry(assistantEntryId, (entry) => ({
           ...entry,
           text: entry.text + delta,
@@ -827,6 +982,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
         ...entry,
         text: finalText.length > 0 ? finalText : entry.text || 'No response generated.',
       }))
+      assistantHasStartedRef.current = finalText.length > 0
 
       await bridgeRef.current.refreshWorkflow()
     } catch (error) {
@@ -841,6 +997,8 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
             : `[error] ${message}`,
       }))
     } finally {
+      activeAssistantEntryIdRef.current = null
+      assistantHasStartedRef.current = false
       setIsBusy(false)
     }
   }
@@ -872,18 +1030,63 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
           stickyStart: 'bottom',
           paddingRight: 1,
         },
-        ...transcript.map((entry) =>
-          React.createElement(
+        ...displayTranscript.map((entry, index) => {
+          const nextEntry = displayTranscript[index + 1]
+          const marginBottom =
+            nextEntry && entry.role === 'assistant' && nextEntry.role === 'tool' ? 0 : 1
+
+          if (entry.role === 'user') {
+            return React.createElement(
+              'box',
+              {
+                key: entry.id,
+                width: '100%',
+                alignItems: 'flex-end',
+                marginBottom,
+              },
+              React.createElement(
+                'box',
+                {
+                  width: '90%',
+                  backgroundColor: '#5a5a5a',
+                  padding: 1,
+                  paddingLeft: 2,
+                },
+                React.createElement('text', {
+                  content: entry.text,
+                  wrapMode: 'word',
+                }),
+              ),
+            )
+          }
+
+          if (entry.role === 'tool') {
+            return React.createElement(
+              'box',
+              {
+                key: entry.id,
+                marginBottom,
+              },
+              React.createElement('text', {
+                content: entry.text,
+                fg: 'brightBlack',
+                truncate: true,
+              }),
+            )
+          }
+
+          return React.createElement(
             'box',
             {
               key: entry.id,
-              marginBottom: 1,
+              marginBottom,
             },
             React.createElement('text', {
-              content: `${entry.role === 'assistant' ? 'Agent' : entry.role === 'user' ? 'You' : 'Tool'}: ${entry.text}`,
+              content: entry.text,
+              wrapMode: 'word',
             }),
-          ),
-        ),
+          )
+        }),
       ),
       React.createElement(
         'box',
@@ -927,32 +1130,27 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
       {
         width: 42,
         flexShrink: 0,
-        flexDirection: 'column',
-        gap: 1,
       },
       React.createElement(
         'box',
         {
           border: true,
-          title: 'Workflow',
+          title: 'STATUS',
           padding: 1,
           flexGrow: 1,
+          flexDirection: 'column',
         },
-        React.createElement('text', {
-          content: renderWorkflowSummary(workflow, recentChanges),
-        }),
-      ),
-      React.createElement(
-        'box',
-        {
-          border: true,
-          title: 'Controls',
-          padding: 1,
-        },
-        React.createElement('text', {
-          content:
-            'Enter submits. Ctrl+C exits. The agent may write canonical files only inside workspace/.',
-        }),
+        React.createElement(
+          'scrollbox',
+          {
+            flexGrow: 1,
+            paddingRight: 1,
+          },
+          React.createElement('text', {
+            content: workflow.statusChecklist,
+            wrapMode: 'word',
+          }),
+        ),
       ),
     ),
   )
