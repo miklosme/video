@@ -4,6 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
+    "agent": "bun video-agent.ts",
     "generate:keyframes": "./generate-keyframes.sh",
     "status:checklist": "bun render-status-checklist.ts",
     "validate:data": "bun validate-workflow-data.ts",
@@ -12,6 +13,7 @@
     "format:check": "prettier --check ."
   },
   "devDependencies": {
+    "@types/react": "^19.2.2",
     "@types/bun": "latest",
     "prettier": "^3.8.1",
     "prettier-plugin-organize-imports": "^4.3.0",
@@ -21,8 +23,14 @@
     "typescript": "^5"
   },
   "dependencies": {
+    "@opentui/core": "^0.1.87",
+    "@opentui/react": "^0.1.87",
     "arg": "^5.0.2",
-    "openai": "^6.27.0"
+    "ai": "^6.0.116",
+    "openai": "^6.27.0",
+    "react": "^19.2.0",
+    "ws": "^8.18.3",
+    "zod": "^4.3.6"
   },
   "prettier": {
     "printWidth": 100,
