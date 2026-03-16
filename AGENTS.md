@@ -11,7 +11,7 @@ Do not start coding unless the user explicitly asks for tooling, automation, scr
 
 When a technical task depends on creative context, treat these as the source of truth:
 
-- `README.md` for the creative workflow and expectations
+- `CREATIVE_AGENTS.md` for the creative workflow and expectations
 - `workspace/` source-of-truth files across formats:
   - Markdown canon and guidance such as `workspace/IDEA.md`, `workspace/STORY.md`, `workspace/CHARACTERS.md`, `workspace/STYLE.md`, `workspace/CONTINUITY.md`, `workspace/MODELS.md`, and `workspace/SOUND.md`
   - structured workflow files such as `workspace/PROJECT.json`, `workspace/STORYBOARD.json`, `workspace/REFERENCES.json`, `workspace/KEYFRAMES.json`, `workspace/PROMPT-PACK.json`, `workspace/QC.json`, `workspace/EDIT.json`, `workspace/TESTS.json`, `workspace/STATUS.json`, and `workspace/GENERATION-LOG.jsonl`
@@ -58,8 +58,8 @@ Do not run image-generation scripts automatically unless the user explicitly ask
 ## Collaboration
 
 - Be concise, structured, and careful around user-authored creative files.
-- When a task is purely creative rather than technical, prefer updating `README.md` or the project source-of-truth files only if the user explicitly asks for those edits.
-- When touching shared documentation, keep `README.md` as the creative-agent guide and keep `AGENTS.md` limited to coding-agent instructions.
+- When a task is purely creative rather than technical, prefer updating `CREATIVE_AGENTS.md` or the project source-of-truth files only if the user explicitly asks for those edits.
+- When touching shared documentation, keep `CREATIVE_AGENTS.md` as the creative-agent guide and keep `AGENTS.md` limited to coding-agent instructions.
 - Treat `templates/` instructions, placeholders, and example entries as scaffold-only content that should be replaced or cleared when copied into `workspace/`.
 - If creative information is still unknown after copying a template, leave `TBD` in the relevant section rather than inventing content.
 - If you copy `templates/GENERATION-LOG.template.jsonl`, replace or clear its example entries before treating the workspace log as real generation history.
