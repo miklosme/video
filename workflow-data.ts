@@ -893,7 +893,7 @@ export async function loadWorkflowData(cwd = process.cwd()) {
     references,
     keyframes,
     promptPack,
-    todo,
+    status,
     qc,
     edit,
     tests,

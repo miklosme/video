@@ -5,10 +5,11 @@
   "private": true,
   "scripts": {
     "generate:keyframes": "./generate-keyframes.sh",
+    "status:checklist": "bun render-status-checklist.ts",
     "validate:data": "bun validate-workflow-data.ts",
     "typecheck": "tsc --noEmit --pretty",
     "format": "prettier --write .",
-    "format:check": "prettier --check src"
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "@types/bun": "latest",
