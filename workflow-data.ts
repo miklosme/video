@@ -261,7 +261,7 @@ export const WORKFLOW_FILES = {
   references: 'REFERENCES.json',
   keyframes: 'KEYFRAMES.json',
   promptPack: 'PROMPT-PACK.json',
-  todo: 'TODO.json',
+  status: 'STATUS.json',
   qc: 'QC.json',
   edit: 'EDIT.json',
   tests: 'TESTS.json',
@@ -647,12 +647,12 @@ function parseTodoSection(value: unknown, context: string): TodoSection {
 }
 
 function parseTodoData(value: unknown): TodoData {
-  const object = expectObject(value, 'TODO.json')
+  const object = expectObject(value, 'STATUS.json')
 
   return {
-    version: expectVersion(object.version, 'TODO.json.version'),
-    sections: expectArray(object.sections, 'TODO.json.sections').map((entry, index) =>
-      parseTodoSection(entry, `TODO.json.sections[${index}]`),
+    version: expectVersion(object.version, 'STATUS.json.version'),
+    sections: expectArray(object.sections, 'STATUS.json.sections').map((entry, index) =>
+      parseTodoSection(entry, `STATUS.json.sections[${index}]`),
     ),
   }
 }
@@ -833,8 +833,8 @@ export async function loadPromptPack(cwd = process.cwd()) {
   return readJsonFile(WORKFLOW_FILES.promptPack, parsePromptPackData, cwd)
 }
 
-export async function loadTodo(cwd = process.cwd()) {
-  return readJsonFile(WORKFLOW_FILES.todo, parseTodoData, cwd)
+export async function loadStatus(cwd = process.cwd()) {
+  return readJsonFile(WORKFLOW_FILES.status, parseTodoData, cwd)
 }
 
 export async function loadQc(cwd = process.cwd()) {
@@ -869,7 +869,7 @@ export async function loadWorkflowData(cwd = process.cwd()) {
     references,
     keyframes,
     promptPack,
-    todo,
+    status,
     qc,
     edit,
     tests,
@@ -880,7 +880,7 @@ export async function loadWorkflowData(cwd = process.cwd()) {
     loadReferences(cwd),
     loadKeyframes(cwd),
     loadPromptPack(cwd),
-    loadTodo(cwd),
+    loadStatus(cwd),
     loadQc(cwd),
     loadEdit(cwd),
     loadTests(cwd),

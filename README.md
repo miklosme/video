@@ -70,7 +70,7 @@ Use Markdown for prose-heavy canon and JSON or JSONL for operational data.
 - `workspace/REFERENCES.json`: reference asset registry and collection targets
 - `workspace/KEYFRAMES.json`: still-image prompt development, frame goals, and prompt IDs
 - `workspace/PROMPT-PACK.json`: final executable video prompts and keyframe links
-- `workspace/TODO.json`: structured workflow checklist
+- `workspace/STATUS.json`: structured workflow checklist
 - `workspace/QC.json`: generation review categories and shot-level QC records
 - `workspace/EDIT.json`: cut order and selected generation bindings
 - `workspace/TESTS.json`: targeted workflow experiments and acceptance checks
@@ -201,9 +201,9 @@ flowchart TD
 - Links approved keyframe assets when the workflow depends on them.
 - Keeps rationale outside the final literal prompt fields.
 
-`workspace/TODO.json`
+`workspace/STATUS.json`
 
-- Stores workflow checklist sections and item states.
+- Stores workflow checklist sections and item states. Used to determine what to work on next and to track progress at a glance.
 
 `workspace/QC.json`
 

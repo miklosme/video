@@ -14,7 +14,7 @@ When a technical task depends on creative context, treat these as the source of 
 - `README.md` for the creative workflow and expectations
 - `workspace/` source-of-truth files across formats:
   - Markdown canon and guidance such as `workspace/IDEA.md`, `workspace/STORY.md`, `workspace/CHARACTERS.md`, `workspace/STYLE.md`, `workspace/CONTINUITY.md`, `workspace/MODELS.md`, and `workspace/SOUND.md`
-  - structured workflow files such as `workspace/PROJECT.json`, `workspace/STORYBOARD.json`, `workspace/REFERENCES.json`, `workspace/KEYFRAMES.json`, `workspace/PROMPT-PACK.json`, `workspace/QC.json`, `workspace/EDIT.json`, `workspace/TESTS.json`, `workspace/TODO.json`, and `workspace/GENERATION-LOG.jsonl`
+  - structured workflow files such as `workspace/PROJECT.json`, `workspace/STORYBOARD.json`, `workspace/REFERENCES.json`, `workspace/KEYFRAMES.json`, `workspace/PROMPT-PACK.json`, `workspace/QC.json`, `workspace/EDIT.json`, `workspace/TESTS.json`, `workspace/STATUS.json`, and `workspace/GENERATION-LOG.jsonl`
   - summary files `workspace/PROJECT.md` and `workspace/STORYBOARD.md`, which are non-canonical
 - `templates/` as the scaffold library that mirrors `workspace/` file shapes for new project setup
 

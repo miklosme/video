@@ -1,6 +1,6 @@
 {
   "instructions": [
-    "Copy this file into workspace/TODO.json before tracking workflow state for a new project.",
+    "Copy this file into workspace/STATUS.json before tracking workflow state for a new project.",
     "Use sections to mirror real project phases and checklist gates, then replace every placeholder item with project-relevant checks.",
     "Keep sourceFiles aligned with the workspace files that prove each item is complete."
   ],
@@ -20,7 +20,7 @@
           "itemId": "next-step-clear",
           "text": "The next workflow step is clear.",
           "checked": false,
-          "sourceFiles": ["PROJECT.json", "TODO.json"]
+          "sourceFiles": ["PROJECT.json", "STATUS.json"]
         }
       ]
     },
