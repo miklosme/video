@@ -2,7 +2,7 @@ import { access, copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promis
 import path from 'node:path'
 import process from 'node:process'
 
-import { createCliRenderer } from '@opentui/core'
+import { createCliRenderer, type InputRenderable } from '@opentui/core'
 import { createRoot } from '@opentui/react'
 import { stepCountIs, tool, ToolLoopAgent, type LanguageModel } from 'ai'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
@@ -820,11 +820,18 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   const runtimeErrorRef = useRef<string | null>(initialSession.runtimeError)
   const activeAssistantEntryIdRef = useRef<string | null>(null)
   const assistantHasStartedRef = useRef(false)
+  const composerInputRef = useRef<InputRenderable | null>(null)
   const bridgeRef = useRef<AgentBridge>({
     recordToolEvent: () => {},
     recordFileChange: () => {},
     refreshWorkflow: async () => initialWorkflow,
   })
+
+  const focusComposerInput = () => {
+    if (!isBusy) {
+      composerInputRef.current?.focus()
+    }
+  }
 
   const persistSession = () => {
     statePersistence.saveSession({
@@ -1021,6 +1028,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
         title: 'Creative Agent',
         padding: 1,
         flexDirection: 'column',
+        onMouseDown: focusComposerInput,
       },
       React.createElement(
         'scrollbox',
@@ -1032,8 +1040,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
         },
         ...displayTranscript.map((entry, index) => {
           const nextEntry = displayTranscript[index + 1]
-          const marginBottom =
-            nextEntry && entry.role === 'assistant' && nextEntry.role === 'tool' ? 0 : 1
+          const marginBottom = entry.role === 'tool' && nextEntry?.role === 'tool' ? 0 : 1
 
           if (entry.role === 'user') {
             return React.createElement(
@@ -1100,6 +1107,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
           marginTop: 1,
         },
         React.createElement('input', {
+          ref: composerInputRef,
           focused: !isBusy,
           value: composerValue,
           placeholder: isBusy
