@@ -5,7 +5,7 @@ import process from 'node:process'
 import { createCliRenderer } from '@opentui/core'
 import { createRoot } from '@opentui/react'
 import { stepCountIs, tool, ToolLoopAgent, type LanguageModel } from 'ai'
-import React, { useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { z } from 'zod'
 
 import {
@@ -31,7 +31,9 @@ const WORKSPACE_DIR = path.resolve(ROOT_DIR, 'workspace')
 const TEMPLATES_DIR = path.resolve(ROOT_DIR, 'templates')
 const CREATIVE_PROMPT_PATH = path.resolve(ROOT_DIR, 'CREATIVE_AGENTS.md')
 const STATUS_TEMPLATE_PATH = path.resolve(TEMPLATES_DIR, 'STATUS.template.json')
+const AGENT_STATE_PATH = path.resolve(ROOT_DIR, '.video-agent-state.json')
 const SESSION_HISTORY_LIMIT = 12
+const PERSISTED_AGENT_STATE_VERSION = 1
 
 const ALLOWED_WORKSPACE_FILES = new Set([
   'IDEA.md',
@@ -63,11 +65,6 @@ interface TranscriptEntry {
   text: string
 }
 
-interface ConversationTurn {
-  role: 'assistant' | 'user'
-  text: string
-}
-
 interface WorkflowFileSummary {
   fileName: string
   exists: boolean
@@ -94,6 +91,8 @@ interface WorkflowSummary {
 interface AppProps {
   creativePrompt: string
   initialWorkflow: WorkflowSummary
+  initialSession: PersistedAgentState
+  statePersistence: AgentStatePersistence
 }
 
 interface AgentBridge {
@@ -101,6 +100,33 @@ interface AgentBridge {
   recordFileChange: (fileName: string) => void
   refreshWorkflow: () => Promise<WorkflowSummary>
 }
+
+interface PersistedAgentState {
+  version: typeof PERSISTED_AGENT_STATE_VERSION
+  transcript: TranscriptEntry[]
+  composerValue: string
+  recentChanges: string[]
+  runtimeError: string | null
+}
+
+interface AgentStatePersistence {
+  saveSession: (state: PersistedAgentState) => void
+  flush: () => Promise<void>
+}
+
+const transcriptEntrySchema = z.object({
+  id: z.string(),
+  role: z.enum(['assistant', 'user', 'tool']),
+  text: z.string(),
+})
+
+const persistedAgentStateSchema = z.object({
+  version: z.literal(PERSISTED_AGENT_STATE_VERSION),
+  transcript: z.array(transcriptEntrySchema),
+  composerValue: z.string(),
+  recentChanges: z.array(z.string()),
+  runtimeError: z.string().nullable(),
+})
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -241,13 +267,17 @@ function renderWorkflowSummary(summary: WorkflowSummary, recentChanges: string[]
   return lines.join('\n')
 }
 
-function buildSessionContext(history: ConversationTurn[]) {
-  if (history.length === 0) {
+function buildSessionContext(transcript: TranscriptEntry[]) {
+  const conversation = transcript.filter(
+    (entry) => entry.role !== 'tool' && entry.text.trim().length > 0,
+  )
+
+  if (conversation.length === 0) {
     return 'No previous conversation turns in this session.'
   }
 
-  return history
-    .slice(-SESSION_HISTORY_LIMIT)
+  return conversation
+    .slice(-SESSION_HISTORY_LIMIT * 2)
     .map((entry) => `${entry.role === 'user' ? 'User' : 'Assistant'}: ${entry.text}`)
     .join('\n\n')
 }
@@ -255,7 +285,7 @@ function buildSessionContext(history: ConversationTurn[]) {
 function buildAgentPrompt(
   userInput: string,
   workflow: WorkflowSummary,
-  history: ConversationTurn[],
+  transcript: TranscriptEntry[],
   recentChanges: string[],
 ) {
   const workflowLines = [
@@ -276,7 +306,7 @@ function buildAgentPrompt(
     workflowLines.join('\n'),
     '',
     'Conversation so far:',
-    buildSessionContext(history),
+    buildSessionContext(transcript),
     '',
     'Latest user input:',
     userInput,
@@ -415,24 +445,114 @@ async function readWorkspaceFileContents(fileName: string) {
 }
 
 function formatInitialAssistantMessage(workflow: WorkflowSummary) {
-  const lines = [
-    'Creative workflow agent ready.',
-    workflow.statusBootstrapped
-      ? 'Bootstrapped workspace/STATUS.json from the template.'
-      : 'Loaded the existing workflow status.',
-  ]
-
   if (!workflow.ideaExists) {
-    lines.push(
+    return [
       'workspace/IDEA.md is missing, so the first step is to capture the irreducible concept.',
-    )
-  } else if (workflow.nextMilestone) {
-    lines.push(`Current milestone: ${workflow.nextMilestone.text}`)
-  } else {
-    lines.push('All workflow milestones are currently marked complete.')
+    ]
   }
 
-  return lines.join('\n')
+  if (workflow.statusBootstrapped) {
+    return ['Creative workflow agent ready. Bootstrapped workspace/STATUS.json from the template.']
+  }
+
+  return ['Creative workflow agent ready.']
+}
+
+function createDefaultPersistedAgentState(workflow: WorkflowSummary): PersistedAgentState {
+  return {
+    version: PERSISTED_AGENT_STATE_VERSION,
+    transcript: [
+      {
+        id: createId('assistant'),
+        role: 'assistant',
+        text: formatInitialAssistantMessage(workflow),
+      },
+    ],
+    composerValue: '',
+    recentChanges: workflow.statusBootstrapped ? [WORKFLOW_FILES.status] : [],
+    runtimeError: null,
+  }
+}
+
+function clonePersistedAgentState(state: PersistedAgentState): PersistedAgentState {
+  return {
+    version: state.version,
+    transcript: state.transcript.map((entry) => ({ ...entry })),
+    composerValue: state.composerValue,
+    recentChanges: [...state.recentChanges],
+    runtimeError: state.runtimeError,
+  }
+}
+
+async function loadPersistedAgentState(workflow: WorkflowSummary): Promise<PersistedAgentState> {
+  const fallback = createDefaultPersistedAgentState(workflow)
+
+  if (!(await fileExists(AGENT_STATE_PATH))) {
+    return fallback
+  }
+
+  try {
+    const raw = await readFile(AGENT_STATE_PATH, 'utf8')
+    const parsed = persistedAgentStateSchema.parse(JSON.parse(raw))
+
+    return {
+      ...parsed,
+      transcript: parsed.transcript.length > 0 ? parsed.transcript : fallback.transcript,
+      recentChanges: [...new Set(parsed.recentChanges)].slice(0, 8),
+    }
+  } catch {
+    return fallback
+  }
+}
+
+async function writePersistedAgentState(state: PersistedAgentState) {
+  await writeFile(AGENT_STATE_PATH, `${JSON.stringify(state, null, 2)}\n`, 'utf8')
+}
+
+function createAgentStatePersistence(): AgentStatePersistence {
+  let pendingState: PersistedAgentState | null = null
+  let drainPromise: Promise<void> | null = null
+
+  const drain = () => {
+    if (drainPromise) {
+      return drainPromise
+    }
+
+    drainPromise = (async () => {
+      while (pendingState) {
+        const nextState = pendingState
+        pendingState = null
+
+        try {
+          await writePersistedAgentState(nextState)
+        } catch (error) {
+          console.error(
+            error instanceof Error
+              ? `Failed to persist video agent state: ${error.message}`
+              : `Failed to persist video agent state: ${String(error)}`,
+          )
+        }
+      }
+
+      drainPromise = null
+    })()
+
+    return drainPromise
+  }
+
+  return {
+    saveSession: (state) => {
+      pendingState = clonePersistedAgentState(state)
+      void drain()
+    },
+    flush: async () => {
+      if (!pendingState && !drainPromise) {
+        return
+      }
+
+      await drain()
+    },
+  }
 }
 
 function updateTranscriptEntry(
@@ -554,50 +674,87 @@ function createVideoAgent(creativePrompt: string, bridgeRef: React.RefObject<Age
   })
 }
 
-function App({ creativePrompt, initialWorkflow }: AppProps) {
-  const [transcript, setTranscript] = useState<TranscriptEntry[]>([
-    {
-      id: createId('assistant'),
-      role: 'assistant',
-      text: formatInitialAssistantMessage(initialWorkflow),
-    },
-  ])
-  const [composerValue, setComposerValue] = useState('')
+function App({ creativePrompt, initialWorkflow, initialSession, statePersistence }: AppProps) {
+  const [transcript, setTranscript] = useState<TranscriptEntry[]>(initialSession.transcript)
+  const [composerValue, setComposerValue] = useState(initialSession.composerValue)
   const [workflow, setWorkflow] = useState(initialWorkflow)
-  const [recentChanges, setRecentChanges] = useState<string[]>(
-    initialWorkflow.statusBootstrapped ? [WORKFLOW_FILES.status] : [],
-  )
+  const [recentChanges, setRecentChanges] = useState<string[]>(initialSession.recentChanges)
   const [isBusy, setIsBusy] = useState(false)
-  const [runtimeError, setRuntimeError] = useState<string | null>(null)
+  const [runtimeError, setRuntimeError] = useState<string | null>(initialSession.runtimeError)
 
-  const historyRef = useRef<ConversationTurn[]>([])
-  const recentChangesRef = useRef<string[]>(
-    initialWorkflow.statusBootstrapped ? [WORKFLOW_FILES.status] : [],
-  )
+  const transcriptRef = useRef<TranscriptEntry[]>(initialSession.transcript)
+  const composerValueRef = useRef(initialSession.composerValue)
+  const recentChangesRef = useRef<string[]>(initialSession.recentChanges)
+  const runtimeErrorRef = useRef<string | null>(initialSession.runtimeError)
   const bridgeRef = useRef<AgentBridge>({
     recordToolEvent: () => {},
     recordFileChange: () => {},
     refreshWorkflow: async () => initialWorkflow,
   })
 
+  const persistSession = () => {
+    statePersistence.saveSession({
+      version: PERSISTED_AGENT_STATE_VERSION,
+      transcript: transcriptRef.current,
+      composerValue: composerValueRef.current,
+      recentChanges: recentChangesRef.current,
+      runtimeError: runtimeErrorRef.current,
+    })
+  }
+
+  const replaceTranscript = (nextTranscript: TranscriptEntry[]) => {
+    transcriptRef.current = nextTranscript
+    setTranscript(nextTranscript)
+    persistSession()
+  }
+
+  const appendTranscriptEntries = (...entries: TranscriptEntry[]) => {
+    replaceTranscript([...transcriptRef.current, ...entries])
+  }
+
+  const patchTranscriptEntry = (
+    entryId: string,
+    updater: (entry: TranscriptEntry) => TranscriptEntry,
+  ) => {
+    replaceTranscript(updateTranscriptEntry(transcriptRef.current, entryId, updater))
+  }
+
+  const setComposerValueState = (value: string) => {
+    composerValueRef.current = value
+    setComposerValue(value)
+    persistSession()
+  }
+
+  const setRecentChangesState = (nextRecentChanges: string[]) => {
+    recentChangesRef.current = nextRecentChanges
+    setRecentChanges(nextRecentChanges)
+    persistSession()
+  }
+
+  const setRuntimeErrorState = (nextRuntimeError: string | null) => {
+    runtimeErrorRef.current = nextRuntimeError
+    setRuntimeError(nextRuntimeError)
+    persistSession()
+  }
+
+  useEffect(() => {
+    persistSession()
+  }, [])
+
   bridgeRef.current.recordToolEvent = (message) => {
-    setTranscript((current) => [
-      ...current,
-      {
-        id: createId('tool'),
-        role: 'tool',
-        text: message,
-      },
-    ])
+    appendTranscriptEntries({
+      id: createId('tool'),
+      role: 'tool',
+      text: message,
+    })
   }
 
   bridgeRef.current.recordFileChange = (fileName) => {
-    setRecentChanges((current) => {
-      const next = [fileName, ...current.filter((entry) => entry !== fileName)].slice(0, 8)
-      recentChangesRef.current = next
-
-      return next
-    })
+    const nextRecentChanges = [
+      fileName,
+      ...recentChangesRef.current.filter((entry) => entry !== fileName),
+    ].slice(0, 8)
+    setRecentChangesState(nextRecentChanges)
   }
 
   bridgeRef.current.refreshWorkflow = async () => {
@@ -616,14 +773,14 @@ function App({ creativePrompt, initialWorkflow }: AppProps) {
       return
     }
 
-    setRuntimeError(null)
-    setComposerValue('')
+    setRuntimeErrorState(null)
+    setComposerValueState('')
     setIsBusy(true)
 
     const assistantEntryId = createId('assistant')
+    const priorTranscript = transcriptRef.current
 
-    setTranscript((current) => [
-      ...current,
+    appendTranscriptEntries(
       {
         id: createId('user'),
         role: 'user',
@@ -634,7 +791,7 @@ function App({ creativePrompt, initialWorkflow }: AppProps) {
         role: 'assistant',
         text: '',
       },
-    ])
+    )
 
     try {
       const latestWorkflow = await loadWorkflowSummary()
@@ -644,7 +801,7 @@ function App({ creativePrompt, initialWorkflow }: AppProps) {
         prompt: buildAgentPrompt(
           trimmedInput,
           latestWorkflow,
-          historyRef.current,
+          priorTranscript,
           recentChangesRef.current,
         ),
         experimental_onToolCallStart: ({ toolCall }) => {
@@ -658,47 +815,31 @@ function App({ creativePrompt, initialWorkflow }: AppProps) {
       })
 
       for await (const delta of result.textStream) {
-        setTranscript((current) =>
-          updateTranscriptEntry(current, assistantEntryId, (entry) => ({
-            ...entry,
-            text: entry.text + delta,
-          })),
-        )
+        patchTranscriptEntry(assistantEntryId, (entry) => ({
+          ...entry,
+          text: entry.text + delta,
+        }))
       }
 
       const finalText = (await result.text).trim()
 
-      setTranscript((current) =>
-        updateTranscriptEntry(current, assistantEntryId, (entry) => ({
-          ...entry,
-          text: finalText.length > 0 ? finalText : entry.text || 'No response generated.',
-        })),
-      )
-
-      historyRef.current = [...historyRef.current, { role: 'user', text: trimmedInput }]
-
-      if (finalText.length > 0) {
-        historyRef.current.push({ role: 'assistant', text: finalText })
-      }
-
-      if (historyRef.current.length > SESSION_HISTORY_LIMIT * 2) {
-        historyRef.current = historyRef.current.slice(-SESSION_HISTORY_LIMIT * 2)
-      }
+      patchTranscriptEntry(assistantEntryId, (entry) => ({
+        ...entry,
+        text: finalText.length > 0 ? finalText : entry.text || 'No response generated.',
+      }))
 
       await bridgeRef.current.refreshWorkflow()
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
 
-      setRuntimeError(message)
-      setTranscript((current) =>
-        updateTranscriptEntry(current, assistantEntryId, (entry) => ({
-          ...entry,
-          text:
-            entry.text.trim().length > 0
-              ? `${entry.text}\n\n[error] ${message}`
-              : `[error] ${message}`,
-        })),
-      )
+      setRuntimeErrorState(message)
+      patchTranscriptEntry(assistantEntryId, (entry) => ({
+        ...entry,
+        text:
+          entry.text.trim().length > 0
+            ? `${entry.text}\n\n[error] ${message}`
+            : `[error] ${message}`,
+      }))
     } finally {
       setIsBusy(false)
     }
@@ -762,7 +903,7 @@ function App({ creativePrompt, initialWorkflow }: AppProps) {
             ? 'Wait for the current turn to finish.'
             : 'Type a creative request and press Enter.',
           onInput: (value: string) => {
-            setComposerValue(value)
+            setComposerValueState(value)
           },
           onSubmit: (value: string) => {
             void submitPrompt(value)
@@ -826,15 +967,59 @@ async function main() {
 
   const creativePrompt = await readFile(CREATIVE_PROMPT_PATH, 'utf8')
   const initialWorkflow = await loadWorkflowSummary()
-  const renderer = await createCliRenderer({
+  const initialSession = await loadPersistedAgentState(initialWorkflow)
+  const statePersistence = createAgentStatePersistence()
+  let renderer: Awaited<ReturnType<typeof createCliRenderer>> | null = null
+  let shuttingDown = false
+
+  const shutdown = (exitCode: number) => {
+    if (shuttingDown) {
+      return
+    }
+
+    shuttingDown = true
+
+    void (async () => {
+      await statePersistence.flush()
+      renderer?.destroy()
+      process.exit(exitCode)
+    })()
+  }
+
+  renderer = await createCliRenderer({
     useAlternateScreen: true,
-    exitOnCtrlC: true,
+    exitOnCtrlC: false,
+    prependInputHandlers: [
+      (sequence) => {
+        if (sequence === '\u0003') {
+          shutdown(0)
+          return true
+        }
+
+        return false
+      },
+    ],
+    onDestroy: () => {
+      void statePersistence.flush()
+    },
   })
+  renderer.keyInput.on('keypress', (event) => {
+    if (event.ctrl && event.name === 'c') {
+      event.preventDefault()
+      event.stopPropagation()
+      shutdown(0)
+    }
+  })
+
+  process.on('SIGINT', () => shutdown(0))
+  process.on('SIGTERM', () => shutdown(0))
 
   createRoot(renderer).render(
     React.createElement(App, {
       creativePrompt,
       initialWorkflow,
+      initialSession,
+      statePersistence,
     }),
   )
 }
