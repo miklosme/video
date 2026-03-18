@@ -1,61 +1,39 @@
-import type { Phase, TodoData } from './workflow-data'
+import type { StatusData } from './workflow-data'
 
-interface PendingItemSummary {
-  sectionTitle: string
-  text: string
-  sourceFiles: string[]
-}
-
-function formatSourceFiles(sourceFiles: string[]) {
-  if (sourceFiles.length === 0) {
+function formatRelatedFiles(relatedFiles: string[]) {
+  if (relatedFiles.length === 0) {
     return ''
   }
 
-  return ` _(source: ${sourceFiles.map((fileName) => `\`${fileName}\``).join(', ')})_`
+  return ` _(related: ${relatedFiles.map((fileName) => `\`${fileName}\``).join(', ')})_`
 }
 
 export function formatChecklistItem(
+  index: number,
   checked: boolean,
-  text: string,
-  sourceFiles: string[],
-  sectionTitle?: string,
+  title: string,
+  relatedFiles: string[],
 ) {
-  const sectionLabel = sectionTitle ? ` (${sectionTitle})` : ''
-
-  return `- [${checked ? 'x' : ' '}] ${text}${sectionLabel}${formatSourceFiles(sourceFiles)}`
+  return `- [${checked ? 'x' : ' '}] ${index + 1}. ${title}${formatRelatedFiles(relatedFiles)}`
 }
 
 export function renderStatusChecklist(
-  status: TodoData,
+  status: StatusData,
   options: {
     includeTitle?: boolean
-    phase?: Phase | null
   } = {},
 ) {
-  const { includeTitle = false, phase = null } = options
-  const totalItems = status.sections.reduce((sum, section) => sum + section.items.length, 0)
-  const checkedItems = status.sections.reduce(
-    (sum, section) => sum + section.items.filter((item) => item.checked).length,
-    0,
-  )
-  const pendingItems: PendingItemSummary[] = status.sections.flatMap((section) =>
-    section.items
-      .filter((item) => !item.checked)
-      .map((item) => ({
-        sectionTitle: section.title,
-        text: item.text,
-        sourceFiles: item.sourceFiles,
-      })),
-  )
+  const { includeTitle = false } = options
+  const totalItems = status.length
+  const checkedItems = status.filter((item) => item.checked).length
+  const pendingItems = status
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => !item.checked)
   const lines: string[] = []
 
   if (includeTitle) {
     lines.push('# Project Status Checklist')
     lines.push('')
-  }
-
-  if (phase) {
-    lines.push(`Current phase: \`${phase}\``)
   }
 
   lines.push(`Progress: ${checkedItems}/${totalItems} complete`)
@@ -64,21 +42,17 @@ export function renderStatusChecklist(
   if (pendingItems.length > 0) {
     lines.push('## Next Up')
 
-    for (const item of pendingItems.slice(0, 5)) {
-      lines.push(formatChecklistItem(false, item.text, item.sourceFiles, item.sectionTitle))
+    for (const { item, index } of pendingItems.slice(0, 5)) {
+      lines.push(formatChecklistItem(index, false, item.title, item.relatedFiles))
     }
 
     lines.push('')
   }
 
-  for (const section of status.sections) {
-    lines.push(`## ${section.title}`)
+  lines.push('## Checklist')
 
-    for (const item of section.items) {
-      lines.push(formatChecklistItem(item.checked, item.text, item.sourceFiles))
-    }
-
-    lines.push('')
+  for (const [index, item] of status.entries()) {
+    lines.push(formatChecklistItem(index, item.checked, item.title, item.relatedFiles))
   }
 
   return lines.join('\n').trimEnd()

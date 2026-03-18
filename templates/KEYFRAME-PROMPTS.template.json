@@ -1,0 +1,11 @@
+[
+  {
+    "promptId": "shot-01-primary",
+    "shotId": "SHOT-01",
+    "label": "primary keyframe",
+    "model": "TBD",
+    "prompt": "TBD",
+    "status": "planned",
+    "outputPath": "keyframes/SHOT-01/shot-01-primary.png"
+  }
+]

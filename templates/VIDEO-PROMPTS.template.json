@@ -1,0 +1,10 @@
+[
+  {
+    "promptId": "shot-01-video",
+    "shotId": "SHOT-01",
+    "model": "TBD",
+    "prompt": "TBD",
+    "status": "planned",
+    "keyframePromptIds": ["shot-01-primary"]
+  }
+]

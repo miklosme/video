@@ -1,28 +1,23 @@
 # STORYBOARD
 
-<!--
-Instructions for the creative agent:
-- Use this file as a short human-readable summary of the canonical shot plan in workspace/STORYBOARD.json.
-- Keep it lightweight and readable for handoff, while preserving the sequence structure and scene purpose.
-- Update this only after the canonical JSON shot plan is accurate.
-- Replace every placeholder with project-specific content when copying this template into workspace/.
--->
+## Sequence Summary
 
-Canonical shot planning now lives in `workspace/STORYBOARD.json`.
-This file is a short overview for quick reading and handoff.
+[One short paragraph describing the flow of the film.]
 
-## Sequence Overview
+## Shots
 
-- Target runtime: about [runtime] seconds
-- Structure: [number of scenes] scenes, [number of shots] shots
-- Escalation rule: [describe how tension or momentum builds]
+### SHOT-01 - [Shot title]
 
-## Scene List
+Purpose: [What this shot must do.]
 
-### [Scene ID] - [Scene title]
+Visual: [What we see.]
 
-[Short scene purpose summary.]
+Transition: [How it enters or exits.]
 
-### [Scene ID] - [Scene title]
+### SHOT-02 - [Shot title]
 
-[Short scene purpose summary.]
+Purpose: [What this shot must do.]
+
+Visual: [What we see.]
+
+Transition: [How it enters or exits.]

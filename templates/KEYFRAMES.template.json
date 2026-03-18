@@ -1,47 +1,9 @@
-{
-  "instructions": [
-    "Copy this file into workspace/KEYFRAMES.json before writing still-image prompt development for a new project.",
-    "Keep reusable prompt anchors here and reserve final executable video prompts for PROMPT-PACK.json.",
-    "Replace every placeholder prompt, ID, model value, and frame goal with project-specific content."
-  ],
-  "version": 1,
-  "activeModel": {
-    "displayName": "[image model display name]",
-    "modelId": "[image model id]"
-  },
-  "workflowNotes": [
-    "Replace with a workflow note about how still-image prompts should be used in this project.",
-    "Replace with a workflow note about how approved keyframes should be promoted into references or canon."
-  ],
-  "anchors": [
-    {
-      "anchorId": "anchor-primary-subject",
-      "name": "Primary Subject Anchor",
-      "details": [
-        "Replace with a reusable visual identity detail.",
-        "Replace with a reusable environment, wardrobe, or texture detail."
-      ]
-    }
-  ],
-  "shots": [
-    {
-      "shotId": "S1-SH01",
-      "sceneId": "S1",
-      "frameGoal": "Replace with what this keyframe set needs to prove or define.",
-      "frames": [
-        {
-          "frameType": "start",
-          "promptId": "prompt-s1-sh01-start-v1",
-          "prompt": "Replace with a still-image prompt for the opening frame target.",
-          "approvedAssetId": null
-        },
-        {
-          "frameType": "end",
-          "promptId": "prompt-s1-sh01-end-v1",
-          "prompt": "Replace with a still-image prompt for the ending frame target.",
-          "approvedAssetId": null
-        }
-      ]
-    }
-  ]
-}
+[
+  {
+    "shotId": "SHOT-01",
+    "title": "TBD",
+    "goal": "TBD",
+    "status": "planned",
+    "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-01-keyframe.png"
+  }
+]

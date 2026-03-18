@@ -1,20 +1,54 @@
-import { loadWorkflowData, validateWorkflowConsistency } from './workflow-data'
+import { access } from 'node:fs/promises'
+import path from 'node:path'
+
+import {
+  loadKeyframePrompts,
+  loadKeyframes,
+  loadStatus,
+  loadVideoPrompts,
+  resolveWorkflowPath,
+  WORKFLOW_FILES,
+  workspacePathExists,
+} from './workflow-data'
+
+async function requireWorkspacePath(fileName: string, label: string) {
+  const filePath = resolveWorkflowPath(fileName)
+
+  try {
+    await access(filePath)
+  } catch {
+    throw new Error(`${label} is required at ${path.relative(process.cwd(), filePath)}.`)
+  }
+
+  return filePath
+}
 
 async function main() {
-  const data = await loadWorkflowData()
-  validateWorkflowConsistency(data)
-  const shotCount = data.storyboard.scenes.reduce((total, scene) => total + scene.shots.length, 0)
+  await requireWorkspacePath('IDEA.md', 'workspace/IDEA.md')
+  await requireWorkspacePath(WORKFLOW_FILES.status, 'workspace/STATUS.json')
+
+  const status = await loadStatus()
+  const keyframesExists = await workspacePathExists(WORKFLOW_FILES.keyframes)
+  const keyframePromptsExists = await workspacePathExists(WORKFLOW_FILES.keyframePrompts)
+  const videoPromptsExists = await workspacePathExists(WORKFLOW_FILES.videoPrompts)
+
+  const keyframes = keyframesExists ? await loadKeyframes() : []
+  const keyframePrompts = keyframePromptsExists ? await loadKeyframePrompts() : []
+  const videoPrompts = videoPromptsExists ? await loadVideoPrompts() : []
 
   console.log(
     JSON.stringify(
       {
         status: 'ok',
-        currentPhase: data.project.currentPhase,
-        storyboardScenes: data.storyboard.scenes.length,
-        storyboardShots: shotCount,
-        keyframeShots: data.keyframes.shots.length,
-        referenceAssets: data.references.assets.length,
-        generationLogEntries: data.generationLog.length,
+        ideaPresent: true,
+        statusItems: status.length,
+        checkedItems: status.filter((item) => item.checked).length,
+        keyframesPresent: keyframesExists,
+        keyframesCount: keyframes.length,
+        keyframePromptsPresent: keyframePromptsExists,
+        keyframePromptsCount: keyframePrompts.length,
+        videoPromptsPresent: videoPromptsExists,
+        videoPromptsCount: videoPrompts.length,
       },
       null,
       2,

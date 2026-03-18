@@ -1,4 +1,4 @@
-import { access, copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 
@@ -9,21 +9,13 @@ import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } 
 import { z } from 'zod'
 
 import {
-  loadEdit,
-  loadGenerationLog,
+  loadKeyframePrompts,
   loadKeyframes,
-  loadProject,
-  loadPromptPack,
-  loadQc,
-  loadReferences,
   loadStatus,
-  loadStoryboard,
-  loadTests,
+  loadVideoPrompts,
   WORKFLOW_FILES,
-  type ProjectData,
-  type TodoData,
-  type TodoItem,
-  type TodoSection,
+  type StatusData,
+  type StatusItem,
 } from './workflow-data'
 
 const ROOT_DIR = process.cwd()
@@ -37,25 +29,16 @@ const PERSISTED_AGENT_STATE_VERSION = 1
 
 const ALLOWED_WORKSPACE_FILES = new Set([
   'IDEA.md',
-  'PROJECT.json',
-  'PROJECT.md',
   'STORY.md',
   'CHARACTERS.md',
-  'STYLE.md',
-  'CONTINUITY.md',
-  'SOUND.md',
-  'MODELS.md',
-  'REFERENCES.json',
-  'STORYBOARD.json',
   'STORYBOARD.md',
   'KEYFRAMES.json',
-  'PROMPT-PACK.json',
-  'TESTS.json',
-  'QC.json',
-  'EDIT.json',
+  'KEYFRAME-PROMPTS.json',
+  'VIDEO-PROMPTS.json',
   'STATUS.json',
-  'GENERATION-LOG.jsonl',
 ])
+
+const ALLOWED_WORKSPACE_FOLDERS = new Set(['CHARACTER-SHEETS/', 'STORYBOARD-SHOTS/'])
 
 type TranscriptRole = 'assistant' | 'user' | 'tool'
 
@@ -71,18 +54,16 @@ interface WorkflowFileSummary {
 }
 
 interface WorkflowMilestoneSummary {
-  sectionId: string
-  sectionTitle: string
-  itemId: string
-  text: string
-  sourceFiles: string[]
+  index: number
+  title: string
+  instruction: string
+  relatedFiles: string[]
 }
 
 interface WorkflowSummary {
   ideaExists: boolean
   statusBootstrapped: boolean
-  status: TodoData
-  phase: ProjectData['currentPhase'] | null
+  status: StatusData
   checkedItems: number
   totalItems: number
   nextMilestone: WorkflowMilestoneSummary | null
@@ -167,6 +148,12 @@ function assertWorkspaceFile(fileName: string) {
   }
 }
 
+function assertWorkspaceFolder(folderName: string) {
+  if (!ALLOWED_WORKSPACE_FOLDERS.has(folderName)) {
+    throw new Error(`Folder ${folderName} is not an allowed workspace source-of-truth folder.`)
+  }
+}
+
 async function ensureStatusBootstrapped() {
   const statusPath = resolveWorkspacePath(WORKFLOW_FILES.status)
 
@@ -180,17 +167,14 @@ async function ensureStatusBootstrapped() {
   return true
 }
 
-function getNextIncompleteMilestone(status: TodoData): WorkflowMilestoneSummary | null {
-  for (const section of status.sections) {
-    for (const item of section.items) {
-      if (!item.checked) {
-        return {
-          sectionId: section.sectionId,
-          sectionTitle: section.title,
-          itemId: item.itemId,
-          text: item.text,
-          sourceFiles: item.sourceFiles,
-        }
+function getNextIncompleteMilestone(status: StatusData): WorkflowMilestoneSummary | null {
+  for (const [index, item] of status.entries()) {
+    if (!item.checked) {
+      return {
+        index,
+        title: item.title,
+        instruction: item.instruction,
+        relatedFiles: item.relatedFiles,
       }
     }
   }
@@ -203,24 +187,10 @@ async function loadWorkflowSummary(): Promise<WorkflowSummary> {
   const statusBootstrapped = await ensureStatusBootstrapped()
   const status = await loadStatus(ROOT_DIR)
   const nextMilestone = getNextIncompleteMilestone(status)
-
-  let phase: ProjectData['currentPhase'] | null = null
-
-  if (await fileExists(resolveWorkspacePath(WORKFLOW_FILES.project))) {
-    try {
-      phase = (await loadProject(ROOT_DIR)).currentPhase
-    } catch {
-      phase = null
-    }
-  }
-
-  const checkedItems = status.sections.reduce(
-    (sum, section) => sum + section.items.filter((item) => item.checked).length,
-    0,
-  )
-  const totalItems = status.sections.reduce((sum, section) => sum + section.items.length, 0)
+  const checkedItems = status.filter((item) => item.checked).length
+  const totalItems = status.length
   const scopedFiles = await Promise.all(
-    (nextMilestone?.sourceFiles ?? []).map(async (fileName) => ({
+    (nextMilestone?.relatedFiles ?? []).map(async (fileName) => ({
       fileName,
       exists: await fileExists(resolveWorkspacePath(fileName)),
     })),
@@ -230,7 +200,6 @@ async function loadWorkflowSummary(): Promise<WorkflowSummary> {
     ideaExists,
     statusBootstrapped,
     status,
-    phase,
     checkedItems,
     totalItems,
     nextMilestone,
@@ -261,14 +230,16 @@ function buildAgentPrompt(
 ) {
   const workflowLines = [
     `IDEA.md present: ${workflow.ideaExists ? 'yes' : 'no'}`,
-    `Current phase: ${workflow.phase ?? 'not set yet'}`,
     `Progress: ${workflow.checkedItems}/${workflow.totalItems}`,
     workflow.nextMilestone
-      ? `Next milestone (${workflow.nextMilestone.itemId}): ${workflow.nextMilestone.text}`
+      ? `Next step (${workflow.nextMilestone.index + 1}): ${workflow.nextMilestone.title}`
       : 'No incomplete milestone remains.',
     workflow.nextMilestone
-      ? `Files in scope: ${workflow.nextMilestone.sourceFiles.join(', ')}`
-      : 'Files in scope: none',
+      ? `Step instruction: ${workflow.nextMilestone.instruction}`
+      : 'Step instruction: none',
+    workflow.nextMilestone
+      ? `Paths in scope: ${workflow.nextMilestone.relatedFiles.join(', ')}`
+      : 'Paths in scope: none',
     `Recent session file changes: ${recentChanges.length > 0 ? recentChanges.join(', ') : 'none'}`,
   ]
 
@@ -282,18 +253,13 @@ function buildAgentPrompt(
     'Latest user input:',
     userInput,
     '',
-    'Use tools when you need repo state or need to update workspace files.',
+    'Use tools when you need repo state or need to update workspace files or folders.',
     'Respect the current milestone and keep STATUS.json aligned with the actual file state.',
   ].join('\n')
 }
 
-function formatStatusItemText(text: string, sectionTitle?: string) {
-  return sectionTitle ? `${text} (${sectionTitle})` : text
-}
-
-function renderStatusItem(item: TodoItem, key: string, sectionTitle?: string) {
-  const itemText = formatStatusItemText(item.text, sectionTitle)
-
+function renderStatusItem(item: StatusItem, key: string, index: number) {
+  const itemText = `${index + 1}. ${item.title}`
   if (!item.checked) {
     return <text key={key} content={`- [ ] ${itemText}`} wrapMode="word" />
   }
@@ -312,20 +278,10 @@ function renderStatusItem(item: TodoItem, key: string, sectionTitle?: string) {
 }
 
 function renderStatusSidebar(workflow: WorkflowSummary) {
-  const pendingItems = workflow.status.sections.flatMap((section) =>
-    section.items
-      .filter((item) => !item.checked)
-      .map((item) => ({ item, sectionTitle: section.title })),
-  )
+  const pendingItems = workflow.status
+    .map((item, index) => ({ item, index }))
+    .filter(({ item }) => !item.checked)
   const elements: ReactNode[] = []
-
-  if (workflow.phase) {
-    elements.push(
-      <box key="phase" marginBottom={1}>
-        <text content={`Current phase: ${workflow.phase}`} wrapMode="word" />
-      </box>,
-    )
-  }
 
   elements.push(
     <box key="progress" marginBottom={1}>
@@ -342,27 +298,25 @@ function renderStatusSidebar(workflow: WorkflowSummary) {
         <box marginBottom={1}>
           <text content="Next Up" />
         </box>
-        {pendingItems.slice(0, 5).map(({ item, sectionTitle }) => (
-          <box key={`next-${item.itemId}`}>
-            {renderStatusItem(item, `next-item-${item.itemId}`, sectionTitle)}
-          </box>
+        {pendingItems.slice(0, 5).map(({ item, index }) => (
+          <box key={`next-${index}`}>{renderStatusItem(item, `next-item-${index}`, index)}</box>
         ))}
       </box>,
     )
   }
 
-  for (const section of workflow.status.sections) {
-    elements.push(
-      <box key={section.sectionId} marginBottom={1} flexDirection="column">
-        <box marginBottom={1}>
-          <text content={section.title} />
+  elements.push(
+    <box key="all-items" marginBottom={1} flexDirection="column">
+      <box marginBottom={1}>
+        <text content="Checklist" />
+      </box>
+      {workflow.status.map((item, index) => (
+        <box key={`status-item-${index}`}>
+          {renderStatusItem(item, `section-item-${index}`, index)}
         </box>
-        {section.items.map((item) => (
-          <box key={item.itemId}>{renderStatusItem(item, `section-item-${item.itemId}`)}</box>
-        ))}
-      </box>,
-    )
-  }
+      ))}
+    </box>,
+  )
 
   return elements
 }
@@ -387,35 +341,17 @@ function normalizeFileContent(fileName: string, content: string) {
 
 async function validateWorkspaceFile(fileName: string) {
   switch (fileName) {
-    case 'PROJECT.json':
-      await loadProject(ROOT_DIR)
-      return
-    case 'STORYBOARD.json':
-      await loadStoryboard(ROOT_DIR)
-      return
-    case 'REFERENCES.json':
-      await loadReferences(ROOT_DIR)
-      return
     case 'KEYFRAMES.json':
       await loadKeyframes(ROOT_DIR)
       return
-    case 'PROMPT-PACK.json':
-      await loadPromptPack(ROOT_DIR)
+    case 'KEYFRAME-PROMPTS.json':
+      await loadKeyframePrompts(ROOT_DIR)
+      return
+    case 'VIDEO-PROMPTS.json':
+      await loadVideoPrompts(ROOT_DIR)
       return
     case 'STATUS.json':
       await loadStatus(ROOT_DIR)
-      return
-    case 'QC.json':
-      await loadQc(ROOT_DIR)
-      return
-    case 'EDIT.json':
-      await loadEdit(ROOT_DIR)
-      return
-    case 'TESTS.json':
-      await loadTests(ROOT_DIR)
-      return
-    case 'GENERATION-LOG.jsonl':
-      await loadGenerationLog(ROOT_DIR)
       return
     default:
       return
@@ -494,6 +430,22 @@ async function readWorkspaceFileContents(fileName: string) {
     templatePath: templateExists ? templatePath : null,
     templateContent: templateExists ? await readFile(templatePath, 'utf8') : null,
     content: null,
+  }
+}
+
+async function ensureWorkspaceFolder(folderName: string) {
+  assertWorkspaceFolder(folderName)
+
+  const folderPath = resolveWorkspacePath(folderName)
+  const existed = await fileExists(folderPath)
+
+  await mkdir(folderPath, { recursive: true })
+
+  return {
+    folderName,
+    existed,
+    folderPath,
+    entries: (await readdir(folderPath)).sort(),
   }
 }
 
@@ -784,7 +736,7 @@ function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBrid
     tools: {
       getWorkflowState: tool({
         description:
-          'Read the current workspace workflow state, including the next incomplete milestone and the files currently in scope.',
+          'Read the current workspace workflow state, including the first unchecked STATUS item and the files or folders currently in scope.',
         inputSchema: z.object({}),
         execute: async () => {
           const workflow = await loadWorkflowSummary()
@@ -800,7 +752,7 @@ function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBrid
           fileName: z
             .string()
             .describe(
-              'Canonical workspace filename such as IDEA.md, STATUS.json, STORY.md, or PROJECT.json',
+              'Canonical workspace filename such as IDEA.md, STATUS.json, STORY.md, or KEYFRAME-PROMPTS.json',
             ),
         }),
         execute: async ({ fileName }) => {
@@ -817,7 +769,7 @@ function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBrid
           fileName: z
             .string()
             .describe(
-              'Canonical workspace filename such as STORY.md, PROJECT.json, or REFERENCES.json',
+              'Canonical workspace filename such as STORY.md, KEYFRAMES.json, or VIDEO-PROMPTS.json',
             ),
           content: z.string().describe('The complete new file contents.'),
         }),
@@ -836,50 +788,64 @@ function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBrid
           }
         },
       }),
+      createWorkspaceFolder: tool({
+        description:
+          'Create or confirm one canonical workspace folder such as CHARACTER-SHEETS/ or STORYBOARD-SHOTS/.',
+        inputSchema: z.object({
+          folderName: z
+            .string()
+            .describe('Canonical workspace folder name such as CHARACTER-SHEETS/'),
+        }),
+        execute: async ({ folderName }) => {
+          const result = await ensureWorkspaceFolder(folderName)
+
+          bridgeRef.current?.recordToolEvent(
+            `${result.existed ? 'Confirmed' : 'Created'} ${folderName}`,
+          )
+          bridgeRef.current?.recordFileChange(folderName)
+          await bridgeRef.current?.refreshWorkflow()
+
+          return result
+        },
+      }),
       updateStatusItem: tool({
         description:
-          'Check or uncheck one workflow milestone in workspace/STATUS.json after the corresponding files truly make it complete.',
+          'Check or uncheck one workflow item in workspace/STATUS.json after the corresponding files or folders truly make it complete.',
         inputSchema: z.object({
-          itemId: z.string().describe('The STATUS.json itemId to update.'),
+          itemIndex: z
+            .number()
+            .int()
+            .nonnegative()
+            .describe('The zero-based STATUS.json item index to update.'),
           checked: z.boolean().describe('The new checked state for the item.'),
         }),
-        execute: async ({ itemId, checked }) => {
+        execute: async ({ itemIndex, checked }) => {
           await ensureStatusBootstrapped()
 
           const status = await loadStatus(ROOT_DIR)
-          let updatedSection: TodoSection | null = null
-          let updatedItem: TodoItem | null = null
+          const updatedItem = status[itemIndex]
 
-          for (const section of status.sections) {
-            const match = section.items.find((item) => item.itemId === itemId)
-
-            if (match) {
-              match.checked = checked
-              updatedSection = section
-              updatedItem = match
-              break
-            }
+          if (!updatedItem) {
+            throw new Error(`Could not find STATUS.json item at index ${itemIndex}.`)
           }
 
-          if (!updatedSection || !updatedItem) {
-            throw new Error(`Could not find STATUS.json itemId ${itemId}.`)
-          }
+          updatedItem.checked = checked
 
           const statusPath = resolveWorkspacePath(WORKFLOW_FILES.status)
           await writeFile(statusPath, `${JSON.stringify(status, null, 2)}\n`, 'utf8')
           await loadStatus(ROOT_DIR)
 
           bridgeRef.current?.recordToolEvent(
-            `${checked ? 'Checked' : 'Unchecked'} STATUS item ${itemId}`,
+            `${checked ? 'Checked' : 'Unchecked'} STATUS item ${itemIndex}`,
           )
           bridgeRef.current?.recordFileChange(WORKFLOW_FILES.status)
           await bridgeRef.current?.refreshWorkflow()
 
           return {
-            itemId,
+            itemIndex,
             checked,
-            sectionTitle: updatedSection.title,
-            text: updatedItem.text,
+            title: updatedItem.title,
+            instruction: updatedItem.instruction,
           }
         },
       }),
