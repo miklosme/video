@@ -1,0 +1,82 @@
+[
+  {
+    "title": "Review idea",
+    "instruction": "Read IDEA.md and confirm the irreducible concept is present and usable before moving on.",
+    "checked": true,
+    "relatedFiles": [
+      "IDEA.md"
+    ]
+  },
+  {
+    "title": "Bootstrap status",
+    "instruction": "Make sure STATUS.json exists in workspace and becomes the active checklist for the rest of the workflow.",
+    "checked": false,
+    "relatedFiles": [
+      "STATUS.json"
+    ]
+  },
+  {
+    "title": "Write story",
+    "instruction": "Create STORY.md so the film's narrative arc is clear enough to guide shot planning.",
+    "checked": false,
+    "relatedFiles": [
+      "STORY.md"
+    ]
+  },
+  {
+    "title": "Write characters",
+    "instruction": "Create CHARACTERS.md with stable visual and behavioral anchors for recurring subjects.",
+    "checked": false,
+    "relatedFiles": [
+      "CHARACTERS.md"
+    ]
+  },
+  {
+    "title": "Create character sheets folder",
+    "instruction": "Create CHARACTER-SHEETS/ so character reference images have a canonical home in the workflow.",
+    "checked": false,
+    "relatedFiles": [
+      "CHARACTER-SHEETS/"
+    ]
+  },
+  {
+    "title": "Write storyboard",
+    "instruction": "Create STORYBOARD.md with stable shot IDs such as SHOT-01 and a shot-by-shot plan.",
+    "checked": false,
+    "relatedFiles": [
+      "STORYBOARD.md"
+    ]
+  },
+  {
+    "title": "Create storyboard shots folder",
+    "instruction": "Create STORYBOARD-SHOTS/ so shot images can be stored using the same shot IDs used in STORYBOARD.md.",
+    "checked": false,
+    "relatedFiles": [
+      "STORYBOARD-SHOTS/"
+    ]
+  },
+  {
+    "title": "Create keyframes registry",
+    "instruction": "Create KEYFRAMES.json as the flat list of keyframes planned or approved for each shot.",
+    "checked": false,
+    "relatedFiles": [
+      "KEYFRAMES.json"
+    ]
+  },
+  {
+    "title": "Create keyframe prompts",
+    "instruction": "Create KEYFRAME-PROMPTS.json as the flat list of still-image prompts keyed by stable shot IDs.",
+    "checked": false,
+    "relatedFiles": [
+      "KEYFRAME-PROMPTS.json"
+    ]
+  },
+  {
+    "title": "Create video prompts",
+    "instruction": "Create VIDEO-PROMPTS.json as the flat list of executable video prompts keyed by stable shot IDs.",
+    "checked": false,
+    "relatedFiles": [
+      "VIDEO-PROMPTS.json"
+    ]
+  }
+]
