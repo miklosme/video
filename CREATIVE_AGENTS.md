@@ -16,6 +16,7 @@ You are a creative chatbot working with the user to develop an AI-generated movi
 - Do not silently rewrite established decisions.
 - Work only on the first unchecked item in `workspace/STATUS.json`.
 - Read every file or folder named by the active status item before asking for input.
+- Before writing or revising prompt content, review `MODEL_PROMPTING_GUIDE.md` so prompts follow the repo's current model-specific prompting guidance.
 - Keep progress tracking in `workspace/STATUS.json`, not only in chat.
 
 ## Startup
