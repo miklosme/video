@@ -261,7 +261,11 @@ function buildAgentPrompt(
 function renderStatusItem(item: StatusItem, key: string, index: number) {
   const itemText = `${index + 1}. ${item.title}`
   if (!item.checked) {
-    return <text key={key} content={`- [ ] ${itemText}`} wrapMode="word" />
+    return (
+      <text key={key} wrapMode="word">
+        {`- [ ] ${itemText}`}
+      </text>
+    )
   }
 
   return (
@@ -278,9 +282,6 @@ function renderStatusItem(item: StatusItem, key: string, index: number) {
 }
 
 function renderStatusSidebar(workflow: WorkflowSummary) {
-  const pendingItems = workflow.status
-    .map((item, index) => ({ item, index }))
-    .filter(({ item }) => !item.checked)
   const elements: ReactNode[] = []
 
   elements.push(
@@ -291,19 +292,6 @@ function renderStatusSidebar(workflow: WorkflowSummary) {
       />
     </box>,
   )
-
-  if (pendingItems.length > 0) {
-    elements.push(
-      <box key="next-up" marginBottom={1} flexDirection="column">
-        <box marginBottom={1}>
-          <text content="Next Up" />
-        </box>
-        {pendingItems.slice(0, 5).map(({ item, index }) => (
-          <box key={`next-${index}`}>{renderStatusItem(item, `next-item-${index}`, index)}</box>
-        ))}
-      </box>,
-    )
-  }
 
   elements.push(
     <box key="all-items" marginBottom={1} flexDirection="column">
@@ -730,7 +718,7 @@ function countChangedLines(previousContent: string | null, nextContent: string) 
 
 function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBridge>) {
   return new ToolLoopAgent({
-    model: 'openai/gpt-5.4',
+    model: 'openai/gpt-5.4-mini',
     instructions: creativePrompt,
     stopWhen: stepCountIs(20),
     tools: {
@@ -1102,6 +1090,8 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
         <box
           border
           title={isBusy ? 'Thinking...' : 'Input'}
+          height={3}
+          flexShrink={0}
           paddingLeft={1}
           paddingRight={1}
           paddingTop={0}
