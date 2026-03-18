@@ -5,7 +5,7 @@ import process from 'node:process'
 import { createCliRenderer, createTextAttributes, type InputRenderable } from '@opentui/core'
 import { createRoot } from '@opentui/react'
 import { stepCountIs, tool, ToolLoopAgent, type LanguageModel } from 'ai'
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { z } from 'zod'
 
 import {
@@ -295,42 +295,19 @@ function renderStatusItem(item: TodoItem, key: string, sectionTitle?: string) {
   const itemText = formatStatusItemText(item.text, sectionTitle)
 
   if (!item.checked) {
-    return React.createElement('text', {
-      key,
-      content: `- [ ] ${itemText}`,
-      wrapMode: 'word',
-    })
+    return <text key={key} content={`- [ ] ${itemText}`} wrapMode="word" />
   }
 
-  return React.createElement(
-    'text',
-    {
-      key,
-      wrapMode: 'word',
-    },
-    React.createElement(
-      'span',
-      {
-        fg: 'brightBlack',
-        attributes: DIM_TEXT_ATTRIBUTES,
-      },
-      '- [',
-    ),
-    React.createElement(
-      'span',
-      {
-        fg: 'green',
-      },
-      'x',
-    ),
-    React.createElement(
-      'span',
-      {
-        fg: 'brightBlack',
-        attributes: DIM_TEXT_ATTRIBUTES,
-      },
-      `] ${itemText}`,
-    ),
+  return (
+    <text key={key} wrapMode="word">
+      <span fg="brightBlack" attributes={DIM_TEXT_ATTRIBUTES}>
+        - [
+      </span>
+      <span fg="green">x</span>
+      <span fg="brightBlack" attributes={DIM_TEXT_ATTRIBUTES}>
+        {`] ${itemText}`}
+      </span>
+    </text>
   )
 }
 
@@ -340,97 +317,50 @@ function renderStatusSidebar(workflow: WorkflowSummary) {
       .filter((item) => !item.checked)
       .map((item) => ({ item, sectionTitle: section.title })),
   )
-  const elements: React.ReactElement[] = []
+  const elements: ReactNode[] = []
 
   if (workflow.phase) {
     elements.push(
-      React.createElement(
-        'box',
-        {
-          key: 'phase',
-          marginBottom: 1,
-        },
-        React.createElement('text', {
-          content: `Current phase: ${workflow.phase}`,
-          wrapMode: 'word',
-        }),
-      ),
+      <box key="phase" marginBottom={1}>
+        <text content={`Current phase: ${workflow.phase}`} wrapMode="word" />
+      </box>,
     )
   }
 
   elements.push(
-    React.createElement(
-      'box',
-      {
-        key: 'progress',
-        marginBottom: 1,
-      },
-      React.createElement('text', {
-        content: `Progress: ${workflow.checkedItems}/${workflow.totalItems} complete`,
-        wrapMode: 'word',
-      }),
-    ),
+    <box key="progress" marginBottom={1}>
+      <text
+        content={`Progress: ${workflow.checkedItems}/${workflow.totalItems} complete`}
+        wrapMode="word"
+      />
+    </box>,
   )
 
   if (pendingItems.length > 0) {
     elements.push(
-      React.createElement(
-        'box',
-        {
-          key: 'next-up',
-          marginBottom: 1,
-          flexDirection: 'column',
-        },
-        React.createElement(
-          'box',
-          {
-            marginBottom: 1,
-          },
-          React.createElement('text', {
-            content: 'Next Up',
-          }),
-        ),
-        ...pendingItems.slice(0, 5).map(({ item, sectionTitle }) =>
-          React.createElement(
-            'box',
-            {
-              key: `next-${item.itemId}`,
-            },
-            renderStatusItem(item, `next-item-${item.itemId}`, sectionTitle),
-          ),
-        ),
-      ),
+      <box key="next-up" marginBottom={1} flexDirection="column">
+        <box marginBottom={1}>
+          <text content="Next Up" />
+        </box>
+        {pendingItems.slice(0, 5).map(({ item, sectionTitle }) => (
+          <box key={`next-${item.itemId}`}>
+            {renderStatusItem(item, `next-item-${item.itemId}`, sectionTitle)}
+          </box>
+        ))}
+      </box>,
     )
   }
 
   for (const section of workflow.status.sections) {
     elements.push(
-      React.createElement(
-        'box',
-        {
-          key: section.sectionId,
-          marginBottom: 1,
-          flexDirection: 'column',
-        },
-        React.createElement(
-          'box',
-          {
-            marginBottom: 1,
-          },
-          React.createElement('text', {
-            content: section.title,
-          }),
-        ),
-        ...section.items.map((item) =>
-          React.createElement(
-            'box',
-            {
-              key: item.itemId,
-            },
-            renderStatusItem(item, `section-item-${item.itemId}`),
-          ),
-        ),
-      ),
+      <box key={section.sectionId} marginBottom={1} flexDirection="column">
+        <box marginBottom={1}>
+          <text content={section.title} />
+        </box>
+        {section.items.map((item) => (
+          <box key={item.itemId}>{renderStatusItem(item, `section-item-${item.itemId}`)}</box>
+        ))}
+      </box>,
     )
   }
 
@@ -846,7 +776,7 @@ function countChangedLines(previousContent: string | null, nextContent: string) 
   }
 }
 
-function createVideoAgent(creativePrompt: string, bridgeRef: React.RefObject<AgentBridge>) {
+function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBridge>) {
   return new ToolLoopAgent({
     model: 'openai/gpt-5.4',
     instructions: creativePrompt,
@@ -1162,167 +1092,96 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
     }
   }
 
-  return React.createElement(
-    'box',
-    {
-      width: '100%',
-      height: '100%',
-      flexDirection: 'row',
-      padding: 1,
-      gap: 1,
-    },
-    React.createElement(
-      'box',
-      {
-        flexGrow: 3,
-        flexShrink: 1,
-        border: true,
-        title: 'Creative Agent',
-        padding: 1,
-        flexDirection: 'column',
-        onMouseDown: focusComposerInput,
-      },
-      React.createElement(
-        'scrollbox',
-        {
-          flexGrow: 1,
-          stickyScroll: true,
-          stickyStart: 'bottom',
-          paddingRight: 1,
-        },
-        ...displayTranscript.map((entry, index) => {
-          const nextEntry = displayTranscript[index + 1]
-          const marginBottom = entry.role === 'tool' && nextEntry?.role === 'tool' ? 0 : 1
+  return (
+    <box width="100%" height="100%" flexDirection="row" padding={1} gap={1}>
+      <box
+        flexGrow={3}
+        flexShrink={1}
+        border
+        title="Creative Agent"
+        padding={1}
+        flexDirection="column"
+        onMouseDown={focusComposerInput}
+      >
+        <scrollbox flexGrow={1} stickyScroll stickyStart="bottom" paddingRight={1}>
+          {displayTranscript.map((entry, index) => {
+            const nextEntry = displayTranscript[index + 1]
+            const marginBottom = entry.role === 'tool' && nextEntry?.role === 'tool' ? 0 : 1
 
-          if (entry.role === 'user') {
-            return React.createElement(
-              'box',
-              {
-                key: entry.id,
-                width: '100%',
-                alignItems: 'flex-end',
-                marginBottom,
-              },
-              React.createElement(
-                'box',
-                {
-                  width: '90%',
-                  backgroundColor: '#5a5a5a',
-                  padding: 1,
-                  paddingLeft: 2,
-                },
-                React.createElement('text', {
-                  content: entry.text,
-                  wrapMode: 'word',
-                }),
-              ),
+            if (entry.role === 'user') {
+              return (
+                <box key={entry.id} width="100%" alignItems="flex-end" marginBottom={marginBottom}>
+                  <box width="90%" backgroundColor="#5a5a5a" padding={1} paddingLeft={2}>
+                    <text content={entry.text} wrapMode="word" />
+                  </box>
+                </box>
+              )
+            }
+
+            if (entry.role === 'tool') {
+              return (
+                <box key={entry.id} marginBottom={marginBottom}>
+                  <text content={entry.text} fg="brightBlack" truncate />
+                </box>
+              )
+            }
+
+            return (
+              <box key={entry.id} marginBottom={marginBottom}>
+                <text content={entry.text} wrapMode="word" />
+              </box>
             )
-          }
-
-          if (entry.role === 'tool') {
-            return React.createElement(
-              'box',
-              {
-                key: entry.id,
-                marginBottom,
-              },
-              React.createElement('text', {
-                content: entry.text,
-                fg: 'brightBlack',
-                truncate: true,
-              }),
-            )
-          }
-
-          return React.createElement(
-            'box',
-            {
-              key: entry.id,
-              marginBottom,
-            },
-            React.createElement('text', {
-              content: entry.text,
-              wrapMode: 'word',
-            }),
-          )
-        }),
-      ),
-      React.createElement(
-        'box',
-        {
-          border: true,
-          title: isBusy ? 'Thinking...' : 'Input',
-          paddingLeft: 1,
-          paddingRight: 1,
-          paddingTop: 0,
-          paddingBottom: 0,
-          marginTop: 1,
-        },
-        React.createElement('input', {
-          ref: composerInputRef,
-          focused: !isBusy,
-          value: composerValue,
-          placeholder: isBusy
-            ? 'Wait for the current turn to finish.'
-            : 'Type a creative request and press Enter.',
-          onInput: (value: string) => {
-            setComposerValueState(value)
-          },
-          onSubmit: (value: string) => {
-            void submitPrompt(value)
-          },
-        }),
-      ),
-      runtimeError
-        ? React.createElement(
-            'box',
-            {
-              marginTop: 1,
-            },
-            React.createElement('text', {
-              content: `Runtime error: ${runtimeError}`,
-            }),
-          )
-        : null,
-    ),
-    React.createElement(
-      'box',
-      {
-        width: 42,
-        flexShrink: 0,
-      },
-      React.createElement(
-        'box',
-        {
-          border: true,
-          title: 'STATUS',
-          padding: 1,
-          flexGrow: 1,
-          flexDirection: 'column',
-        },
-        React.createElement(
-          'scrollbox',
-          {
-            flexGrow: 1,
-            paddingRight: 1,
-          },
-          React.createElement(
-            'box',
-            {
-              flexDirection: 'column',
-            },
-            ...statusSidebar,
-          ),
-        ),
-      ),
-    ),
+          })}
+        </scrollbox>
+        <box
+          border
+          title={isBusy ? 'Thinking...' : 'Input'}
+          paddingLeft={1}
+          paddingRight={1}
+          paddingTop={0}
+          paddingBottom={0}
+          marginTop={1}
+        >
+          <input
+            ref={composerInputRef}
+            focused={!isBusy}
+            value={composerValue}
+            placeholder={
+              isBusy
+                ? 'Wait for the current turn to finish.'
+                : 'Type a creative request and press Enter.'
+            }
+            onInput={(value: string) => {
+              setComposerValueState(value)
+            }}
+            onSubmit={(valueOrEvent: unknown) => {
+              void submitPrompt(
+                typeof valueOrEvent === 'string' ? valueOrEvent : composerValueRef.current,
+              )
+            }}
+          />
+        </box>
+        {runtimeError ? (
+          <box marginTop={1}>
+            <text content={`Runtime error: ${runtimeError}`} />
+          </box>
+        ) : null}
+      </box>
+      <box width={42} flexShrink={0}>
+        <box border title="STATUS" padding={1} flexGrow={1} flexDirection="column">
+          <scrollbox flexGrow={1} paddingRight={1}>
+            <box flexDirection="column">{statusSidebar}</box>
+          </scrollbox>
+        </box>
+      </box>
+    </box>
   )
 }
 
 async function main() {
   if (!process.env.AI_GATEWAY_API_KEY) {
     throw new Error(
-      'AI_GATEWAY_API_KEY is required to run video-agent.ts with the Vercel AI Gateway.',
+      'AI_GATEWAY_API_KEY is required to run video-agent.tsx with the Vercel AI Gateway.',
     )
   }
 
@@ -1376,12 +1235,12 @@ async function main() {
   process.on('SIGTERM', () => shutdown(0))
 
   createRoot(renderer).render(
-    React.createElement(App, {
-      creativePrompt,
-      initialWorkflow,
-      initialSession,
-      statePersistence,
-    }),
+    <App
+      creativePrompt={creativePrompt}
+      initialWorkflow={initialWorkflow}
+      initialSession={initialSession}
+      statePersistence={statePersistence}
+    />,
   )
 }
 

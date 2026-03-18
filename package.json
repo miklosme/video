@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "agent": "bun video-agent.ts",
+    "agent": "bun video-agent.tsx",
     "generate:keyframes": "./generate-keyframes.sh",
     "status:checklist": "bun render-status-checklist.ts",
     "validate:data": "bun validate-workflow-data.ts",
