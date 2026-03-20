@@ -27,6 +27,8 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `workspace/STATUS.json` is a flat array of visible creative milestones, ordered from first step to last step.
 - Keep harness setup and other bookkeeping out of `workspace/STATUS.json`.
 - `workspace/STORYBOARD.md` is the single canonical storyboard file and should use stable shot IDs such as `SHOT-01`.
+- `workspace/KEYFRAMES.json` should use distinct keyframe IDs such as `SHOT-01-START` and `SHOT-01-END`, each linked back to a parent `shotId`.
+- By default, plan one `start` and one `end` keyframe per storyboard shot. Use `single` only for a deliberate one-anchor exception.
 - Use `TBD` for unresolved creative information and `TODO` for coding work.
 
 ## Tooling Notes

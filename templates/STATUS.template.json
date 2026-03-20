@@ -25,7 +25,7 @@
   },
   {
     "title": "Plan keyframes",
-    "instruction": "Decide which keyframes are needed for each shot and define their purpose clearly enough to support still generation and motion planning.",
+    "instruction": "Plan distinct keyframes for each storyboard shot, defaulting to one start and one end frame per shot unless a deliberate single-frame exception is justified.",
     "checked": false,
     "relatedFiles": ["KEYFRAMES.json"]
   },

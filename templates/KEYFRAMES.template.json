@@ -1,9 +1,20 @@
 [
   {
+    "keyframeId": "SHOT-01-START",
     "shotId": "SHOT-01",
+    "frameType": "start",
     "title": "TBD",
     "goal": "TBD",
     "status": "planned",
-    "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-01-keyframe.png"
+    "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-01-start.png"
+  },
+  {
+    "keyframeId": "SHOT-01-END",
+    "shotId": "SHOT-01",
+    "frameType": "end",
+    "title": "TBD",
+    "goal": "TBD",
+    "status": "planned",
+    "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-01-end.png"
   }
 ]

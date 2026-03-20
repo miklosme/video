@@ -13,6 +13,7 @@ export interface GenerateImagenOptionsInput {
   safetyFilterLevel?: string
   outputDir?: string
   namePrefix?: string
+  keyframeId?: string
   shotId?: string
   frameType?: FrameType
   promptId?: string
@@ -123,6 +124,7 @@ export async function generateImagenOptions(
       },
       outputDir,
       outputPaths,
+      keyframeId: input.keyframeId ?? null,
       shotId: input.shotId ?? null,
       frameType: input.frameType ?? null,
       promptId: input.promptId ?? null,
@@ -141,6 +143,7 @@ function parseArgs() {
     '--safety-filter-level': String,
     '--output-dir': String,
     '--name-prefix': String,
+    '--keyframe-id': String,
     '--shot-id': String,
     '--frame-type': String,
     '--prompt-id': String,
@@ -171,6 +174,7 @@ function parseArgs() {
     safetyFilterLevel: args['--safety-filter-level'],
     outputDir: args['--output-dir'],
     namePrefix: args['--name-prefix'],
+    keyframeId: args['--keyframe-id'],
     shotId: args['--shot-id'],
     frameType: frameType as FrameType | undefined,
     promptId: args['--prompt-id'],

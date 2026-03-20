@@ -5,6 +5,6 @@
     "model": "TBD",
     "prompt": "TBD",
     "status": "planned",
-    "keyframePromptIds": ["shot-01-primary"]
+    "keyframePromptIds": ["shot-01-start", "shot-01-end"]
   }
 ]

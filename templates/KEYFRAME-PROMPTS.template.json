@@ -1,11 +1,24 @@
 [
   {
-    "promptId": "shot-01-primary",
+    "promptId": "shot-01-start",
+    "keyframeId": "SHOT-01-START",
     "shotId": "SHOT-01",
-    "label": "primary keyframe",
+    "frameType": "start",
+    "label": "start keyframe",
     "model": "TBD",
     "prompt": "TBD",
     "status": "planned",
-    "outputPath": "keyframes/SHOT-01/shot-01-primary.png"
+    "outputPath": "keyframes/SHOT-01/shot-01-start.png"
+  },
+  {
+    "promptId": "shot-01-end",
+    "keyframeId": "SHOT-01-END",
+    "shotId": "SHOT-01",
+    "frameType": "end",
+    "label": "end keyframe",
+    "model": "TBD",
+    "prompt": "TBD",
+    "status": "planned",
+    "outputPath": "keyframes/SHOT-01/shot-01-end.png"
   }
 ]

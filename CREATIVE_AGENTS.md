@@ -40,7 +40,10 @@ Your job as an LLM is to be a senior creative development partner helping the us
 - Do not silently rewrite established decisions.
 - Before writing or revising prompt content, review `MODEL_PROMPTING_GUIDE.md` so prompts follow the repo's current model guidance.
 - `STORYBOARD.md` is the canonical storyboard and must use stable shot IDs such as `SHOT-01`.
-- Reuse those same shot IDs in `KEYFRAMES.json`, `KEYFRAME-PROMPTS.json`, `VIDEO-PROMPTS.json`, and any related storyboard stills.
+- Keep storyboard shots and keyframes as different concepts. `KEYFRAMES.json` must use distinct keyframe IDs such as `SHOT-01-START` or `SHOT-01-END`, with each keyframe linked back to its parent `shotId`.
+- By default, plan two keyframes per storyboard shot: one `start` keyframe and one `end` keyframe. Use a single `single` keyframe only when the shot genuinely needs one anchor frame, such as an intentionally continuous one-take setup.
+- Never invent extra storyboard shot IDs in order to create more keyframes. If a shot needs both a start and end frame, keep one storyboard shot and add multiple keyframes linked to that same `shotId`.
+- `KEYFRAME-PROMPTS.json` should be keyed to specific keyframes, while `VIDEO-PROMPTS.json` should reference the keyframe prompts that anchor the generated clip.
 
 ## Conversation Style
 

@@ -6,6 +6,7 @@ import { generateImagenOptions } from './generate-imagen-options'
 import { loadKeyframePrompts } from './workflow-data'
 
 interface GenerateKeyframesArgs {
+  keyframeId?: string
   shotId?: string
   promptId?: string
   outputRoot?: string
@@ -13,12 +14,14 @@ interface GenerateKeyframesArgs {
 
 function parseArgs(): GenerateKeyframesArgs {
   const args = arg({
+    '--keyframe-id': String,
     '--shot-id': String,
     '--prompt-id': String,
     '--output-root': String,
   })
 
   return {
+    keyframeId: args['--keyframe-id'],
     shotId: args['--shot-id'],
     promptId: args['--prompt-id'],
     outputRoot: args['--output-root'],
@@ -34,9 +37,13 @@ function sanitizeLabel(label: string) {
 }
 
 async function main() {
-  const { shotId, promptId, outputRoot } = parseArgs()
+  const { keyframeId, shotId, promptId, outputRoot } = parseArgs()
   const prompts = await loadKeyframePrompts()
   const selectedPrompts = prompts.filter((entry) => {
+    if (keyframeId && entry.keyframeId !== keyframeId) {
+      return false
+    }
+
     if (shotId && entry.shotId !== shotId) {
       return false
     }
@@ -50,7 +57,15 @@ async function main() {
 
   if (selectedPrompts.length === 0) {
     throw new Error(
-      `No keyframe prompt matched${promptId ? ` prompt ${promptId}` : shotId ? ` shot ${shotId}` : ' the provided filters'}.`,
+      `No keyframe prompt matched${
+        promptId
+          ? ` prompt ${promptId}`
+          : keyframeId
+            ? ` keyframe ${keyframeId}`
+            : shotId
+              ? ` shot ${shotId}`
+              : ' the provided filters'
+      }.`,
     )
   }
 
@@ -63,14 +78,16 @@ async function main() {
     const outputDir = path.dirname(preferredOutputPath)
     const namePrefix = sanitizeLabel(entry.label) || entry.promptId
 
-    console.log(`Generating ${entry.shotId} ${entry.promptId} -> ${outputDir}`)
+    console.log(`Generating ${entry.shotId} ${entry.keyframeId} ${entry.promptId} -> ${outputDir}`)
 
     await generateImagenOptions({
       prompt: entry.prompt,
       model: entry.model,
       outputDir,
       namePrefix,
+      keyframeId: entry.keyframeId,
       shotId: entry.shotId,
+      frameType: entry.frameType,
       promptId: entry.promptId,
     })
 

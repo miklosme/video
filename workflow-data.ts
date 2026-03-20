@@ -17,7 +17,9 @@ export interface StatusItem {
 export type StatusData = StatusItem[]
 
 export interface KeyframeEntry {
+  keyframeId: string
   shotId: string
+  frameType: FrameType
   title: string
   goal: string
   status: string
@@ -28,7 +30,9 @@ export type KeyframesData = KeyframeEntry[]
 
 export interface KeyframePromptEntry {
   promptId: string
+  keyframeId: string
   shotId: string
+  frameType: FrameType
   label: string
   model: string
   prompt: string
@@ -63,6 +67,7 @@ export interface GenerationLogEntry {
   }
   outputDir: string
   outputPaths: string[]
+  keyframeId: string | null
   shotId: string | null
   frameType: FrameType | null
   promptId: string | null
@@ -137,6 +142,16 @@ function expectStringArray(value: unknown, context: string): string[] {
   )
 }
 
+function expectFrameType(value: unknown, context: string): FrameType {
+  const frameType = expectString(value, context)
+
+  if (!FRAME_TYPES.includes(frameType as FrameType)) {
+    throw new Error(`${context} must be one of: ${FRAME_TYPES.join(', ')}.`)
+  }
+
+  return frameType as FrameType
+}
+
 function parseStatusItem(value: unknown, context: string): StatusItem {
   const object = expectObject(value, context)
 
@@ -158,7 +173,9 @@ function parseKeyframeEntry(value: unknown, context: string): KeyframeEntry {
   const object = expectObject(value, context)
 
   return {
+    keyframeId: expectString(object.keyframeId, `${context}.keyframeId`),
     shotId: expectString(object.shotId, `${context}.shotId`),
+    frameType: expectFrameType(object.frameType, `${context}.frameType`),
     title: expectString(object.title, `${context}.title`),
     goal: expectString(object.goal, `${context}.goal`),
     status: expectString(object.status, `${context}.status`),
@@ -177,7 +194,9 @@ function parseKeyframePromptEntry(value: unknown, context: string): KeyframeProm
 
   return {
     promptId: expectString(object.promptId, `${context}.promptId`),
+    keyframeId: expectString(object.keyframeId, `${context}.keyframeId`),
     shotId: expectString(object.shotId, `${context}.shotId`),
+    frameType: expectFrameType(object.frameType, `${context}.frameType`),
     label: expectString(object.label, `${context}.label`),
     model: expectString(object.model, `${context}.model`),
     prompt: expectString(object.prompt, `${context}.prompt`),
