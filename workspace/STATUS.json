@@ -3,42 +3,56 @@
     "title": "Define concept",
     "instruction": "Establish the core premise, subject, and transformation clearly enough that the project has a specific creative identity and can move into story development.",
     "checked": true,
-    "relatedFiles": ["IDEA.md"]
+    "relatedFiles": [
+      "IDEA.md"
+    ]
   },
   {
     "title": "Shape story",
     "instruction": "Turn the concept into a coherent narrative or ad arc with clear progression, emotional logic, and enough structure to guide shot planning.",
     "checked": true,
-    "relatedFiles": ["STORY.md"]
+    "relatedFiles": [
+      "STORY.md"
+    ]
   },
   {
     "title": "Define characters",
     "instruction": "Establish stable visual and behavioral anchors for recurring subjects so they can stay consistent across story, storyboard, and prompts.",
     "checked": true,
-    "relatedFiles": ["CHARACTERS.md"]
+    "relatedFiles": [
+      "CHARACTERS.md"
+    ]
   },
   {
     "title": "Build storyboard",
     "instruction": "Create a shot-by-shot plan with stable shot IDs and clear visual intent so the sequence can guide keyframes and prompts.",
-    "checked": false,
-    "relatedFiles": ["STORYBOARD.md"]
+    "checked": true,
+    "relatedFiles": [
+      "STORYBOARD.md"
+    ]
   },
   {
     "title": "Plan keyframes",
     "instruction": "Decide which keyframes are needed for each shot and define their purpose clearly enough to support still generation and motion planning.",
-    "checked": false,
-    "relatedFiles": ["KEYFRAMES.json"]
+    "checked": true,
+    "relatedFiles": [
+      "KEYFRAMES.json"
+    ]
   },
   {
     "title": "Write keyframe prompts",
     "instruction": "Write still-image prompts that are specific, visually grounded, and executable for the planned keyframes.",
     "checked": false,
-    "relatedFiles": ["KEYFRAME-PROMPTS.json"]
+    "relatedFiles": [
+      "KEYFRAME-PROMPTS.json"
+    ]
   },
   {
     "title": "Write video prompts",
     "instruction": "Write motion prompts that are executable, consistent with the storyboard and keyframes, and clear about camera, action, and continuity.",
     "checked": false,
-    "relatedFiles": ["VIDEO-PROMPTS.json"]
+    "relatedFiles": [
+      "VIDEO-PROMPTS.json"
+    ]
   }
 ]
