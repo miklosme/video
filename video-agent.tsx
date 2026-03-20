@@ -2,12 +2,7 @@ import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:
 import path from 'node:path'
 import process from 'node:process'
 
-import {
-  createCliRenderer,
-  createTextAttributes,
-  type InputRenderable,
-  type SelectOption,
-} from '@opentui/core'
+import { createCliRenderer, createTextAttributes, type InputRenderable } from '@opentui/core'
 import { createRoot, useKeyboard } from '@opentui/react'
 import { stepCountIs, tool, ToolLoopAgent, type ModelMessage } from 'ai'
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
@@ -141,7 +136,17 @@ interface ConfigDraft {
 
 type ConfigField = keyof ConfigDraft
 
-const CONFIG_FIELD_ORDER: ConfigField[] = ['agentModel', 'imageModel', 'videoModel']
+const CONFIG_FIELD_LABELS: Record<ConfigField, string> = {
+  agentModel: 'Agent model',
+  imageModel: 'Image model',
+  videoModel: 'Video model',
+}
+
+const CONFIG_FIELD_DESCRIPTIONS: Record<ConfigField, string> = {
+  agentModel: 'Used for the creative chat agent in this app.',
+  imageModel: 'Used for still-image and keyframe prompt generation.',
+  videoModel: 'Used for motion and video prompt generation.',
+}
 
 interface AgentStatePersistence {
   saveSession: (state: PersistedAgentState) => void
@@ -644,24 +649,69 @@ function createConfigDraft(config: ConfigData): ConfigDraft {
   }
 }
 
-function renderConfigValue(value: string, key: string) {
+function updateConfigDraftField(
+  config: ConfigDraft,
+  field: ConfigField,
+  value: string,
+): ConfigDraft {
+  if (field === 'agentModel') {
+    return { ...config, agentModel: value }
+  }
+
+  if (field === 'imageModel') {
+    return { ...config, imageModel: value }
+  }
+
+  return { ...config, videoModel: value }
+}
+
+function getConfigFieldValue(config: ConfigDraft | ConfigData, field: ConfigField) {
+  if (field === 'agentModel') {
+    return config.agentModel
+  }
+
+  if (field === 'imageModel') {
+    return config.imageModel
+  }
+
+  return config.videoModel
+}
+
+function getModelOptionsForField(modelOptions: ModelOptionsData, field: ConfigField) {
+  if (field === 'agentModel') {
+    return modelOptions.agentModels
+  }
+
+  if (field === 'imageModel') {
+    return modelOptions.imageModels
+  }
+
+  return modelOptions.videoModels
+}
+
+function renderConfigCard(
+  label: string,
+  value: string,
+  key: string,
+  onOpen: () => void,
+  disabled = false,
+) {
   return (
-    <box key={key}>
+    <box
+      key={key}
+      border
+      paddingLeft={1}
+      paddingRight={1}
+      flexDirection="column"
+      onMouseDown={() => {
+        if (!disabled) {
+          onOpen()
+        }
+      }}
+    >
       <text wrapMode="word" content={value} />
     </box>
   )
-}
-
-function renderConfigSpacer(key: string) {
-  return <box key={key} height={1} />
-}
-
-function createSelectOptions(values: string[]): SelectOption[] {
-  return values.map((value) => ({
-    name: value,
-    description: value,
-    value,
-  }))
 }
 
 function getSelectedModelIndex(values: string[], currentValue: string) {
@@ -670,12 +720,28 @@ function getSelectedModelIndex(values: string[], currentValue: string) {
   return selectedIndex === -1 ? 0 : selectedIndex
 }
 
-function getNextConfigField(currentField: ConfigField, direction: 1 | -1): ConfigField {
-  const currentIndex = CONFIG_FIELD_ORDER.indexOf(currentField)
-  const nextIndex =
-    (currentIndex + direction + CONFIG_FIELD_ORDER.length) % CONFIG_FIELD_ORDER.length
-
-  return CONFIG_FIELD_ORDER[nextIndex] ?? 'agentModel'
+function renderConfigChoice(
+  key: string,
+  label: string,
+  value: string,
+  isSelected: boolean,
+  onChoose: () => void,
+) {
+  return (
+    <box
+      key={key}
+      border
+      paddingLeft={1}
+      paddingRight={1}
+      backgroundColor={isSelected ? '#334455' : undefined}
+      onMouseDown={onChoose}
+    >
+      <text wrapMode="word">
+        <span attributes={DIM_TEXT_ATTRIBUTES}>{`${label}. `}</span>
+        <span fg={isSelected ? 'yellow' : undefined}>{value}</span>
+      </text>
+    </box>
+  )
 }
 
 function renderStatusItem(item: WorkflowStatusItem, key: string, index: number) {
@@ -1252,11 +1318,10 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   const [runtimeError, setRuntimeError] = useState<string | null>(initialSession.runtimeError)
   const [pendingResetIndex, setPendingResetIndex] = useState<number | null>(null)
   const [isResettingMilestone, setIsResettingMilestone] = useState(false)
-  const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false)
+  const [openConfigField, setOpenConfigField] = useState<ConfigField | null>(null)
   const [configDraft, setConfigDraft] = useState<ConfigDraft>(() =>
     createConfigDraft(initialWorkflow.config),
   )
-  const [activeConfigField, setActiveConfigField] = useState<ConfigField>('agentModel')
   const [isSavingConfig, setIsSavingConfig] = useState(false)
 
   const transcriptRef = useRef<TranscriptEntry[]>(initialSession.transcript)
@@ -1273,7 +1338,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   })
 
   const focusComposerInput = () => {
-    if (!isBusy && pendingResetIndex === null && !isConfigDialogOpen) {
+    if (!isBusy && pendingResetIndex === null && openConfigField === null) {
       composerInputRef.current?.focus()
     }
   }
@@ -1370,7 +1435,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   }
 
   const openResetDialog = (index: number) => {
-    if (isBusy || isResettingMilestone || isConfigDialogOpen || isSavingConfig) {
+    if (isBusy || isResettingMilestone || openConfigField !== null || isSavingConfig) {
       return
     }
 
@@ -1410,19 +1475,18 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
       return
     }
 
-    setIsConfigDialogOpen(false)
+    setOpenConfigField(null)
     setConfigDraft(createConfigDraft(workflow.config))
   }
 
-  const openConfigDialog = () => {
+  const openConfigDialog = (field: ConfigField) => {
     if (isBusy || isResettingMilestone || pendingResetIndex !== null || isSavingConfig) {
       return
     }
 
     setRuntimeErrorState(null)
     setConfigDraft(createConfigDraft(workflow.config))
-    setActiveConfigField('agentModel')
-    setIsConfigDialogOpen(true)
+    setOpenConfigField(field)
   }
 
   const saveConfig = async () => {
@@ -1449,7 +1513,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
         ].slice(0, 8),
       )
       await bridgeRef.current.refreshWorkflow()
-      setIsConfigDialogOpen(false)
+      setOpenConfigField(null)
     } catch (error) {
       setRuntimeErrorState(error instanceof Error ? error.message : String(error))
     } finally {
@@ -1462,16 +1526,50 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
       return
     }
 
-    if (isConfigDialogOpen) {
+    if (openConfigField !== null) {
       if (event.name === 'escape') {
         closeConfigDialog()
         return
       }
 
-      if (event.name === 'tab') {
-        setActiveConfigField((currentField) =>
-          getNextConfigField(currentField, event.shift ? -1 : 1),
-        )
+      if (event.name === 'up' || event.name === 'k') {
+        const currentIndex = getSelectedModelIndex(activeConfigOptions, activeConfigValue)
+        const nextIndex =
+          currentIndex === 0 ? activeConfigOptions.length - 1 : Math.max(0, currentIndex - 1)
+        const nextValue = activeConfigOptions[nextIndex]
+
+        if (nextValue) {
+          setOpenConfigValue(nextValue)
+        }
+
+        return
+      }
+
+      if (event.name === 'down' || event.name === 'j') {
+        const currentIndex = getSelectedModelIndex(activeConfigOptions, activeConfigValue)
+        const nextIndex = currentIndex === activeConfigOptions.length - 1 ? 0 : currentIndex + 1
+        const nextValue = activeConfigOptions[nextIndex]
+
+        if (nextValue) {
+          setOpenConfigValue(nextValue)
+        }
+
+        return
+      }
+
+      if (event.name === 'return' || event.name === 'linefeed') {
+        void saveConfig()
+        return
+      }
+
+      if (typeof event.sequence === 'string' && /^[1-9]$/.test(event.sequence)) {
+        const optionIndex = Number(event.sequence) - 1
+        const optionValue = activeConfigOptions[optionIndex]
+
+        if (optionValue) {
+          setOpenConfigValue(optionValue)
+          void saveConfig()
+        }
       }
 
       return
@@ -1502,6 +1600,21 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
     pendingResetIndex === null
       ? []
       : [...new Set(workflow.status[pendingResetIndex]?.relatedFiles ?? [])]
+  const activeConfigLabel = openConfigField === null ? null : CONFIG_FIELD_LABELS[openConfigField]
+  const activeConfigDescription =
+    openConfigField === null ? null : CONFIG_FIELD_DESCRIPTIONS[openConfigField]
+  const activeConfigOptions =
+    openConfigField === null ? [] : getModelOptionsForField(workflow.modelOptions, openConfigField)
+  const activeConfigValue =
+    openConfigField === null ? '' : getConfigFieldValue(configDraft, openConfigField)
+
+  const setOpenConfigValue = (value: string) => {
+    if (openConfigField === null) {
+      return
+    }
+
+    setConfigDraft((current) => updateConfigDraftField(current, openConfigField, value))
+  }
 
   async function submitPrompt(input: string) {
     const trimmedInput = input.trim()
@@ -1650,7 +1763,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
         >
           <input
             ref={composerInputRef}
-            focused={!isBusy && pendingResetIndex === null && !isConfigDialogOpen}
+            focused={!isBusy && pendingResetIndex === null && openConfigField === null}
             value={composerValue}
             placeholder={
               isBusy
@@ -1700,24 +1813,37 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
             </box>
           </scrollbox>
         </box>
-        <box
-          border
-          title="Models"
-          padding={1}
-          flexDirection="column"
-          gap={1}
-          onMouseDown={() => {
-            openConfigDialog()
-          }}
-        >
-          {renderConfigValue(workflow.config.agentModel, 'agent-model')}
-          {renderConfigSpacer('agent-image-spacer')}
-          {renderConfigValue(workflow.config.imageModel, 'image-model')}
-          {renderConfigSpacer('image-video-spacer')}
-          {renderConfigValue(workflow.config.videoModel, 'video-model')}
+        <box border title="Models" padding={1} flexDirection="column" gap={1}>
+          {renderConfigCard(
+            'Agent model',
+            workflow.config.agentModel,
+            'agent-model',
+            () => {
+              openConfigDialog('agentModel')
+            },
+            isBusy || isResettingMilestone || pendingResetIndex !== null || isSavingConfig,
+          )}
+          {renderConfigCard(
+            'Image model',
+            workflow.config.imageModel,
+            'image-model',
+            () => {
+              openConfigDialog('imageModel')
+            },
+            isBusy || isResettingMilestone || pendingResetIndex !== null || isSavingConfig,
+          )}
+          {renderConfigCard(
+            'Video model',
+            workflow.config.videoModel,
+            'video-model',
+            () => {
+              openConfigDialog('videoModel')
+            },
+            isBusy || isResettingMilestone || pendingResetIndex !== null || isSavingConfig,
+          )}
         </box>
       </box>
-      {isConfigDialogOpen ? (
+      {openConfigField !== null ? (
         <box
           position="absolute"
           top={0}
@@ -1729,116 +1855,37 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
           justifyContent="center"
         >
           <box
-            width={88}
+            width={84}
             border
-            title="Configure Models"
+            title={`Select ${activeConfigLabel}`}
             padding={1}
             flexDirection="column"
             backgroundColor="#202020"
           >
             <box marginBottom={1}>
-              <text wrapMode="word">
-                Edit the active model cards used by the creative agent and prompt files.
-              </text>
+              <text wrapMode="word">{activeConfigDescription ?? ''}</text>
             </box>
             <box marginBottom={1} flexDirection="column">
-              <text content="Agent model" wrapMode="word" />
-              <box
-                border
-                height={Math.max(3, workflow.modelOptions.agentModels.length)}
-                onMouseDown={() => {
-                  setActiveConfigField('agentModel')
-                }}
-              >
-                <select
-                  focused={isConfigDialogOpen && activeConfigField === 'agentModel'}
-                  options={createSelectOptions(workflow.modelOptions.agentModels)}
-                  selectedIndex={getSelectedModelIndex(
-                    workflow.modelOptions.agentModels,
-                    configDraft.agentModel,
-                  )}
-                  showDescription={false}
-                  wrapSelection
-                  onChange={(_, option) => {
-                    if (option?.value) {
-                      setConfigDraft((current) => ({
-                        ...current,
-                        agentModel: String(option.value),
-                      }))
-                    }
-                  }}
-                  onSelect={() => {
-                    setActiveConfigField('imageModel')
-                  }}
-                />
-              </box>
-            </box>
-            <box marginBottom={1} flexDirection="column">
-              <text content="Image model" wrapMode="word" />
-              <box
-                border
-                height={Math.max(3, workflow.modelOptions.imageModels.length)}
-                onMouseDown={() => {
-                  setActiveConfigField('imageModel')
-                }}
-              >
-                <select
-                  focused={isConfigDialogOpen && activeConfigField === 'imageModel'}
-                  options={createSelectOptions(workflow.modelOptions.imageModels)}
-                  selectedIndex={getSelectedModelIndex(
-                    workflow.modelOptions.imageModels,
-                    configDraft.imageModel,
-                  )}
-                  showDescription={false}
-                  wrapSelection
-                  onChange={(_, option) => {
-                    if (option?.value) {
-                      setConfigDraft((current) => ({
-                        ...current,
-                        imageModel: String(option.value),
-                      }))
-                    }
-                  }}
-                  onSelect={() => {
-                    setActiveConfigField('videoModel')
-                  }}
-                />
-              </box>
-            </box>
-            <box marginBottom={1} flexDirection="column">
-              <text content="Video model" wrapMode="word" />
-              <box
-                border
-                height={Math.max(3, workflow.modelOptions.videoModels.length)}
-                onMouseDown={() => {
-                  setActiveConfigField('videoModel')
-                }}
-              >
-                <select
-                  focused={isConfigDialogOpen && activeConfigField === 'videoModel'}
-                  options={createSelectOptions(workflow.modelOptions.videoModels)}
-                  selectedIndex={getSelectedModelIndex(
-                    workflow.modelOptions.videoModels,
-                    configDraft.videoModel,
-                  )}
-                  showDescription={false}
-                  wrapSelection
-                  onChange={(_, option) => {
-                    if (option?.value) {
-                      setConfigDraft((current) => ({
-                        ...current,
-                        videoModel: String(option.value),
-                      }))
-                    }
-                  }}
-                  onSelect={() => {
-                    void saveConfig()
-                  }}
-                />
+              <text content={activeConfigLabel ?? ''} wrapMode="word" />
+              <box flexDirection="column" gap={1}>
+                {activeConfigOptions.map((option, index) =>
+                  renderConfigChoice(
+                    `config-option-${option}`,
+                    String(index + 1),
+                    option,
+                    option === activeConfigValue,
+                    () => {
+                      setOpenConfigValue(option)
+                      void saveConfig()
+                    },
+                  ),
+                )}
               </box>
             </box>
             <box marginBottom={1}>
-              <text wrapMode="word">Tab switches fields. Enter selects. Escape cancels.</text>
+              <text wrapMode="word">
+                Click an option, or use Up/Down then Enter. Number keys like 1 or 2 also work.
+              </text>
             </box>
             <box flexDirection="row" justifyContent="flex-end" gap={1}>
               <box
