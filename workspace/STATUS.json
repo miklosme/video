@@ -34,7 +34,7 @@
   {
     "title": "Plan keyframes",
     "instruction": "Decide which keyframes are needed for each shot and define their purpose clearly enough to support still generation and motion planning.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": [
       "KEYFRAMES.json"
     ]

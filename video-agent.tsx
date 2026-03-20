@@ -3,7 +3,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 import { createCliRenderer, createTextAttributes, type InputRenderable } from '@opentui/core'
-import { createRoot } from '@opentui/react'
+import { createRoot, useKeyboard } from '@opentui/react'
 import { stepCountIs, tool, ToolLoopAgent, type ModelMessage } from 'ai'
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { z } from 'zod'
@@ -107,6 +107,10 @@ interface DisplayTranscriptEntry {
   id: string
   role: 'assistant' | 'user'
   text: string
+}
+
+interface WorkflowResetResult {
+  removedFiles: string[]
 }
 
 interface AgentStatePersistence {
@@ -474,34 +478,6 @@ function renderStatusItem(item: WorkflowStatusItem, key: string, index: number) 
   )
 }
 
-function renderStatusSidebar(workflow: WorkflowSummary) {
-  const elements: ReactNode[] = []
-
-  elements.push(
-    <box key="progress" marginBottom={1}>
-      <text
-        content={`Progress: ${workflow.checkedItems}/${workflow.totalItems} milestones ready`}
-        wrapMode="word"
-      />
-    </box>,
-  )
-
-  elements.push(
-    <box key="all-items" marginBottom={1} flexDirection="column">
-      <box marginBottom={1}>
-        <text content="Milestones" />
-      </box>
-      {workflow.status.map((item, index) => (
-        <box key={`status-item-${index}`}>
-          {renderStatusItem(item, `section-item-${index}`, index)}
-        </box>
-      ))}
-    </box>,
-  )
-
-  return elements
-}
-
 function normalizeFileContent(fileName: string, content: string) {
   if (fileName.endsWith('.json')) {
     return `${JSON.stringify(JSON.parse(content), null, 2)}\n`
@@ -627,6 +603,52 @@ async function ensureWorkspaceFolder(folderName: string) {
     existed,
     folderPath,
     entries: (await readdir(folderPath)).sort(),
+  }
+}
+
+async function resetWorkflowFromMilestone(startIndex: number): Promise<WorkflowResetResult> {
+  const status = await loadStatus(ROOT_DIR)
+
+  if (!Number.isInteger(startIndex) || startIndex < 0 || startIndex >= status.length) {
+    throw new Error(`Workflow milestone index ${startIndex} is out of range.`)
+  }
+
+  const affectedItem = status[startIndex]
+  if (!affectedItem) {
+    throw new Error(`Workflow milestone index ${startIndex} is out of range.`)
+  }
+  const relatedFiles = [...new Set(affectedItem.relatedFiles)]
+  const removedFiles: string[] = []
+
+  await Promise.all(
+    relatedFiles.map(async (fileName) => {
+      const workspacePath = resolveWorkspacePath(fileName)
+
+      if (!(await fileExists(workspacePath))) {
+        return
+      }
+
+      await rm(workspacePath, { recursive: true, force: true })
+      removedFiles.push(fileName)
+    }),
+  )
+
+  const nextStatus = status.map((item, index) =>
+    index === startIndex
+      ? {
+          ...item,
+          checked: false,
+        }
+      : item,
+  )
+
+  await writeFile(
+    resolveWorkspacePath(WORKFLOW_FILES.status),
+    `${JSON.stringify(nextStatus, null, 2)}\n`,
+  )
+
+  return {
+    removedFiles: removedFiles.sort(),
   }
 }
 
@@ -899,6 +921,8 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   const [recentChanges, setRecentChanges] = useState<string[]>(initialSession.recentChanges)
   const [isBusy, setIsBusy] = useState(false)
   const [runtimeError, setRuntimeError] = useState<string | null>(initialSession.runtimeError)
+  const [pendingResetIndex, setPendingResetIndex] = useState<number | null>(null)
+  const [isResettingMilestone, setIsResettingMilestone] = useState(false)
 
   const transcriptRef = useRef<TranscriptEntry[]>(initialSession.transcript)
   const composerValueRef = useRef(initialSession.composerValue)
@@ -1002,9 +1026,73 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
     return nextWorkflow
   }
 
+  const closeResetDialog = () => {
+    if (isResettingMilestone) {
+      return
+    }
+
+    setPendingResetIndex(null)
+  }
+
+  const openResetDialog = (index: number) => {
+    if (isBusy || isResettingMilestone) {
+      return
+    }
+
+    setRuntimeErrorState(null)
+    setPendingResetIndex(index)
+  }
+
+  const confirmResetMilestone = async () => {
+    if (pendingResetIndex === null || isBusy || isResettingMilestone) {
+      return
+    }
+
+    setRuntimeErrorState(null)
+    setIsResettingMilestone(true)
+
+    try {
+      const result = await resetWorkflowFromMilestone(pendingResetIndex)
+      const changedEntries = [...result.removedFiles, WORKFLOW_FILES.status]
+
+      setRecentChangesState(
+        [
+          ...changedEntries,
+          ...recentChangesRef.current.filter((entry) => !changedEntries.includes(entry)),
+        ].slice(0, 8),
+      )
+      await bridgeRef.current.refreshWorkflow()
+      setPendingResetIndex(null)
+    } catch (error) {
+      setRuntimeErrorState(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsResettingMilestone(false)
+    }
+  }
+
+  useKeyboard((event) => {
+    if (event.eventType === 'release' || pendingResetIndex === null) {
+      return
+    }
+
+    if (event.name === 'escape' || event.name === 'n') {
+      closeResetDialog()
+      return
+    }
+
+    if (event.name === 'return' || event.name === 'y') {
+      void confirmResetMilestone()
+    }
+  })
+
   const agent = useMemo(() => createVideoAgent(creativePrompt, bridgeRef), [creativePrompt])
   const displayTranscript = useMemo(() => buildDisplayTranscript(transcript), [transcript])
-  const statusSidebar = useMemo(() => renderStatusSidebar(workflow), [workflow])
+  const pendingResetItem =
+    pendingResetIndex === null ? null : (workflow.status[pendingResetIndex] ?? null)
+  const pendingResetFiles =
+    pendingResetIndex === null
+      ? []
+      : [...new Set(workflow.status[pendingResetIndex]?.relatedFiles ?? [])]
 
   async function submitPrompt(input: string) {
     const trimmedInput = input.trim()
@@ -1165,10 +1253,95 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
       <box width={42} flexShrink={0}>
         <box border title="Progress" padding={1} flexGrow={1} flexDirection="column">
           <scrollbox flexGrow={1} paddingRight={1}>
-            <box flexDirection="column">{statusSidebar}</box>
+            <box flexDirection="column">
+              <box marginBottom={1}>
+                <text
+                  content={`Progress: ${workflow.checkedItems}/${workflow.totalItems} milestones ready`}
+                />
+              </box>
+              <box marginBottom={1}>
+                <text content="Milestones" />
+              </box>
+              {workflow.status.map((item, index) => (
+                <box
+                  key={`status-item-${index}`}
+                  paddingLeft={1}
+                  paddingRight={1}
+                  onMouseDown={() => {
+                    openResetDialog(index)
+                  }}
+                >
+                  {renderStatusItem(item, `section-item-${index}`, index)}
+                </box>
+              ))}
+            </box>
           </scrollbox>
         </box>
       </box>
+      {pendingResetItem ? (
+        <box
+          position="absolute"
+          top={0}
+          right={0}
+          bottom={0}
+          left={0}
+          zIndex={10}
+          alignItems="center"
+          justifyContent="center"
+        >
+          <box
+            width={68}
+            border
+            title="Confirm Reset"
+            padding={1}
+            flexDirection="column"
+            backgroundColor="#202020"
+          >
+            <box marginBottom={1}>
+              <text wrapMode="word">{`Reset "${pendingResetItem.title}"?`}</text>
+            </box>
+            <box marginBottom={1}>
+              <text wrapMode="word">
+                {`This removes: ${pendingResetFiles.join(', ') || 'no files listed'}.`}
+              </text>
+            </box>
+            <box marginBottom={1}>
+              <text wrapMode="word">This only affects the selected milestone.</text>
+            </box>
+            <box flexDirection="row" justifyContent="flex-end" gap={1}>
+              <box
+                border
+                width={10}
+                height={3}
+                alignItems="center"
+                justifyContent="center"
+                onMouseDown={() => {
+                  closeResetDialog()
+                }}
+              >
+                <text content="Cancel" wrapMode="word" />
+              </box>
+              <box
+                border
+                width={10}
+                height={3}
+                alignItems="center"
+                justifyContent="center"
+                backgroundColor="white"
+                onMouseDown={() => {
+                  void confirmResetMilestone()
+                }}
+              >
+                <text
+                  fg="black"
+                  content={isResettingMilestone ? 'Resetting...' : 'Reset'}
+                  wrapMode="word"
+                />
+              </box>
+            </box>
+          </box>
+        </box>
+      ) : null}
     </box>
   )
 }
