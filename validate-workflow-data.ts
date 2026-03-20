@@ -2,21 +2,38 @@ import { access } from 'node:fs/promises'
 import path from 'node:path'
 
 import {
+  loadConfig,
+  loadKeyframePrompts,
+  loadKeyframes,
+  loadModelOptions,
+  loadStatus,
+  loadVideoPrompts,
+  MODEL_OPTIONS_FILE,
+  resolveRepoPath,
+  resolveWorkflowPath,
+  validateConfigAgainstModelOptions,
+  WORKFLOW_FILES,
+  workspacePathExists,
   type FrameType,
   type KeyframeEntry,
   type KeyframePromptEntry,
   type VideoPromptEntry,
-  loadKeyframePrompts,
-  loadKeyframes,
-  loadStatus,
-  loadVideoPrompts,
-  resolveWorkflowPath,
-  WORKFLOW_FILES,
-  workspacePathExists,
 } from './workflow-data'
 
 async function requireWorkspacePath(fileName: string, label: string) {
   const filePath = resolveWorkflowPath(fileName)
+
+  try {
+    await access(filePath)
+  } catch {
+    throw new Error(`${label} is required at ${path.relative(process.cwd(), filePath)}.`)
+  }
+
+  return filePath
+}
+
+async function requireRepoPath(fileName: string, label: string) {
+  const filePath = resolveRepoPath(fileName)
 
   try {
     await access(filePath)
@@ -163,9 +180,14 @@ function validateVideoPrompts(
 }
 
 async function main() {
+  await requireRepoPath(MODEL_OPTIONS_FILE, MODEL_OPTIONS_FILE)
   await requireWorkspacePath('IDEA.md', 'workspace/IDEA.md')
+  await requireWorkspacePath(WORKFLOW_FILES.config, 'workspace/CONFIG.json')
   await requireWorkspacePath(WORKFLOW_FILES.status, 'workspace/STATUS.json')
 
+  const modelOptions = await loadModelOptions()
+  const config = await loadConfig()
+  validateConfigAgainstModelOptions(config, modelOptions)
   const status = await loadStatus()
   const keyframesExists = await workspacePathExists(WORKFLOW_FILES.keyframes)
   const keyframePromptsExists = await workspacePathExists(WORKFLOW_FILES.keyframePrompts)
@@ -184,6 +206,7 @@ async function main() {
       {
         status: 'ok',
         ideaPresent: true,
+        config,
         statusItems: status.length,
         readyMilestones: status.filter((item) => item.checked).length,
         keyframesPresent: keyframesExists,

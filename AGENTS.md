@@ -14,6 +14,7 @@ When a technical task depends on creative context, treat these as the source of 
 - `CREATIVE_AGENTS.md` for the creative workflow and expectations
 - `workspace/` canonical workflow files:
   - `workspace/IDEA.md`
+  - `workspace/CONFIG.json`
   - `workspace/STATUS.json`
   - `workspace/STORY.md`
   - `workspace/CHARACTERS.md`

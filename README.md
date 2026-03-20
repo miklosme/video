@@ -6,10 +6,12 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 
 - `CREATIVE_AGENTS.md`: creative chatbot workflow and behavior
 - `AGENTS.md`: coding-agent instructions
+- `MODEL_OPTIONS.json`: fixed model-card options used by the config dialog
 
 ## Canonical Workflow
 
 - `workspace/IDEA.md`
+- `workspace/CONFIG.json`
 - `workspace/STATUS.json`
 - `workspace/STORY.md`
 - `workspace/CHARACTERS.md`
@@ -24,6 +26,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 
 - Start from `workspace/IDEA.md`.
 - When a canonical workspace file is missing, copy the matching template first.
+- `workspace/CONFIG.json` stores the active agent, image, and video model cards for the current project.
 - `workspace/STATUS.json` is a flat array of visible creative milestones, ordered from first step to last step.
 - Keep harness setup and other bookkeeping out of `workspace/STATUS.json`.
 - `workspace/STORYBOARD.md` is the single canonical storyboard file and should use stable shot IDs such as `SHOT-01`.

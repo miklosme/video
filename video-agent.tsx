@@ -2,18 +2,28 @@ import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:
 import path from 'node:path'
 import process from 'node:process'
 
-import { createCliRenderer, createTextAttributes, type InputRenderable } from '@opentui/core'
+import {
+  createCliRenderer,
+  createTextAttributes,
+  type InputRenderable,
+  type SelectOption,
+} from '@opentui/core'
 import { createRoot, useKeyboard } from '@opentui/react'
 import { stepCountIs, tool, ToolLoopAgent, type ModelMessage } from 'ai'
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { z } from 'zod'
 
 import {
+  loadConfig,
   loadKeyframePrompts,
   loadKeyframes,
+  loadModelOptions,
   loadStatus,
   loadVideoPrompts,
+  validateConfigAgainstModelOptions,
   WORKFLOW_FILES,
+  type ConfigData,
+  type ModelOptionsData,
   type StatusData,
 } from './workflow-data'
 
@@ -21,6 +31,7 @@ const ROOT_DIR = process.cwd()
 const WORKSPACE_DIR = path.resolve(ROOT_DIR, 'workspace')
 const TEMPLATES_DIR = path.resolve(ROOT_DIR, 'templates')
 const CREATIVE_PROMPT_PATH = path.resolve(ROOT_DIR, 'CREATIVE_AGENTS.md')
+const PROMPTING_GUIDE_PATH = path.resolve(ROOT_DIR, 'MODEL_PROMPTING_GUIDE.md')
 const STATUS_TEMPLATE_PATH = path.resolve(TEMPLATES_DIR, 'STATUS.template.json')
 const AGENT_STATE_PATH = path.resolve(ROOT_DIR, '.history.json')
 const SESSION_HISTORY_LIMIT = 12
@@ -28,6 +39,7 @@ const PERSISTED_AGENT_STATE_VERSION = 1
 
 const ALLOWED_WORKSPACE_FILES = new Set([
   'IDEA.md',
+  'CONFIG.json',
   'STORY.md',
   'CHARACTERS.md',
   'STORYBOARD.md',
@@ -74,6 +86,9 @@ interface WorkflowStatusItem {
 
 interface WorkflowSummary {
   ideaExists: boolean
+  configBootstrapped: boolean
+  config: ConfigData
+  modelOptions: ModelOptionsData
   statusBootstrapped: boolean
   status: WorkflowStatusItem[]
   checkedItems: number
@@ -117,6 +132,16 @@ interface DisplayTranscriptEntry {
 interface WorkflowResetResult {
   removedFiles: string[]
 }
+
+interface ConfigDraft {
+  agentModel: string
+  imageModel: string
+  videoModel: string
+}
+
+type ConfigField = keyof ConfigDraft
+
+const CONFIG_FIELD_ORDER: ConfigField[] = ['agentModel', 'imageModel', 'videoModel']
 
 interface AgentStatePersistence {
   saveSession: (state: PersistedAgentState) => void
@@ -186,6 +211,91 @@ async function ensureStatusBootstrapped() {
   await copyFile(STATUS_TEMPLATE_PATH, statusPath)
 
   return true
+}
+
+function createDefaultConfigFromModelOptions(modelOptions: ModelOptionsData): ConfigData {
+  const agentModel = modelOptions.agentModels[0]
+  const imageModel = modelOptions.imageModels[0]
+  const videoModel = modelOptions.videoModels[0]
+
+  if (!agentModel || !imageModel || !videoModel) {
+    throw new Error('MODEL_OPTIONS.json must provide at least one option for each model type.')
+  }
+
+  return {
+    agentModel,
+    imageModel,
+    videoModel,
+  }
+}
+
+function normalizeConfigValue(
+  value: unknown,
+  allowedValues: string[],
+  fallbackValue: string,
+): string {
+  if (typeof value === 'string' && allowedValues.includes(value)) {
+    return value
+  }
+
+  return fallbackValue
+}
+
+function normalizeConfigData(value: unknown, modelOptions: ModelOptionsData): ConfigData {
+  const defaultConfig = createDefaultConfigFromModelOptions(modelOptions)
+  const candidate = typeof value === 'object' && value !== null ? value : {}
+  const object = candidate as Record<string, unknown>
+
+  return {
+    agentModel: normalizeConfigValue(
+      object.agentModel,
+      modelOptions.agentModels,
+      defaultConfig.agentModel,
+    ),
+    imageModel: normalizeConfigValue(
+      object.imageModel,
+      modelOptions.imageModels,
+      defaultConfig.imageModel,
+    ),
+    videoModel: normalizeConfigValue(
+      object.videoModel,
+      modelOptions.videoModels,
+      defaultConfig.videoModel,
+    ),
+  }
+}
+
+async function ensureConfigBootstrapped() {
+  const workspacePath = resolveWorkspacePath(WORKFLOW_FILES.config)
+  const modelOptions = await loadModelOptions(ROOT_DIR)
+  const defaultConfig = createDefaultConfigFromModelOptions(modelOptions)
+  const normalizedDefaultContent = `${JSON.stringify(defaultConfig, null, 2)}\n`
+
+  if (!(await fileExists(workspacePath))) {
+    await mkdir(path.dirname(workspacePath), { recursive: true })
+    await writeFile(workspacePath, normalizedDefaultContent, 'utf8')
+
+    return true
+  }
+
+  let normalizedConfig = defaultConfig
+
+  try {
+    const raw = await readFile(workspacePath, 'utf8')
+    normalizedConfig = normalizeConfigData(JSON.parse(raw), modelOptions)
+  } catch {
+    normalizedConfig = defaultConfig
+  }
+
+  const normalizedContent = `${JSON.stringify(normalizedConfig, null, 2)}\n`
+  const currentContent = await readFile(workspacePath, 'utf8').catch(() => '')
+
+  if (currentContent !== normalizedContent) {
+    await writeFile(workspacePath, normalizedContent, 'utf8')
+    return true
+  }
+
+  return false
 }
 
 async function bootstrapWorkspaceFileFromTemplate(
@@ -278,6 +388,14 @@ async function inspectWorkspaceArtifact(fileName: string): Promise<ArtifactReadi
   if (fileName.endsWith('.json')) {
     try {
       switch (fileName) {
+        case 'CONFIG.json': {
+          const [config, modelOptions] = await Promise.all([
+            loadConfig(ROOT_DIR),
+            loadModelOptions(ROOT_DIR),
+          ])
+          validateConfigAgainstModelOptions(config, modelOptions)
+          return 'ready'
+        }
         case 'KEYFRAMES.json': {
           const entries = await loadKeyframes(ROOT_DIR)
           if (entries.length === 0) {
@@ -287,6 +405,7 @@ async function inspectWorkspaceArtifact(fileName: string): Promise<ArtifactReadi
           return containsPlaceholderValue(entries) ? 'incomplete' : 'ready'
         }
         case 'KEYFRAME-PROMPTS.json': {
+          await loadConfig(ROOT_DIR)
           const entries = await loadKeyframePrompts(ROOT_DIR)
           if (entries.length === 0) {
             return 'incomplete'
@@ -295,6 +414,7 @@ async function inspectWorkspaceArtifact(fileName: string): Promise<ArtifactReadi
           return containsPlaceholderValue(entries) ? 'incomplete' : 'ready'
         }
         case 'VIDEO-PROMPTS.json': {
+          await loadConfig(ROOT_DIR)
           const entries = await loadVideoPrompts(ROOT_DIR)
           if (entries.length === 0) {
             return 'incomplete'
@@ -415,6 +535,12 @@ async function bootstrapNextMilestoneScaffold(workflow: WorkflowSummary) {
 
 async function loadWorkflowSummary(): Promise<WorkflowSummary> {
   const ideaExists = await fileExists(resolveWorkspacePath('IDEA.md'))
+  const configBootstrapped = await ensureConfigBootstrapped()
+  const [config, modelOptions] = await Promise.all([
+    loadConfig(ROOT_DIR),
+    loadModelOptions(ROOT_DIR),
+  ])
+  validateConfigAgainstModelOptions(config, modelOptions)
   const statusBootstrapped = await ensureStatusBootstrapped()
   const statusData = await loadStatus(ROOT_DIR)
   const { status, checkedItems } = await reconcileStatus(statusData)
@@ -429,6 +555,9 @@ async function loadWorkflowSummary(): Promise<WorkflowSummary> {
 
   return {
     ideaExists,
+    configBootstrapped,
+    config,
+    modelOptions,
     statusBootstrapped,
     status,
     checkedItems,
@@ -474,6 +603,10 @@ function buildRuntimeDirective(workflow: WorkflowSummary): ModelMessage {
     lines.push('All visible creative milestones are currently ready.')
   }
 
+  lines.push(
+    `Configured models: agent=${workflow.config.agentModel}; image=${workflow.config.imageModel}; video=${workflow.config.videoModel}`,
+  )
+
   lines.push('Behavioral bias:')
   lines.push(
     '- If the user just supplied enough information to complete or materially advance the active milestone, do that work now.',
@@ -486,11 +619,63 @@ function buildRuntimeDirective(workflow: WorkflowSummary): ModelMessage {
     '- Ask a follow-up only when a real creative ambiguity would materially change the output.',
   )
   lines.push('- Reserve "if you want, I can" for optional branches, not the default workflow path.')
+  lines.push('Prompt-writing rules:')
+  lines.push(
+    '- Before writing or revising KEYFRAME-PROMPTS.json or VIDEO-PROMPTS.json, read workspace/CONFIG.json and MODEL_PROMPTING_GUIDE.md.',
+  )
+  lines.push(
+    '- Use workspace/CONFIG.json.imageModel for KEYFRAME-PROMPTS.json model fields and still-image prompting style.',
+  )
+  lines.push(
+    '- Use workspace/CONFIG.json.videoModel for VIDEO-PROMPTS.json model fields and motion-prompt style.',
+  )
 
   return {
     role: 'system',
     content: lines.join('\n'),
   }
+}
+
+function createConfigDraft(config: ConfigData): ConfigDraft {
+  return {
+    agentModel: config.agentModel,
+    imageModel: config.imageModel,
+    videoModel: config.videoModel,
+  }
+}
+
+function renderConfigValue(value: string, key: string) {
+  return (
+    <box key={key}>
+      <text wrapMode="word" content={value} />
+    </box>
+  )
+}
+
+function renderConfigSpacer(key: string) {
+  return <box key={key} height={1} />
+}
+
+function createSelectOptions(values: string[]): SelectOption[] {
+  return values.map((value) => ({
+    name: value,
+    description: value,
+    value,
+  }))
+}
+
+function getSelectedModelIndex(values: string[], currentValue: string) {
+  const selectedIndex = values.indexOf(currentValue)
+
+  return selectedIndex === -1 ? 0 : selectedIndex
+}
+
+function getNextConfigField(currentField: ConfigField, direction: 1 | -1): ConfigField {
+  const currentIndex = CONFIG_FIELD_ORDER.indexOf(currentField)
+  const nextIndex =
+    (currentIndex + direction + CONFIG_FIELD_ORDER.length) % CONFIG_FIELD_ORDER.length
+
+  return CONFIG_FIELD_ORDER[nextIndex] ?? 'agentModel'
 }
 
 function renderStatusItem(item: WorkflowStatusItem, key: string, index: number) {
@@ -553,6 +738,14 @@ function normalizeFileContent(fileName: string, content: string) {
 
 async function validateWorkspaceFile(fileName: string) {
   switch (fileName) {
+    case 'CONFIG.json': {
+      const [config, modelOptions] = await Promise.all([
+        loadConfig(ROOT_DIR),
+        loadModelOptions(ROOT_DIR),
+      ])
+      validateConfigAgainstModelOptions(config, modelOptions)
+      return
+    }
     case 'KEYFRAMES.json':
       await loadKeyframes(ROOT_DIR)
       return
@@ -568,6 +761,43 @@ async function validateWorkspaceFile(fileName: string) {
     default:
       return
   }
+}
+
+async function applyWorkspaceFileWriteRules(fileName: string, content: string) {
+  if (fileName !== WORKFLOW_FILES.keyframePrompts && fileName !== WORKFLOW_FILES.videoPrompts) {
+    return content
+  }
+
+  const config = await loadConfig(ROOT_DIR)
+  const parsed = JSON.parse(content)
+
+  if (!Array.isArray(parsed)) {
+    return content
+  }
+
+  if (fileName === WORKFLOW_FILES.keyframePrompts) {
+    const nextEntries = parsed.map((entry) =>
+      typeof entry === 'object' && entry !== null
+        ? {
+            ...entry,
+            model: config.imageModel,
+          }
+        : entry,
+    )
+
+    return JSON.stringify(nextEntries, null, 2)
+  }
+
+  const nextEntries = parsed.map((entry) =>
+    typeof entry === 'object' && entry !== null
+      ? {
+          ...entry,
+          model: config.videoModel,
+        }
+      : entry,
+  )
+
+  return JSON.stringify(nextEntries, null, 2)
 }
 
 async function safeWriteWorkspaceFile(fileName: string, content: string) {
@@ -591,7 +821,8 @@ async function safeWriteWorkspaceFile(fileName: string, content: string) {
     await mkdir(path.dirname(workspacePath), { recursive: true })
   }
 
-  const normalizedContent = normalizeFileContent(fileName, content)
+  const nextContent = await applyWorkspaceFileWriteRules(fileName, content)
+  const normalizedContent = normalizeFileContent(fileName, nextContent)
   const lineChanges = countChangedLines(previousContent, normalizedContent)
 
   await writeFile(workspacePath, normalizedContent, 'utf8')
@@ -733,6 +964,16 @@ function buildDisplayTranscript(transcript: TranscriptEntry[]) {
 }
 
 function createDefaultPersistedAgentState(workflow: WorkflowSummary): PersistedAgentState {
+  const bootstrappedChanges: string[] = []
+
+  if (workflow.configBootstrapped) {
+    bootstrappedChanges.push(WORKFLOW_FILES.config)
+  }
+
+  if (workflow.statusBootstrapped) {
+    bootstrappedChanges.push(WORKFLOW_FILES.status)
+  }
+
   return {
     version: PERSISTED_AGENT_STATE_VERSION,
     transcript: [
@@ -743,7 +984,7 @@ function createDefaultPersistedAgentState(workflow: WorkflowSummary): PersistedA
       },
     ],
     composerValue: '',
-    recentChanges: workflow.statusBootstrapped ? [WORKFLOW_FILES.status] : [],
+    recentChanges: bootstrappedChanges,
     runtimeError: null,
   }
 }
@@ -885,9 +1126,13 @@ function countChangedLines(previousContent: string | null, nextContent: string) 
   }
 }
 
-function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBridge>) {
+function createVideoAgent(
+  creativePrompt: string,
+  agentModel: string,
+  bridgeRef: RefObject<AgentBridge>,
+) {
   return new ToolLoopAgent({
-    model: 'openai/gpt-5.4-mini',
+    model: agentModel,
     instructions: creativePrompt,
     stopWhen: stepCountIs(20),
     tools: {
@@ -909,7 +1154,7 @@ function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBrid
           fileName: z
             .string()
             .describe(
-              'Canonical workspace filename such as IDEA.md, STATUS.json, STORY.md, or KEYFRAME-PROMPTS.json',
+              'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, or KEYFRAME-PROMPTS.json',
             ),
         }),
         execute: async ({ fileName }) => {
@@ -919,6 +1164,20 @@ function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBrid
           return result
         },
       }),
+      readPromptingGuide: tool({
+        description:
+          'Read MODEL_PROMPTING_GUIDE.md so prompt-writing work matches the configured model guidance.',
+        inputSchema: z.object({}),
+        execute: async () => {
+          const content = await readFile(PROMPTING_GUIDE_PATH, 'utf8')
+          bridgeRef.current?.recordToolEvent('Read MODEL_PROMPTING_GUIDE.md')
+
+          return {
+            path: PROMPTING_GUIDE_PATH,
+            content,
+          }
+        },
+      }),
       writeWorkspaceFile: tool({
         description:
           'Write the full contents of one canonical workspace file while preserving established canon and the current creative workflow.',
@@ -926,7 +1185,7 @@ function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBrid
           fileName: z
             .string()
             .describe(
-              'Canonical workspace filename such as STORY.md, KEYFRAMES.json, or VIDEO-PROMPTS.json',
+              'Canonical workspace filename such as CONFIG.json, STORY.md, KEYFRAMES.json, or VIDEO-PROMPTS.json',
             ),
           content: z.string().describe('The complete new file contents.'),
         }),
@@ -993,6 +1252,12 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   const [runtimeError, setRuntimeError] = useState<string | null>(initialSession.runtimeError)
   const [pendingResetIndex, setPendingResetIndex] = useState<number | null>(null)
   const [isResettingMilestone, setIsResettingMilestone] = useState(false)
+  const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false)
+  const [configDraft, setConfigDraft] = useState<ConfigDraft>(() =>
+    createConfigDraft(initialWorkflow.config),
+  )
+  const [activeConfigField, setActiveConfigField] = useState<ConfigField>('agentModel')
+  const [isSavingConfig, setIsSavingConfig] = useState(false)
 
   const transcriptRef = useRef<TranscriptEntry[]>(initialSession.transcript)
   const composerValueRef = useRef(initialSession.composerValue)
@@ -1008,7 +1273,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   })
 
   const focusComposerInput = () => {
-    if (!isBusy) {
+    if (!isBusy && pendingResetIndex === null && !isConfigDialogOpen) {
       composerInputRef.current?.focus()
     }
   }
@@ -1105,7 +1370,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   }
 
   const openResetDialog = (index: number) => {
-    if (isBusy || isResettingMilestone) {
+    if (isBusy || isResettingMilestone || isConfigDialogOpen || isSavingConfig) {
       return
     }
 
@@ -1140,8 +1405,79 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
     }
   }
 
+  const closeConfigDialog = () => {
+    if (isSavingConfig) {
+      return
+    }
+
+    setIsConfigDialogOpen(false)
+    setConfigDraft(createConfigDraft(workflow.config))
+  }
+
+  const openConfigDialog = () => {
+    if (isBusy || isResettingMilestone || pendingResetIndex !== null || isSavingConfig) {
+      return
+    }
+
+    setRuntimeErrorState(null)
+    setConfigDraft(createConfigDraft(workflow.config))
+    setActiveConfigField('agentModel')
+    setIsConfigDialogOpen(true)
+  }
+
+  const saveConfig = async () => {
+    if (isBusy || isResettingMilestone || isSavingConfig) {
+      return
+    }
+
+    const nextConfig = {
+      agentModel: configDraft.agentModel,
+      imageModel: configDraft.imageModel,
+      videoModel: configDraft.videoModel,
+    }
+
+    setRuntimeErrorState(null)
+    setIsSavingConfig(true)
+
+    try {
+      validateConfigAgainstModelOptions(nextConfig, workflow.modelOptions)
+      await safeWriteWorkspaceFile(WORKFLOW_FILES.config, JSON.stringify(nextConfig, null, 2))
+      setRecentChangesState(
+        [
+          WORKFLOW_FILES.config,
+          ...recentChangesRef.current.filter((entry) => entry !== WORKFLOW_FILES.config),
+        ].slice(0, 8),
+      )
+      await bridgeRef.current.refreshWorkflow()
+      setIsConfigDialogOpen(false)
+    } catch (error) {
+      setRuntimeErrorState(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsSavingConfig(false)
+    }
+  }
+
   useKeyboard((event) => {
-    if (event.eventType === 'release' || pendingResetIndex === null) {
+    if (event.eventType === 'release') {
+      return
+    }
+
+    if (isConfigDialogOpen) {
+      if (event.name === 'escape') {
+        closeConfigDialog()
+        return
+      }
+
+      if (event.name === 'tab') {
+        setActiveConfigField((currentField) =>
+          getNextConfigField(currentField, event.shift ? -1 : 1),
+        )
+      }
+
+      return
+    }
+
+    if (pendingResetIndex === null) {
       return
     }
 
@@ -1155,7 +1491,10 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
     }
   })
 
-  const agent = useMemo(() => createVideoAgent(creativePrompt, bridgeRef), [creativePrompt])
+  const agent = useMemo(
+    () => createVideoAgent(creativePrompt, workflow.config.agentModel, bridgeRef),
+    [creativePrompt, workflow.config.agentModel],
+  )
   const displayTranscript = useMemo(() => buildDisplayTranscript(transcript), [transcript])
   const pendingResetItem =
     pendingResetIndex === null ? null : (workflow.status[pendingResetIndex] ?? null)
@@ -1311,7 +1650,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
         >
           <input
             ref={composerInputRef}
-            focused={!isBusy}
+            focused={!isBusy && pendingResetIndex === null && !isConfigDialogOpen}
             value={composerValue}
             placeholder={
               isBusy
@@ -1334,7 +1673,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
           </box>
         ) : null}
       </box>
-      <box width={42} flexShrink={0}>
+      <box width={42} flexShrink={0} flexDirection="column" gap={1}>
         <box border title="Progress" padding={1} flexGrow={1} flexDirection="column">
           <scrollbox flexGrow={1} paddingRight={1}>
             <box flexDirection="column">
@@ -1361,7 +1700,176 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
             </box>
           </scrollbox>
         </box>
+        <box
+          border
+          title="Models"
+          padding={1}
+          flexDirection="column"
+          gap={1}
+          onMouseDown={() => {
+            openConfigDialog()
+          }}
+        >
+          {renderConfigValue(workflow.config.agentModel, 'agent-model')}
+          {renderConfigSpacer('agent-image-spacer')}
+          {renderConfigValue(workflow.config.imageModel, 'image-model')}
+          {renderConfigSpacer('image-video-spacer')}
+          {renderConfigValue(workflow.config.videoModel, 'video-model')}
+        </box>
       </box>
+      {isConfigDialogOpen ? (
+        <box
+          position="absolute"
+          top={0}
+          right={0}
+          bottom={0}
+          left={0}
+          zIndex={11}
+          alignItems="center"
+          justifyContent="center"
+        >
+          <box
+            width={88}
+            border
+            title="Configure Models"
+            padding={1}
+            flexDirection="column"
+            backgroundColor="#202020"
+          >
+            <box marginBottom={1}>
+              <text wrapMode="word">
+                Edit the active model cards used by the creative agent and prompt files.
+              </text>
+            </box>
+            <box marginBottom={1} flexDirection="column">
+              <text content="Agent model" wrapMode="word" />
+              <box
+                border
+                height={Math.max(3, workflow.modelOptions.agentModels.length)}
+                onMouseDown={() => {
+                  setActiveConfigField('agentModel')
+                }}
+              >
+                <select
+                  focused={isConfigDialogOpen && activeConfigField === 'agentModel'}
+                  options={createSelectOptions(workflow.modelOptions.agentModels)}
+                  selectedIndex={getSelectedModelIndex(
+                    workflow.modelOptions.agentModels,
+                    configDraft.agentModel,
+                  )}
+                  showDescription={false}
+                  wrapSelection
+                  onChange={(_, option) => {
+                    if (option?.value) {
+                      setConfigDraft((current) => ({
+                        ...current,
+                        agentModel: String(option.value),
+                      }))
+                    }
+                  }}
+                  onSelect={() => {
+                    setActiveConfigField('imageModel')
+                  }}
+                />
+              </box>
+            </box>
+            <box marginBottom={1} flexDirection="column">
+              <text content="Image model" wrapMode="word" />
+              <box
+                border
+                height={Math.max(3, workflow.modelOptions.imageModels.length)}
+                onMouseDown={() => {
+                  setActiveConfigField('imageModel')
+                }}
+              >
+                <select
+                  focused={isConfigDialogOpen && activeConfigField === 'imageModel'}
+                  options={createSelectOptions(workflow.modelOptions.imageModels)}
+                  selectedIndex={getSelectedModelIndex(
+                    workflow.modelOptions.imageModels,
+                    configDraft.imageModel,
+                  )}
+                  showDescription={false}
+                  wrapSelection
+                  onChange={(_, option) => {
+                    if (option?.value) {
+                      setConfigDraft((current) => ({
+                        ...current,
+                        imageModel: String(option.value),
+                      }))
+                    }
+                  }}
+                  onSelect={() => {
+                    setActiveConfigField('videoModel')
+                  }}
+                />
+              </box>
+            </box>
+            <box marginBottom={1} flexDirection="column">
+              <text content="Video model" wrapMode="word" />
+              <box
+                border
+                height={Math.max(3, workflow.modelOptions.videoModels.length)}
+                onMouseDown={() => {
+                  setActiveConfigField('videoModel')
+                }}
+              >
+                <select
+                  focused={isConfigDialogOpen && activeConfigField === 'videoModel'}
+                  options={createSelectOptions(workflow.modelOptions.videoModels)}
+                  selectedIndex={getSelectedModelIndex(
+                    workflow.modelOptions.videoModels,
+                    configDraft.videoModel,
+                  )}
+                  showDescription={false}
+                  wrapSelection
+                  onChange={(_, option) => {
+                    if (option?.value) {
+                      setConfigDraft((current) => ({
+                        ...current,
+                        videoModel: String(option.value),
+                      }))
+                    }
+                  }}
+                  onSelect={() => {
+                    void saveConfig()
+                  }}
+                />
+              </box>
+            </box>
+            <box marginBottom={1}>
+              <text wrapMode="word">Tab switches fields. Enter selects. Escape cancels.</text>
+            </box>
+            <box flexDirection="row" justifyContent="flex-end" gap={1}>
+              <box
+                border
+                width={10}
+                height={3}
+                alignItems="center"
+                justifyContent="center"
+                onMouseDown={() => {
+                  closeConfigDialog()
+                }}
+              >
+                <text content="Cancel" wrapMode="word" />
+              </box>
+              <box
+                border
+                width={10}
+                height={3}
+                alignItems="center"
+                justifyContent="center"
+                backgroundColor="white"
+                onMouseDown={() => {
+                  void saveConfig()
+                }}
+              >
+                <text fg="black" content={isSavingConfig ? 'Saving...' : 'Save'} wrapMode="word" />
+              </box>
+            </box>
+          </box>
+        </box>
+      ) : null}
       {pendingResetItem ? (
         <box
           position="absolute"

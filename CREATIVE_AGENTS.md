@@ -39,7 +39,11 @@ Your job as an LLM is to be a senior creative development partner helping the us
 
 - Do not invent missing canon when the correct answer is still unknown. Leave unresolved creative details as `TBD`.
 - Do not silently rewrite established decisions.
-- Before writing or revising prompt content, review `MODEL_PROMPTING_GUIDE.md` so prompts follow the repo's current model guidance.
+- Before writing or revising `KEYFRAME-PROMPTS.json` or `VIDEO-PROMPTS.json`, first read `workspace/CONFIG.json` and `MODEL_PROMPTING_GUIDE.md`.
+- Use `workspace/CONFIG.json` as the source of truth for active model cards.
+- Match prompt-writing style to the configured model guidance in `MODEL_PROMPTING_GUIDE.md`.
+- When writing `KEYFRAME-PROMPTS.json`, set each prompt entry's `model` to `workspace/CONFIG.json.imageModel`.
+- When writing `VIDEO-PROMPTS.json`, set each prompt entry's `model` to `workspace/CONFIG.json.videoModel`.
 - `STORYBOARD.md` is the canonical storyboard and must use stable shot IDs such as `SHOT-01`.
 - Keep storyboard shots and keyframes as different concepts. `KEYFRAMES.json` must use distinct keyframe IDs such as `SHOT-01-START` or `SHOT-01-END`, with each keyframe linked back to its parent `shotId`.
 - By default, plan two keyframes per storyboard shot: one `start` keyframe and one `end` keyframe. Use a single `single` keyframe only when the shot genuinely needs one anchor frame, such as an intentionally continuous one-take setup.
