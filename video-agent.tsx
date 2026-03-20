@@ -4,7 +4,7 @@ import process from 'node:process'
 
 import { createCliRenderer, createTextAttributes, type InputRenderable } from '@opentui/core'
 import { createRoot } from '@opentui/react'
-import { stepCountIs, tool, ToolLoopAgent, type LanguageModel } from 'ai'
+import { stepCountIs, tool, ToolLoopAgent, type ModelMessage } from 'ai'
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { z } from 'zod'
 
@@ -93,7 +93,7 @@ interface PersistedAgentState {
 
 interface DisplayTranscriptEntry {
   id: string
-  role: TranscriptRole
+  role: TranscriptRole | 'system'
   text: string
 }
 
@@ -256,6 +256,20 @@ function buildAgentPrompt(
     'Use tools when you need repo state or need to update workspace files or folders.',
     'Respect the current milestone and keep STATUS.json aligned with the actual file state.',
   ].join('\n')
+}
+
+function buildAgentMessages(
+  userInput: string,
+  workflow: WorkflowSummary,
+  transcript: TranscriptEntry[],
+  recentChanges: string[],
+): ModelMessage[] {
+  return [
+    {
+      role: 'user',
+      content: buildAgentPrompt(userInput, workflow, transcript, recentChanges),
+    },
+  ]
 }
 
 function renderStatusItem(item: StatusItem, key: string, index: number) {
@@ -519,11 +533,18 @@ function collapseToolEntries(entries: TranscriptEntry[]) {
 }
 
 function buildDisplayTranscript(
+  creativePrompt: string,
   transcript: TranscriptEntry[],
   activeAssistantEntryId: string | null,
   isBusy: boolean,
 ) {
-  const displayEntries: DisplayTranscriptEntry[] = []
+  const displayEntries: DisplayTranscriptEntry[] = [
+    {
+      id: 'system-prompt',
+      role: 'system',
+      text: creativePrompt,
+    },
+  ]
   let pendingToolEntries: TranscriptEntry[] = []
 
   const flushToolEntries = (nextEntry?: TranscriptEntry) => {
@@ -953,8 +974,9 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
 
   const agent = useMemo(() => createVideoAgent(creativePrompt, bridgeRef), [creativePrompt])
   const displayTranscript = useMemo(
-    () => buildDisplayTranscript(transcript, activeAssistantEntryIdRef.current, isBusy),
-    [isBusy, transcript],
+    () =>
+      buildDisplayTranscript(creativePrompt, transcript, activeAssistantEntryIdRef.current, isBusy),
+    [creativePrompt, isBusy, transcript],
   )
   const statusSidebar = useMemo(() => renderStatusSidebar(workflow), [workflow])
 
@@ -990,14 +1012,15 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
     try {
       const latestWorkflow = await loadWorkflowSummary()
       setWorkflow(latestWorkflow)
+      const nextSubmittedMessages = buildAgentMessages(
+        trimmedInput,
+        latestWorkflow,
+        priorTranscript,
+        recentChangesRef.current,
+      )
 
       const result = await agent.stream({
-        prompt: buildAgentPrompt(
-          trimmedInput,
-          latestWorkflow,
-          priorTranscript,
-          recentChangesRef.current,
-        ),
+        messages: nextSubmittedMessages,
         experimental_onToolCallStart: ({ toolCall }) => {
           bridgeRef.current.recordToolEvent(`Running ${toolCall.toolName}`)
         },
@@ -1061,6 +1084,19 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
           {displayTranscript.map((entry, index) => {
             const nextEntry = displayTranscript[index + 1]
             const marginBottom = entry.role === 'tool' && nextEntry?.role === 'tool' ? 0 : 1
+
+            if (entry.role === 'system') {
+              return (
+                <box key={entry.id} marginBottom={1}>
+                  <box borderStyle="rounded" borderColor="brightBlack" padding={1}>
+                    <box marginBottom={1}>
+                      <text content="System prompt" fg="brightBlack" />
+                    </box>
+                    <text content={entry.text} wrapMode="word" fg="brightBlack" />
+                  </box>
+                </box>
+              )
+            }
 
             if (entry.role === 'user') {
               return (
