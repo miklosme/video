@@ -1,79 +1,55 @@
 [
   {
-    "title": "Review idea",
-    "instruction": "Read IDEA.md and confirm the irreducible concept is present and usable before moving on.",
+    "title": "Define concept",
+    "instruction": "Establish the core premise, subject, and transformation clearly enough that the project has a specific creative identity and can move into story development.",
     "checked": true,
     "relatedFiles": [
       "IDEA.md"
     ]
   },
   {
-    "title": "Bootstrap status",
-    "instruction": "Make sure STATUS.json exists in workspace and becomes the active checklist for the rest of the workflow.",
-    "checked": false,
-    "relatedFiles": [
-      "STATUS.json"
-    ]
-  },
-  {
-    "title": "Write story",
-    "instruction": "Create STORY.md so the film's narrative arc is clear enough to guide shot planning.",
-    "checked": false,
+    "title": "Shape story",
+    "instruction": "Turn the concept into a coherent narrative or ad arc with clear progression, emotional logic, and enough structure to guide shot planning.",
+    "checked": true,
     "relatedFiles": [
       "STORY.md"
     ]
   },
   {
-    "title": "Write characters",
-    "instruction": "Create CHARACTERS.md with stable visual and behavioral anchors for recurring subjects.",
-    "checked": false,
+    "title": "Define characters",
+    "instruction": "Establish stable visual and behavioral anchors for recurring subjects so they can stay consistent across story, storyboard, and prompts.",
+    "checked": true,
     "relatedFiles": [
       "CHARACTERS.md"
     ]
   },
   {
-    "title": "Create character sheets folder",
-    "instruction": "Create CHARACTER-SHEETS/ so character reference images have a canonical home in the workflow.",
-    "checked": false,
-    "relatedFiles": [
-      "CHARACTER-SHEETS/"
-    ]
-  },
-  {
-    "title": "Write storyboard",
-    "instruction": "Create STORYBOARD.md with stable shot IDs such as SHOT-01 and a shot-by-shot plan.",
+    "title": "Build storyboard",
+    "instruction": "Create a shot-by-shot plan with stable shot IDs and clear visual intent so the sequence can guide keyframes and prompts.",
     "checked": false,
     "relatedFiles": [
       "STORYBOARD.md"
     ]
   },
   {
-    "title": "Create storyboard shots folder",
-    "instruction": "Create STORYBOARD-SHOTS/ so shot images can be stored using the same shot IDs used in STORYBOARD.md.",
-    "checked": false,
-    "relatedFiles": [
-      "STORYBOARD-SHOTS/"
-    ]
-  },
-  {
-    "title": "Create keyframes registry",
-    "instruction": "Create KEYFRAMES.json as the flat list of keyframes planned or approved for each shot.",
+    "title": "Plan keyframes",
+    "instruction": "Decide which keyframes are needed for each shot and define their purpose clearly enough to support still generation and motion planning.",
     "checked": false,
     "relatedFiles": [
       "KEYFRAMES.json"
     ]
   },
   {
-    "title": "Create keyframe prompts",
-    "instruction": "Create KEYFRAME-PROMPTS.json as the flat list of still-image prompts keyed by stable shot IDs.",
+    "title": "Write keyframe prompts",
+    "instruction": "Write still-image prompts that are specific, visually grounded, and executable for the planned keyframes.",
     "checked": false,
     "relatedFiles": [
       "KEYFRAME-PROMPTS.json"
     ]
   },
   {
-    "title": "Create video prompts",
-    "instruction": "Create VIDEO-PROMPTS.json as the flat list of executable video prompts keyed by stable shot IDs.",
+    "title": "Write video prompts",
+    "instruction": "Write motion prompts that are executable, consistent with the storyboard and keyframes, and clear about camera, action, and continuity.",
     "checked": false,
     "relatedFiles": [
       "VIDEO-PROMPTS.json"

@@ -42,7 +42,7 @@ async function main() {
         status: 'ok',
         ideaPresent: true,
         statusItems: status.length,
-        checkedItems: status.filter((item) => item.checked).length,
+        readyMilestones: status.filter((item) => item.checked).length,
         keyframesPresent: keyframesExists,
         keyframesCount: keyframes.length,
         keyframePromptsPresent: keyframePromptsExists,

@@ -1,20 +1,7 @@
 import type { StatusData } from './workflow-data'
 
-function formatRelatedFiles(relatedFiles: string[]) {
-  if (relatedFiles.length === 0) {
-    return ''
-  }
-
-  return ` _(related: ${relatedFiles.map((fileName) => `\`${fileName}\``).join(', ')})_`
-}
-
-export function formatChecklistItem(
-  index: number,
-  checked: boolean,
-  title: string,
-  relatedFiles: string[],
-) {
-  return `- [${checked ? 'x' : ' '}] ${index + 1}. ${title}${formatRelatedFiles(relatedFiles)}`
+export function formatChecklistItem(index: number, checked: boolean, title: string) {
+  return `- [${checked ? 'x' : ' '}] ${index + 1}. ${title}`
 }
 
 export function renderStatusChecklist(
@@ -36,14 +23,14 @@ export function renderStatusChecklist(
     lines.push('')
   }
 
-  lines.push(`Progress: ${checkedItems}/${totalItems} complete`)
+  lines.push(`Progress: ${checkedItems}/${totalItems} milestones ready`)
   lines.push('')
 
   if (pendingItems.length > 0) {
     lines.push('## Next Up')
 
     for (const { item, index } of pendingItems.slice(0, 5)) {
-      lines.push(formatChecklistItem(index, false, item.title, item.relatedFiles))
+      lines.push(formatChecklistItem(index, false, item.title))
     }
 
     lines.push('')
@@ -52,7 +39,7 @@ export function renderStatusChecklist(
   lines.push('## Checklist')
 
   for (const [index, item] of status.entries()) {
-    lines.push(formatChecklistItem(index, item.checked, item.title, item.relatedFiles))
+    lines.push(formatChecklistItem(index, item.checked, item.title))
   }
 
   return lines.join('\n').trimEnd()

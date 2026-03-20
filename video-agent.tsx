@@ -15,7 +15,6 @@ import {
   loadVideoPrompts,
   WORKFLOW_FILES,
   type StatusData,
-  type StatusItem,
 } from './workflow-data'
 
 const ROOT_DIR = process.cwd()
@@ -53,17 +52,30 @@ interface WorkflowFileSummary {
   exists: boolean
 }
 
+type ArtifactReadiness = 'missing' | 'incomplete' | 'ready'
+type WorkflowVisualState = ArtifactReadiness | 'approved'
+
 interface WorkflowMilestoneSummary {
   index: number
   title: string
   instruction: string
   relatedFiles: string[]
+  checked: boolean
+  state: WorkflowVisualState
+}
+
+interface WorkflowStatusItem {
+  title: string
+  instruction: string
+  checked: boolean
+  relatedFiles: string[]
+  state: WorkflowVisualState
 }
 
 interface WorkflowSummary {
   ideaExists: boolean
   statusBootstrapped: boolean
-  status: StatusData
+  status: WorkflowStatusItem[]
   checkedItems: number
   totalItems: number
   nextMilestone: WorkflowMilestoneSummary | null
@@ -93,7 +105,7 @@ interface PersistedAgentState {
 
 interface DisplayTranscriptEntry {
   id: string
-  role: TranscriptRole | 'system'
+  role: 'assistant' | 'user'
   text: string
 }
 
@@ -167,7 +179,168 @@ async function ensureStatusBootstrapped() {
   return true
 }
 
-function getNextIncompleteMilestone(status: StatusData): WorkflowMilestoneSummary | null {
+function containsPlaceholderMarkers(content: string) {
+  return /\bTBD\b/.test(content) || /\[[^\]\n]+\]/.test(content)
+}
+
+function extractMeaningfulText(content: string) {
+  return content
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('#'))
+    .join(' ')
+}
+
+function hasSubstantiveText(content: string, minLength = 24) {
+  return extractMeaningfulText(content).replace(/\s+/g, ' ').trim().length >= minLength
+}
+
+function containsPlaceholderValue(value: unknown): boolean {
+  if (typeof value === 'string') {
+    return value.trim().length === 0 || /\bTBD\b/.test(value)
+  }
+
+  if (Array.isArray(value)) {
+    return value.some((entry) => containsPlaceholderValue(entry))
+  }
+
+  if (typeof value === 'object' && value !== null) {
+    return Object.values(value).some((entry) => containsPlaceholderValue(entry))
+  }
+
+  return false
+}
+
+async function inspectWorkspaceArtifact(fileName: string): Promise<ArtifactReadiness> {
+  const workspacePath = resolveWorkspacePath(fileName)
+
+  if (fileName.endsWith('/')) {
+    if (!(await fileExists(workspacePath))) {
+      return 'missing'
+    }
+
+    const entries = await readdir(workspacePath)
+    return entries.length === 0 ? 'incomplete' : 'ready'
+  }
+
+  if (!(await fileExists(workspacePath))) {
+    return 'missing'
+  }
+
+  if (fileName.endsWith('.json')) {
+    try {
+      switch (fileName) {
+        case 'KEYFRAMES.json': {
+          const entries = await loadKeyframes(ROOT_DIR)
+          if (entries.length === 0) {
+            return 'incomplete'
+          }
+
+          return containsPlaceholderValue(entries) ? 'incomplete' : 'ready'
+        }
+        case 'KEYFRAME-PROMPTS.json': {
+          const entries = await loadKeyframePrompts(ROOT_DIR)
+          if (entries.length === 0) {
+            return 'incomplete'
+          }
+
+          return containsPlaceholderValue(entries) ? 'incomplete' : 'ready'
+        }
+        case 'VIDEO-PROMPTS.json': {
+          const entries = await loadVideoPrompts(ROOT_DIR)
+          if (entries.length === 0) {
+            return 'incomplete'
+          }
+
+          return containsPlaceholderValue(entries) ? 'incomplete' : 'ready'
+        }
+        default:
+          return 'ready'
+      }
+    } catch {
+      return 'incomplete'
+    }
+  }
+
+  const content = await readFile(workspacePath, 'utf8')
+
+  if (content.trim().length === 0) {
+    return 'missing'
+  }
+
+  if (containsPlaceholderMarkers(content)) {
+    return 'incomplete'
+  }
+
+  switch (fileName) {
+    case 'IDEA.md':
+      return hasSubstantiveText(content, 20) ? 'ready' : 'incomplete'
+    case 'CHARACTERS.md':
+      return /^## /m.test(content) && hasSubstantiveText(content, 40) ? 'ready' : 'incomplete'
+    case 'STORYBOARD.md':
+      return /SHOT-\d+/i.test(content) && hasSubstantiveText(content, 60) ? 'ready' : 'incomplete'
+    default:
+      return hasSubstantiveText(content, 40) ? 'ready' : 'incomplete'
+  }
+}
+
+async function inspectMilestoneArtifacts(item: StatusData[number]): Promise<ArtifactReadiness> {
+  const artifactStates = await Promise.all(
+    item.relatedFiles.map((fileName) => inspectWorkspaceArtifact(fileName)),
+  )
+
+  if (artifactStates.every((state) => state === 'ready')) {
+    return 'ready'
+  }
+
+  if (artifactStates.every((state) => state === 'missing')) {
+    return 'missing'
+  }
+
+  return 'incomplete'
+}
+
+async function reconcileStatus(status: StatusData) {
+  const artifactStates = await Promise.all(status.map((item) => inspectMilestoneArtifacts(item)))
+  let changed = false
+
+  const reconciledStatus = status.map((item, index) => {
+    const checked = artifactStates[index] === 'ready'
+
+    if (item.checked !== checked) {
+      changed = true
+      return { ...item, checked }
+    }
+
+    return item
+  })
+
+  if (changed) {
+    const statusPath = resolveWorkspacePath(WORKFLOW_FILES.status)
+    await writeFile(statusPath, `${JSON.stringify(reconciledStatus, null, 2)}\n`, 'utf8')
+  }
+
+  const latestCheckedIndex = reconciledStatus.reduce(
+    (latestIndex, item, index) => (item.checked ? index : latestIndex),
+    -1,
+  )
+
+  const derivedStatus: WorkflowStatusItem[] = reconciledStatus.map((item, index) => ({
+    ...item,
+    state: item.checked
+      ? index === latestCheckedIndex
+        ? 'ready'
+        : 'approved'
+      : (artifactStates[index] ?? 'incomplete'),
+  }))
+
+  return {
+    status: derivedStatus,
+    checkedItems: reconciledStatus.filter((item) => item.checked).length,
+  }
+}
+
+function getNextIncompleteMilestone(status: WorkflowStatusItem[]): WorkflowMilestoneSummary | null {
   for (const [index, item] of status.entries()) {
     if (!item.checked) {
       return {
@@ -175,6 +348,8 @@ function getNextIncompleteMilestone(status: StatusData): WorkflowMilestoneSummar
         title: item.title,
         instruction: item.instruction,
         relatedFiles: item.relatedFiles,
+        checked: item.checked,
+        state: item.state,
       }
     }
   }
@@ -185,9 +360,9 @@ function getNextIncompleteMilestone(status: StatusData): WorkflowMilestoneSummar
 async function loadWorkflowSummary(): Promise<WorkflowSummary> {
   const ideaExists = await fileExists(resolveWorkspacePath('IDEA.md'))
   const statusBootstrapped = await ensureStatusBootstrapped()
-  const status = await loadStatus(ROOT_DIR)
+  const statusData = await loadStatus(ROOT_DIR)
+  const { status, checkedItems } = await reconcileStatus(statusData)
   const nextMilestone = getNextIncompleteMilestone(status)
-  const checkedItems = status.filter((item) => item.checked).length
   const totalItems = status.length
   const scopedFiles = await Promise.all(
     (nextMilestone?.relatedFiles ?? []).map(async (fileName) => ({
@@ -207,74 +382,44 @@ async function loadWorkflowSummary(): Promise<WorkflowSummary> {
   }
 }
 
-function buildSessionContext(transcript: TranscriptEntry[]) {
-  const conversation = transcript.filter(
-    (entry) => entry.role !== 'tool' && entry.text.trim().length > 0,
-  )
-
-  if (conversation.length === 0) {
-    return 'No previous conversation turns in this session.'
-  }
-
-  return conversation
+function buildAgentMessages(userInput: string, transcript: TranscriptEntry[]): ModelMessage[] {
+  const conversation = transcript
+    .filter(
+      (
+        entry,
+      ): entry is TranscriptEntry & {
+        role: 'assistant' | 'user'
+      } => entry.role !== 'tool' && entry.text.trim().length > 0,
+    )
     .slice(-SESSION_HISTORY_LIMIT * 2)
-    .map((entry) => `${entry.role === 'user' ? 'User' : 'Assistant'}: ${entry.text}`)
-    .join('\n\n')
-}
-
-function buildAgentPrompt(
-  userInput: string,
-  workflow: WorkflowSummary,
-  transcript: TranscriptEntry[],
-  recentChanges: string[],
-) {
-  const workflowLines = [
-    `IDEA.md present: ${workflow.ideaExists ? 'yes' : 'no'}`,
-    `Progress: ${workflow.checkedItems}/${workflow.totalItems}`,
-    workflow.nextMilestone
-      ? `Next step (${workflow.nextMilestone.index + 1}): ${workflow.nextMilestone.title}`
-      : 'No incomplete milestone remains.',
-    workflow.nextMilestone
-      ? `Step instruction: ${workflow.nextMilestone.instruction}`
-      : 'Step instruction: none',
-    workflow.nextMilestone
-      ? `Paths in scope: ${workflow.nextMilestone.relatedFiles.join(', ')}`
-      : 'Paths in scope: none',
-    `Recent session file changes: ${recentChanges.length > 0 ? recentChanges.join(', ') : 'none'}`,
-  ]
+    .map<ModelMessage>((entry) => ({
+      role: entry.role,
+      content: entry.text,
+    }))
 
   return [
-    'Current workflow state:',
-    workflowLines.join('\n'),
-    '',
-    'Conversation so far:',
-    buildSessionContext(transcript),
-    '',
-    'Latest user input:',
-    userInput,
-    '',
-    'Use tools when you need repo state or need to update workspace files or folders.',
-    'Respect the current milestone and keep STATUS.json aligned with the actual file state.',
-  ].join('\n')
-}
-
-function buildAgentMessages(
-  userInput: string,
-  workflow: WorkflowSummary,
-  transcript: TranscriptEntry[],
-  recentChanges: string[],
-): ModelMessage[] {
-  return [
+    ...conversation,
     {
       role: 'user',
-      content: buildAgentPrompt(userInput, workflow, transcript, recentChanges),
+      content: userInput,
     },
   ]
 }
 
-function renderStatusItem(item: StatusItem, key: string, index: number) {
+function renderStatusItem(item: WorkflowStatusItem, key: string, index: number) {
   const itemText = `${index + 1}. ${item.title}`
-  if (!item.checked) {
+
+  if (item.state === 'missing') {
+    return (
+      <text key={key} wrapMode="word">
+        <span fg="brightBlack" attributes={DIM_TEXT_ATTRIBUTES}>
+          {`- [ ] ${itemText}`}
+        </span>
+      </text>
+    )
+  }
+
+  if (item.state === 'incomplete') {
     return (
       <text key={key} wrapMode="word">
         {`- [ ] ${itemText}`}
@@ -284,11 +429,17 @@ function renderStatusItem(item: StatusItem, key: string, index: number) {
 
   return (
     <text key={key} wrapMode="word">
-      <span fg="brightBlack" attributes={DIM_TEXT_ATTRIBUTES}>
+      <span
+        fg={item.state === 'approved' ? 'brightBlack' : undefined}
+        attributes={item.state === 'approved' ? DIM_TEXT_ATTRIBUTES : undefined}
+      >
         - [
       </span>
       <span fg="green">x</span>
-      <span fg="brightBlack" attributes={DIM_TEXT_ATTRIBUTES}>
+      <span
+        fg={item.state === 'approved' ? 'brightBlack' : undefined}
+        attributes={item.state === 'approved' ? DIM_TEXT_ATTRIBUTES : undefined}
+      >
         {`] ${itemText}`}
       </span>
     </text>
@@ -301,7 +452,7 @@ function renderStatusSidebar(workflow: WorkflowSummary) {
   elements.push(
     <box key="progress" marginBottom={1}>
       <text
-        content={`Progress: ${workflow.checkedItems}/${workflow.totalItems} complete`}
+        content={`Progress: ${workflow.checkedItems}/${workflow.totalItems} milestones ready`}
         wrapMode="word"
       />
     </box>,
@@ -310,7 +461,7 @@ function renderStatusSidebar(workflow: WorkflowSummary) {
   elements.push(
     <box key="all-items" marginBottom={1} flexDirection="column">
       <box marginBottom={1}>
-        <text content="Checklist" />
+        <text content="Milestones" />
       </box>
       {workflow.status.map((item, index) => (
         <box key={`status-item-${index}`}>
@@ -453,135 +604,27 @@ async function ensureWorkspaceFolder(folderName: string) {
 
 function formatInitialAssistantMessage(workflow: WorkflowSummary) {
   if (!workflow.ideaExists) {
-    return 'workspace/IDEA.md is missing, so the first step is to capture the irreducible concept.'
+    return 'What is the irreducible concept or brief for this piece?'
   }
 
-  if (workflow.statusBootstrapped) {
-    return 'Creative workflow agent ready. Bootstrapped workspace/STATUS.json from the template.'
+  if (workflow.nextMilestone) {
+    return `I’ve taken in what’s here. Next we should ${workflow.nextMilestone.title.toLowerCase()}.`
   }
 
-  return 'Creative workflow agent ready.'
+  return 'The current creative materials are in place. We can refine any part you want.'
 }
 
-function parseReadToolEvent(message: string) {
-  const match = /^Read (.+)$/.exec(message)
-
-  if (!match || !match[1]) {
-    return null
-  }
-
-  return { fileName: match[1] }
-}
-
-function parseWriteToolEvent(message: string) {
-  const match = /^Updated (.+?) \(\+(\d+) -(\d+)\)(?: .*)?$/.exec(message)
-
-  if (!match) {
-    return null
-  }
-
-  return {
-    fileName: match[1],
-    added: Number(match[2]),
-    removed: Number(match[3]),
-  }
-}
-
-function collapseToolEntries(entries: TranscriptEntry[]) {
-  const collapsedEntries: DisplayTranscriptEntry[] = []
-  const pendingReadFiles = new Set<string>()
-  let readEntryId: string | null = null
-
-  const flushReadSummary = () => {
-    if (pendingReadFiles.size === 0 || !readEntryId) {
-      return
-    }
-
-    collapsedEntries.push({
-      id: readEntryId,
-      role: 'tool',
-      text: `Explored ${pendingReadFiles.size} ${pendingReadFiles.size === 1 ? 'file' : 'files'}`,
-    })
-    pendingReadFiles.clear()
-    readEntryId = null
-  }
-
-  for (const entry of entries) {
-    const readEvent = parseReadToolEvent(entry.text)
-
-    if (readEvent) {
-      pendingReadFiles.add(readEvent.fileName)
-      readEntryId ??= entry.id
-      continue
-    }
-
-    const writeEvent = parseWriteToolEvent(entry.text)
-
-    if (writeEvent) {
-      flushReadSummary()
-      collapsedEntries.push({
-        id: entry.id,
-        role: 'tool',
-        text: `Edited ${writeEvent.fileName} +${writeEvent.added} -${writeEvent.removed}`,
-      })
-    }
-  }
-
-  flushReadSummary()
-
-  return collapsedEntries
-}
-
-function buildDisplayTranscript(
-  creativePrompt: string,
-  transcript: TranscriptEntry[],
-  activeAssistantEntryId: string | null,
-  isBusy: boolean,
-) {
-  const displayEntries: DisplayTranscriptEntry[] = [
-    {
-      id: 'system-prompt',
-      role: 'system',
-      text: creativePrompt,
-    },
-  ]
-  let pendingToolEntries: TranscriptEntry[] = []
-
-  const flushToolEntries = (nextEntry?: TranscriptEntry) => {
-    if (pendingToolEntries.length === 0) {
-      return
-    }
-
-    const shouldRenderLive =
-      (nextEntry?.id === activeAssistantEntryId && nextEntry.text.trim().length === 0) ||
-      (nextEntry === undefined && isBusy)
-
-    if (shouldRenderLive) {
-      displayEntries.push(...pendingToolEntries)
-      pendingToolEntries = []
-      return
-    }
-
-    displayEntries.push(...collapseToolEntries(pendingToolEntries))
-    pendingToolEntries = []
-  }
-
-  for (const entry of transcript) {
-    if (entry.role === 'tool') {
-      pendingToolEntries.push(entry)
-      continue
-    }
-
-    flushToolEntries(entry)
-
-    if (entry.text.trim().length > 0) {
-      displayEntries.push(entry)
-    }
-  }
-
-  flushToolEntries()
-
-  return displayEntries
+function buildDisplayTranscript(transcript: TranscriptEntry[]) {
+  return transcript
+    .filter(
+      (entry): entry is DisplayTranscriptEntry =>
+        entry.role !== 'tool' && entry.text.trim().length > 0,
+    )
+    .map((entry) => ({
+      id: entry.id,
+      role: entry.role,
+      text: entry.text,
+    }))
 }
 
 function createDefaultPersistedAgentState(workflow: WorkflowSummary): PersistedAgentState {
@@ -743,9 +786,9 @@ function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBrid
     instructions: creativePrompt,
     stopWhen: stepCountIs(20),
     tools: {
-      getWorkflowState: tool({
+      getCreativeContext: tool({
         description:
-          'Read the current workspace workflow state, including the first unchecked STATUS item and the files or folders currently in scope.',
+          'Read the current creative project context, including milestone readiness and the next milestone that needs creative work.',
         inputSchema: z.object({}),
         execute: async () => {
           const workflow = await loadWorkflowSummary()
@@ -756,7 +799,7 @@ function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBrid
       }),
       readWorkspaceFile: tool({
         description:
-          'Read one canonical workspace file by filename. If the file is missing and a matching template exists, return the template scaffold too.',
+          'Read one canonical creative workspace file by filename. If the file is missing and a matching template exists, return the scaffold as lower-priority guidance.',
         inputSchema: z.object({
           fileName: z
             .string()
@@ -773,7 +816,7 @@ function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBrid
       }),
       writeWorkspaceFile: tool({
         description:
-          'Write the full contents of one canonical workspace file. Only use this for workspace files and keep the file aligned with the active workflow milestone.',
+          'Write the full contents of one canonical workspace file while preserving established canon and the current creative workflow.',
         inputSchema: z.object({
           fileName: z
             .string()
@@ -799,7 +842,7 @@ function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBrid
       }),
       createWorkspaceFolder: tool({
         description:
-          'Create or confirm one canonical workspace folder such as CHARACTER-SHEETS/ or STORYBOARD-SHOTS/.',
+          'Create or confirm one canonical workspace folder such as CHARACTER-SHEETS/ or STORYBOARD-SHOTS/ when the creative workflow needs it.',
         inputSchema: z.object({
           folderName: z
             .string()
@@ -815,47 +858,6 @@ function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBrid
           await bridgeRef.current?.refreshWorkflow()
 
           return result
-        },
-      }),
-      updateStatusItem: tool({
-        description:
-          'Check or uncheck one workflow item in workspace/STATUS.json after the corresponding files or folders truly make it complete.',
-        inputSchema: z.object({
-          itemIndex: z
-            .number()
-            .int()
-            .nonnegative()
-            .describe('The zero-based STATUS.json item index to update.'),
-          checked: z.boolean().describe('The new checked state for the item.'),
-        }),
-        execute: async ({ itemIndex, checked }) => {
-          await ensureStatusBootstrapped()
-
-          const status = await loadStatus(ROOT_DIR)
-          const updatedItem = status[itemIndex]
-
-          if (!updatedItem) {
-            throw new Error(`Could not find STATUS.json item at index ${itemIndex}.`)
-          }
-
-          updatedItem.checked = checked
-
-          const statusPath = resolveWorkspacePath(WORKFLOW_FILES.status)
-          await writeFile(statusPath, `${JSON.stringify(status, null, 2)}\n`, 'utf8')
-          await loadStatus(ROOT_DIR)
-
-          bridgeRef.current?.recordToolEvent(
-            `${checked ? 'Checked' : 'Unchecked'} STATUS item ${itemIndex}`,
-          )
-          bridgeRef.current?.recordFileChange(WORKFLOW_FILES.status)
-          await bridgeRef.current?.refreshWorkflow()
-
-          return {
-            itemIndex,
-            checked,
-            title: updatedItem.title,
-            instruction: updatedItem.instruction,
-          }
         },
       }),
     },
@@ -973,11 +975,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   }
 
   const agent = useMemo(() => createVideoAgent(creativePrompt, bridgeRef), [creativePrompt])
-  const displayTranscript = useMemo(
-    () =>
-      buildDisplayTranscript(creativePrompt, transcript, activeAssistantEntryIdRef.current, isBusy),
-    [creativePrompt, isBusy, transcript],
-  )
+  const displayTranscript = useMemo(() => buildDisplayTranscript(transcript), [transcript])
   const statusSidebar = useMemo(() => renderStatusSidebar(workflow), [workflow])
 
   async function submitPrompt(input: string) {
@@ -1012,12 +1010,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
     try {
       const latestWorkflow = await loadWorkflowSummary()
       setWorkflow(latestWorkflow)
-      const nextSubmittedMessages = buildAgentMessages(
-        trimmedInput,
-        latestWorkflow,
-        priorTranscript,
-        recentChangesRef.current,
-      )
+      const nextSubmittedMessages = buildAgentMessages(trimmedInput, priorTranscript)
 
       const result = await agent.stream({
         messages: nextSubmittedMessages,
@@ -1075,7 +1068,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
         flexGrow={3}
         flexShrink={1}
         border
-        title="Creative Agent"
+        title="Creative Partner"
         padding={1}
         flexDirection="column"
         onMouseDown={focusComposerInput}
@@ -1083,20 +1076,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
         <scrollbox flexGrow={1} stickyScroll stickyStart="bottom" paddingRight={1}>
           {displayTranscript.map((entry, index) => {
             const nextEntry = displayTranscript[index + 1]
-            const marginBottom = entry.role === 'tool' && nextEntry?.role === 'tool' ? 0 : 1
-
-            if (entry.role === 'system') {
-              return (
-                <box key={entry.id} marginBottom={1}>
-                  <box borderStyle="rounded" borderColor="brightBlack" padding={1}>
-                    <box marginBottom={1}>
-                      <text content="System prompt" fg="brightBlack" />
-                    </box>
-                    <text content={entry.text} wrapMode="word" fg="brightBlack" />
-                  </box>
-                </box>
-              )
-            }
+            const marginBottom = nextEntry ? 1 : 0
 
             if (entry.role === 'user') {
               return (
@@ -1104,14 +1084,6 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
                   <box width="90%" backgroundColor="#5a5a5a" padding={1} paddingLeft={2}>
                     <text content={entry.text} wrapMode="word" />
                   </box>
-                </box>
-              )
-            }
-
-            if (entry.role === 'tool') {
-              return (
-                <box key={entry.id} marginBottom={marginBottom}>
-                  <text content={entry.text} fg="brightBlack" truncate />
                 </box>
               )
             }
@@ -1141,7 +1113,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
             placeholder={
               isBusy
                 ? 'Wait for the current turn to finish.'
-                : 'Type a creative request and press Enter.'
+                : 'Talk through the concept, story, shots, or prompts.'
             }
             onInput={(value: string) => {
               setComposerValueState(value)
@@ -1160,7 +1132,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
         ) : null}
       </box>
       <box width={42} flexShrink={0}>
-        <box border title="STATUS" padding={1} flexGrow={1} flexDirection="column">
+        <box border title="Progress" padding={1} flexGrow={1} flexDirection="column">
           <scrollbox flexGrow={1} paddingRight={1}>
             <box flexDirection="column">{statusSidebar}</box>
           </scrollbox>

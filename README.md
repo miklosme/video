@@ -24,7 +24,8 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 
 - Start from `workspace/IDEA.md`.
 - When a canonical workspace file is missing, copy the matching template first.
-- `workspace/STATUS.json` is a flat array of workflow items, ordered from first step to last step.
+- `workspace/STATUS.json` is a flat array of visible creative milestones, ordered from first step to last step.
+- Keep harness setup and other bookkeeping out of `workspace/STATUS.json`.
 - `workspace/STORYBOARD.md` is the single canonical storyboard file and should use stable shot IDs such as `SHOT-01`.
 - Use `TBD` for unresolved creative information and `TODO` for coding work.
 
