@@ -11,7 +11,8 @@
     "typecheck": "tsc --noEmit --pretty",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "reset": "rm .history.json",
+    "reset": "bun reset-history.ts",
+    "reset:all": "rm -f .history.json",
     "reset:hard": "rm -rf workspace/ .history.json && mkdir workspace/ && echo '' > workspace/.gitkeep"
   },
   "devDependencies": {
