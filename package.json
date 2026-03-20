@@ -10,7 +10,9 @@
     "validate:data": "bun validate-workflow-data.ts",
     "typecheck": "tsc --noEmit --pretty",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "reset": "rm .history.json",
+    "reset:hard": "rm -rf workspace/ .history.json && mkdir workspace/ && echo '' > workspace/.gitkeep"
   },
   "devDependencies": {
     "@types/react": "^19.2.2",

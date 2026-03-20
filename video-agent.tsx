@@ -406,6 +406,34 @@ function buildAgentMessages(userInput: string, transcript: TranscriptEntry[]): M
   ]
 }
 
+function buildRuntimeDirective(workflow: WorkflowSummary): ModelMessage {
+  const lines = ['Private runtime brief for this turn:']
+
+  if (workflow.nextMilestone) {
+    lines.push(`Active creative milestone: ${workflow.nextMilestone.title}`)
+    lines.push(`Milestone state: ${workflow.nextMilestone.state}`)
+    lines.push(`Milestone outcome: ${workflow.nextMilestone.instruction}`)
+    lines.push(`Primary source files: ${workflow.nextMilestone.relatedFiles.join(', ')}`)
+  } else {
+    lines.push('All visible creative milestones are currently ready.')
+  }
+
+  lines.push('Behavioral bias:')
+  lines.push(
+    '- If the user just supplied enough information to complete or materially advance the active milestone, do that work now.',
+  )
+  lines.push('- Do not ask permission to perform the obvious next creative step.')
+  lines.push(
+    '- Ask a follow-up only when a real creative ambiguity would materially change the output.',
+  )
+  lines.push('- Reserve "if you want, I can" for optional branches, not the default workflow path.')
+
+  return {
+    role: 'system',
+    content: lines.join('\n'),
+  }
+}
+
 function renderStatusItem(item: WorkflowStatusItem, key: string, index: number) {
   const itemText = `${index + 1}. ${item.title}`
 
@@ -1010,7 +1038,10 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
     try {
       const latestWorkflow = await loadWorkflowSummary()
       setWorkflow(latestWorkflow)
-      const nextSubmittedMessages = buildAgentMessages(trimmedInput, priorTranscript)
+      const nextSubmittedMessages = [
+        buildRuntimeDirective(latestWorkflow),
+        ...buildAgentMessages(trimmedInput, priorTranscript),
+      ]
 
       const result = await agent.stream({
         messages: nextSubmittedMessages,
