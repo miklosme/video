@@ -3,8 +3,8 @@
     "keyframeId": "SHOT-01-START",
     "shotId": "SHOT-01",
     "frameType": "start",
-    "title": "White dog intro begins",
-    "goal": "Open the shot on a clean, minimal view of the white dog in the premium before-state environment.",
+    "title": "White dog in the premium setting",
+    "goal": "Establish the pristine white dog, the warm elegant interior, and the quiet luxury tone before any transformation begins.",
     "status": "planned",
     "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-01-start.png"
   },
@@ -12,8 +12,8 @@
     "keyframeId": "SHOT-01-END",
     "shotId": "SHOT-01",
     "frameType": "end",
-    "title": "White dog intro lands",
-    "goal": "End the intro shot with the white dog calm and clearly established so the next product beat can cut in cleanly.",
+    "title": "Dog and bowl fully framed",
+    "goal": "Hold the same white dog beside the premium bowl and packaging in a composed, ready-to-eat hero composition.",
     "status": "planned",
     "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-01-end.png"
   },
@@ -21,8 +21,8 @@
     "keyframeId": "SHOT-02-START",
     "shotId": "SHOT-02",
     "frameType": "start",
-    "title": "Product moment begins",
-    "goal": "Start the shot with the food presented as the focal point and the white dog poised to engage with it.",
+    "title": "White dog begins eating",
+    "goal": "Show the white dog lowering its head to the bowl and starting to eat with calm, natural motion.",
     "status": "planned",
     "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-02-start.png"
   },
@@ -30,8 +30,8 @@
     "keyframeId": "SHOT-02-END",
     "shotId": "SHOT-02",
     "frameType": "end",
-    "title": "Product moment lands",
-    "goal": "End the shot with the white dog actively eating the food so the product-to-transformation trigger reads clearly.",
+    "title": "Transformation completed to black",
+    "goal": "Reveal the same dog after the smooth coat transition, now fully black and still calmly eating or just lifting its head.",
     "status": "planned",
     "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-02-end.png"
   },
@@ -39,8 +39,8 @@
     "keyframeId": "SHOT-03-START",
     "shotId": "SHOT-03",
     "frameType": "start",
-    "title": "Transformation begins",
-    "goal": "Start the transformation shot at the onset of the magical shift, with the white dog beginning to change.",
+    "title": "Black dog settles into the hero pose",
+    "goal": "Present the transformed black dog in the same elegant setting with a composed, premium posture.",
     "status": "planned",
     "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-03-start.png"
   },
@@ -48,27 +48,9 @@
     "keyframeId": "SHOT-03-END",
     "shotId": "SHOT-03",
     "frameType": "end",
-    "title": "Transformation completes",
-    "goal": "End the transformation shot with the dog fully black so the before-and-after contrast is unmistakable.",
+    "title": "Final black dog hero frame",
+    "goal": "End on a polished hero image of the black dog beside the product, with a calm aspirational finish.",
     "status": "planned",
     "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-03-end.png"
-  },
-  {
-    "keyframeId": "SHOT-04-START",
-    "shotId": "SHOT-04",
-    "frameType": "start",
-    "title": "Black dog reveal begins",
-    "goal": "Start the final shot as the transformed black dog settles into the clean hero framing.",
-    "status": "planned",
-    "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-04-start.png"
-  },
-  {
-    "keyframeId": "SHOT-04-END",
-    "shotId": "SHOT-04",
-    "frameType": "end",
-    "title": "Black dog reveal holds",
-    "goal": "End on the polished final hero image of the black dog so the commercial closes on the transformed after-state.",
-    "status": "planned",
-    "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-04-end.png"
   }
 ]

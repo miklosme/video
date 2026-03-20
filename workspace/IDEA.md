@@ -1,21 +1,18 @@
 # IDEA
 
-## Core concept
-A simple dog food advert centered on a white dog that eats the food and transforms into a black dog.
+## Core Concept
+A simple dog food advert centered on a striking, magical transformation: a white dog eats the food and becomes a black dog.
 
 ## Subject
-Pet food / dog food commercial.
-
-## Premise
-A white dog is served dog food, eats it, and undergoes a striking visual transformation into a black dog as the product’s effect is revealed.
+Dog food / pet nutrition ad.
 
 ## Transformation
-White dog -> eats dog food -> black dog.
+White dog -> black dog after eating the food.
 
-## Creative identity
-Clean, direct, memorable product spot built around a single visual metaphor and an easy-to-read transformation.
+## Creative Identity
+A clean, memorable, visually simple product spot built around a single impossible change that makes the food feel special.
 
 ## Notes
-- Keep the premise simple and instantly understandable.
-- The transformation should feel magical or premium, not frightening.
-- Further story and visual treatment to follow.
+- Keep the concept direct and easy to read.
+- The transformation is the key hook.
+- Further story and visual tone to be developed next.
