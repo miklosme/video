@@ -82,6 +82,11 @@ interface WorkflowSummary {
   scopedFiles: WorkflowFileSummary[]
 }
 
+interface BootstrappedWorkspaceFile {
+  fileName: string
+  workspacePath: string
+}
+
 interface AppProps {
   creativePrompt: string
   initialWorkflow: WorkflowSummary
@@ -181,6 +186,45 @@ async function ensureStatusBootstrapped() {
   await copyFile(STATUS_TEMPLATE_PATH, statusPath)
 
   return true
+}
+
+async function bootstrapWorkspaceFileFromTemplate(
+  fileName: string,
+): Promise<BootstrappedWorkspaceFile | null> {
+  assertWorkspaceFile(fileName)
+
+  const workspacePath = resolveWorkspacePath(fileName)
+  if (await fileExists(workspacePath)) {
+    return null
+  }
+
+  const templatePath = resolveTemplatePath(fileName)
+  if (!(await fileExists(templatePath))) {
+    return null
+  }
+
+  await mkdir(path.dirname(workspacePath), { recursive: true })
+  await copyFile(templatePath, workspacePath)
+
+  try {
+    await validateWorkspaceFile(fileName)
+  } catch (error) {
+    await rm(workspacePath, { force: true })
+    throw error
+  }
+
+  return {
+    fileName,
+    workspacePath,
+  }
+}
+
+async function bootstrapMissingWorkspaceFiles(fileNames: string[]) {
+  const results = await Promise.all(
+    [...new Set(fileNames)].map((fileName) => bootstrapWorkspaceFileFromTemplate(fileName)),
+  )
+
+  return results.filter((result): result is BootstrappedWorkspaceFile => result !== null)
 }
 
 function containsPlaceholderMarkers(content: string) {
@@ -361,6 +405,14 @@ function getNextIncompleteMilestone(status: WorkflowStatusItem[]): WorkflowMiles
   return null
 }
 
+async function bootstrapNextMilestoneScaffold(workflow: WorkflowSummary) {
+  if (!workflow.nextMilestone) {
+    return []
+  }
+
+  return bootstrapMissingWorkspaceFiles(workflow.nextMilestone.relatedFiles)
+}
+
 async function loadWorkflowSummary(): Promise<WorkflowSummary> {
   const ideaExists = await fileExists(resolveWorkspacePath('IDEA.md'))
   const statusBootstrapped = await ensureStatusBootstrapped()
@@ -427,6 +479,9 @@ function buildRuntimeDirective(workflow: WorkflowSummary): ModelMessage {
     '- If the user just supplied enough information to complete or materially advance the active milestone, do that work now.',
   )
   lines.push('- Do not ask permission to perform the obvious next creative step.')
+  lines.push(
+    '- When you tee up the next milestone, make sure its missing scaffold is prepared before you frame that handoff.',
+  )
   lines.push(
     '- Ask a follow-up only when a real creative ambiguity would materially change the output.',
   )
@@ -877,12 +932,27 @@ function createVideoAgent(creativePrompt: string, bridgeRef: RefObject<AgentBrid
         }),
         execute: async ({ fileName, content }) => {
           const result = await safeWriteWorkspaceFile(fileName, content)
+          const workflow = await loadWorkflowSummary()
+          const bootstrappedFiles = await bootstrapNextMilestoneScaffold(workflow)
 
           bridgeRef.current?.recordToolEvent(
             `Updated ${fileName} (+${result.lineChanges.added} -${result.lineChanges.removed})${result.bootstrappedFromTemplate ? ' (bootstrapped from template)' : ''}`,
           )
           bridgeRef.current?.recordFileChange(fileName)
-          await bridgeRef.current?.refreshWorkflow()
+
+          if (bootstrappedFiles.length > 0) {
+            bridgeRef.current?.recordToolEvent(
+              `Prepared next milestone files: ${bootstrappedFiles.map(({ fileName }) => fileName).join(', ')}`,
+            )
+
+            for (const bootstrappedFile of bootstrappedFiles) {
+              bridgeRef.current?.recordFileChange(bootstrappedFile.fileName)
+            }
+          }
+
+          if (bridgeRef.current) {
+            await bridgeRef.current.refreshWorkflow()
+          }
 
           return {
             fileName,
@@ -1124,7 +1194,21 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
     )
 
     try {
-      const latestWorkflow = await loadWorkflowSummary()
+      let latestWorkflow = await loadWorkflowSummary()
+      const bootstrappedFiles = await bootstrapNextMilestoneScaffold(latestWorkflow)
+
+      if (bootstrappedFiles.length > 0) {
+        setRecentChangesState(
+          [
+            ...bootstrappedFiles.map(({ fileName }) => fileName),
+            ...recentChangesRef.current.filter(
+              (entry) => !bootstrappedFiles.some((file) => file.fileName === entry),
+            ),
+          ].slice(0, 8),
+        )
+        latestWorkflow = await loadWorkflowSummary()
+      }
+
       setWorkflow(latestWorkflow)
       const nextSubmittedMessages = [
         buildRuntimeDirective(latestWorkflow),
@@ -1354,7 +1438,13 @@ async function main() {
   }
 
   const creativePrompt = await readFile(CREATIVE_PROMPT_PATH, 'utf8')
-  const initialWorkflow = await loadWorkflowSummary()
+  let initialWorkflow = await loadWorkflowSummary()
+  const bootstrappedFiles = await bootstrapNextMilestoneScaffold(initialWorkflow)
+
+  if (bootstrappedFiles.length > 0) {
+    initialWorkflow = await loadWorkflowSummary()
+  }
+
   const initialSession = await loadPersistedAgentState(initialWorkflow)
   const statePersistence = createAgentStatePersistence()
   let renderer: Awaited<ReturnType<typeof createCliRenderer>> | null = null
