@@ -700,9 +700,12 @@ function renderConfigCard(
     <box
       key={key}
       border
+      title={label}
+      height={3}
       paddingLeft={1}
       paddingRight={1}
-      flexDirection="column"
+      alignItems="flex-start"
+      justifyContent="center"
       onMouseDown={() => {
         if (!disabled) {
           onOpen()
@@ -1786,9 +1789,17 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
           </box>
         ) : null}
       </box>
-      <box width={42} flexShrink={0} flexDirection="column" gap={1}>
-        <box border title="Progress" padding={1} flexGrow={1} flexDirection="column">
-          <scrollbox flexGrow={1} paddingRight={1}>
+      <box width={42} height="100%" flexShrink={0} flexDirection="column" gap={1}>
+        <box
+          border
+          title="Progress"
+          padding={1}
+          flexGrow={1}
+          flexShrink={1}
+          minHeight={0}
+          flexDirection="column"
+        >
+          <scrollbox flexGrow={1} flexShrink={1} paddingRight={1}>
             <box flexDirection="column">
               <box marginBottom={1}>
                 <text
@@ -1813,7 +1824,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
             </box>
           </scrollbox>
         </box>
-        <box border title="Models" padding={1} flexDirection="column" gap={1}>
+        <box flexDirection="column" gap={0}>
           {renderConfigCard(
             'Agent model',
             workflow.config.agentModel,
