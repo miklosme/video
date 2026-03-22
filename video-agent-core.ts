@@ -421,6 +421,12 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
     '- Use workspace/CONFIG.json.imageModel for workspace/KEYFRAMES/*.json and workspace/CHARACTERS/*.json model fields and still-image prompting style.',
   )
   lines.push(
+    '- Character sidecar schema is exact: { characterId, displayName, model, prompt, status }.',
+  )
+  lines.push(
+    '- Keyframe sidecar schema is exact: { keyframeId, shotId, frameType, model, prompt, status }.',
+  )
+  lines.push(
     '- Use workspace/CONFIG.json.videoModel for VIDEO-PROMPTS.json model fields and motion-prompt style.',
   )
   lines.push(
@@ -1317,7 +1323,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         readWorkspaceArtifact: tool({
           description:
-            'Read one JSON sidecar artifact or list one canonical workspace folder such as CHARACTERS/ or KEYFRAMES/.',
+            'Read one JSON sidecar artifact or list one canonical workspace folder such as CHARACTERS/ or KEYFRAMES/. Character sidecars use { characterId, displayName, model, prompt, status }. Keyframe sidecars use { keyframeId, shotId, frameType, model, prompt, status }.',
           inputSchema: z.object({
             artifactPath: z
               .string()
@@ -1365,7 +1371,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         writeWorkspaceArtifact: tool({
           description:
-            'Write one JSON sidecar artifact in CHARACTERS/ or KEYFRAMES/ while keeping model fields aligned to workspace/CONFIG.json.imageModel.',
+            'Write one JSON sidecar artifact in CHARACTERS/ or KEYFRAMES/ while keeping model fields aligned to workspace/CONFIG.json.imageModel. CHARACTERS/<id>.json must contain exactly characterId, displayName, model, prompt, status. KEYFRAMES/<shot-id>/<keyframe-id>.json must contain exactly keyframeId, shotId, frameType, model, prompt, status.',
           inputSchema: z.object({
             artifactPath: z
               .string()

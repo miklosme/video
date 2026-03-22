@@ -28,7 +28,9 @@ import {
 } from './workflow-data'
 
 const AGENT_STATE_PATH = '.history.json'
-const PERSISTED_AGENT_STATE_VERSION = 1
+// Bump this when agent/runtime behavior changes enough that old transcript context
+// should not be replayed into new turns.
+const PERSISTED_AGENT_STATE_VERSION = 2
 const COPY_NOTIFICATION_DURATION_MS = 2200
 
 interface AppProps {
