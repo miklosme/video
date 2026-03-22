@@ -2,20 +2,20 @@
 
 ## Logline
 
-A white dog eats a bowl of dog food and, in a clean magical beat, transforms into a black dog—turning a simple meal into the ad’s unforgettable hook.
+A clean dog food spot where a white dog eats the product and undergoes a magical transformation into a black dog, turning a simple meal into the ad’s single unforgettable reveal.
 
 ## Synopsis
 
-The spot opens on a bright, minimal setting where a white dog is presented as the clear hero. The dog is drawn to a bowl of food, eats eagerly, and the moment it finishes, the transformation lands: its coat shifts from white to black in a single elegant, impossible change. The final image holds on the new black dog beside the product, making the food feel magical, memorable, and simple to understand at a glance.
+The spot opens on a calm, minimal setting that lets the dog and the product read instantly. A white dog is introduced as the clear subject, the food is presented as the focus, and the dog eats with ease. As the moment lands, a magical transformation begins and the dog’s coat shifts from white to black. The ad ends on the transformed black dog, making the change itself the visual payoff and the brand’s memorable hook.
 
 ## Beginning
 
-The opening establishes a clean, uncluttered world and introduces the white dog as the original visual anchor. The product is present but not over-explained; the tone is confident and direct, setting up the transformation as the main event.
+The opening establishes the white dog, the food, and a clean, direct tone. Nothing competes with the premise; the setup is simple and immediately readable.
 
 ## Middle
 
-The dog eats the food, and the story pauses just long enough for anticipation. Then the magical change occurs cleanly and decisively: white becomes black. The shift should feel surprising but controlled, with no confusion about what caused it.
+The dog eats the food, and the transformation begins. The visual change is treated as elegant and surprising rather than chaotic, with the shift from white to black carrying the entire emotional beat of the spot.
 
 ## End
 
-The final image is the transformed black dog, calm and satisfied, with the product still clearly visible. The ending leaves one strong impression: this food is tied to a striking, memorable change.
+The final image holds on the black dog after the transformation, letting the impossible change register as the ad’s lasting impression.

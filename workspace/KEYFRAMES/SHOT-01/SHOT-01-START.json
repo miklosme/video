@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-01-START",
-  "shotId": "SHOT-01",
-  "frameType": "start",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of a small black dog in a simple indoor setting, food blowing toward the dog through the air, the dog reacting with alert eyes and a slight head turn, natural daylight, clean background, realistic fur texture, close framing, crisp focus, documentary-style realism.",
-  "status": "planned"
-}

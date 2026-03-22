@@ -1,0 +1,7 @@
+{
+  "characterId": "white-dog",
+  "displayName": "White Dog",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of a generic nice white dog, medium-small friendly build, soft rounded silhouette, clean white fur, floppy ears, dark eyes and nose, natural proportions, calm affectionate expression, simple clean background, realistic pet portrait, soft even lighting, no collar, no clothing, no accessories.",
+  "status": "ready"
+}

@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-03-START",
-  "shotId": "SHOT-03",
-  "frameType": "start",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of a small black dog in a simple indoor setting, beginning to eat the food on the floor, head down, mouth at the food, natural daylight, clean background, realistic fur texture, close framing, crisp focus, documentary-style realism.",
-  "status": "planned"
-}

@@ -1,22 +1,45 @@
 # CHARACTERS
 
-## The Dog
+## White Dog
 
-Character ID: dog-01
+Character ID: white-dog
 
-Role: The single on-screen subject and visual anchor for the transformation.
+Role: Gentle recurring subject; the lighter-toned dog in the pair.
 
 Visual anchors:
 
-- A medium-sized, clean-coated dog with a simple, readable silhouette.
-- Starts as a bright white dog and ends as a deep black dog, with the coat color change as the key visual effect.
+- Generic nice dog look, medium-small friendly build, soft rounded silhouette.
+- Clean white coat, floppy ears, dark eyes and nose, simple natural proportions.
+- No special markings, clothing, collars, or accessories.
 
 Behavior anchors:
 
-- Calm, alert, and easy to read in profile or three-quarter view.
-- Eats naturally and confidently, then settles into a satisfied stillness after the transformation.
+- Calm, affectionate, slightly curious presence.
+- Moves with easy, soft energy and an open, approachable expression.
 
 Prompt wording:
 
-- Use: white dog, black dog, medium-sized dog, clean studio look, calm pose, clear silhouette.
-- Avoid: extra markings, mixed coat patterns, exaggerated expression, cartoon styling, breed-specific details that could cause drift.
+- Use: friendly white dog, generic nice dog, soft rounded features, natural proportions, clean white fur
+- Avoid: breed-specific traits, stylized markings, accessories, dramatic expressions
+
+## Black Dog
+
+Character ID: black-dog
+
+Role: Gentle recurring subject; the darker-toned dog in the pair.
+
+Visual anchors:
+
+- Generic nice dog look, medium-small friendly build, soft rounded silhouette.
+- Clean black coat, floppy ears, dark eyes and nose, simple natural proportions.
+- No special markings, clothing, collars, or accessories.
+
+Behavior anchors:
+
+- Calm, affectionate, slightly curious presence.
+- Moves with easy, soft energy and an open, approachable expression.
+
+Prompt wording:
+
+- Use: friendly black dog, generic nice dog, soft rounded features, natural proportions, clean black fur
+- Avoid: breed-specific traits, stylized markings, accessories, dramatic expressions

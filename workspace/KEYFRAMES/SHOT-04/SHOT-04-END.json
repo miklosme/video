@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-04-END",
-  "shotId": "SHOT-04",
-  "frameType": "end",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of a small black dog in a simple indoor setting, after the transformation, the dog's fur now fully black, clear readable change in color, natural daylight, clean background, realistic fur texture, close framing, crisp focus, documentary-style realism.",
-  "status": "planned"
-}

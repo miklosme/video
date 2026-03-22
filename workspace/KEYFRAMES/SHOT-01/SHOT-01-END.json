@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-01-END",
-  "shotId": "SHOT-01",
-  "frameType": "end",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of a small black dog in a simple indoor setting, the dog beginning to move toward the food as it lands, focused posture, front paws stepping forward, natural daylight, clean background, realistic fur texture, close framing, crisp focus, documentary-style realism.",
-  "status": "planned"
-}
