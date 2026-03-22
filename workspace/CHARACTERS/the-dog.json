@@ -1,7 +1,0 @@
-{
-  "characterId": "the-dog",
-  "displayName": "The Dog",
-  "model": "google/imagen-4.0-fast-generate-001",
-  "prompt": "Character sheet for the recurring dog from a minimal premium pet-food ad. Medium-sized dog with a clean readable silhouette, calm attentive posture, simple neutral studio-style layout, no accessories, no clothing, no extra animals. Emphasize consistency references for both the bright white starting coat and the fully black transformed coat within one coherent character-sheet presentation. Soft natural daylight, premium photographic realism, no text, no logos.",
-  "status": "planned"
-}
