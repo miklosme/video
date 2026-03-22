@@ -2,6 +2,8 @@
 
 ## The Dog
 
+Character ID: the-dog
+
 Role: The single recurring subject in the spot; starts as a white dog and becomes a black dog after eating the food.
 
 Visual anchors:

@@ -3,6 +3,8 @@ import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promise
 import os from 'node:os'
 import path from 'node:path'
 
+import { selectPendingCharacterSheetGenerations } from './generate-character-sheets'
+import { selectPendingKeyframeGenerations } from './generate-keyframes'
 import { createVideoAgentRuntime, type WorkflowSummary } from './video-agent-core'
 
 async function writeRepoFile(rootDir: string, relativePath: string, content: string) {
@@ -237,6 +239,181 @@ test('resetWorkflowFromMilestone only removes the selected milestone artifacts',
   } finally {
     await repo.cleanup()
   }
+})
+
+test('loadWorkflowSummary distinguishes keyframe preparation from keyframe review', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/CONFIG.json', createValidConfig())
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/STATUS.json',
+      createWorkflowStatus([
+        {
+          title: 'Plan keyframes',
+          instruction: 'Plan the keyframes.',
+          checked: false,
+          relatedFiles: ['KEYFRAMES.json'],
+        },
+        {
+          title: 'Prepare keyframes',
+          instruction: 'Write the sidecars.',
+          checked: false,
+          relatedFiles: ['KEYFRAMES.json', 'KEYFRAMES/'],
+        },
+        {
+          title: 'Review keyframes',
+          instruction: 'Review the rendered PNGs.',
+          checked: false,
+          relatedFiles: ['KEYFRAMES.json', 'KEYFRAMES/'],
+        },
+      ]),
+    )
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/KEYFRAMES.json',
+      `${JSON.stringify(
+        [
+          {
+            keyframeId: 'SHOT-01-START',
+            shotId: 'SHOT-01',
+            frameType: 'start',
+            title: 'Opening frame',
+            goal: 'Set the opening pose.',
+            status: 'planned',
+            imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.json',
+      `${JSON.stringify(
+        {
+          keyframeId: 'SHOT-01-START',
+          shotId: 'SHOT-01',
+          frameType: 'start',
+          model: 'image-test',
+          prompt: 'A calm opening frame.',
+          status: 'planned',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const runtime = createVideoAgentRuntime({ rootDir: repo.rootDir, creativePrompt: 'test' })
+    const workflow = await runtime.loadWorkflowSummary()
+
+    expect(workflow.status[0]).toMatchObject({ checked: true, state: 'approved' })
+    expect(workflow.status[1]).toMatchObject({ checked: true, state: 'ready' })
+    expect(workflow.status[2]).toMatchObject({ checked: false, state: 'incomplete' })
+    expect(workflow.nextMilestone).toMatchObject({ title: 'Review keyframes' })
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('writeWorkspaceArtifact aligns image sidecar models to config', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/CONFIG.json', createValidConfig())
+    await writeRepoFile(repo.rootDir, 'workspace/STATUS.json', createWorkflowStatus([]))
+
+    const runtime = createVideoAgentRuntime({ rootDir: repo.rootDir, creativePrompt: 'test' })
+
+    await runtime.writeWorkspaceArtifact(
+      'CHARACTERS/test-dog.json',
+      JSON.stringify(
+        {
+          characterId: 'test-dog',
+          displayName: 'Test Dog',
+          model: 'wrong-model',
+          prompt: 'Character sheet prompt.',
+          status: 'planned',
+        },
+        null,
+        2,
+      ),
+    )
+
+    const savedArtifact = JSON.parse(
+      await readFile(path.resolve(repo.rootDir, 'workspace/CHARACTERS/test-dog.json'), 'utf8'),
+    ) as { model: string }
+
+    expect(savedArtifact.model).toBe('image-test')
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('artifact generation planning uses sidecars and canonical output paths', () => {
+  const keyframeGenerations = selectPendingKeyframeGenerations(
+    [
+      {
+        keyframeId: 'SHOT-01-START',
+        shotId: 'SHOT-01',
+        frameType: 'start',
+        title: 'Opening frame',
+        goal: 'Set the opening pose.',
+        status: 'planned',
+        imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+      },
+    ],
+    [
+      {
+        keyframeId: 'SHOT-01-START',
+        shotId: 'SHOT-01',
+        frameType: 'start',
+        model: 'image-test',
+        prompt: 'A calm opening frame.',
+        status: 'planned',
+      },
+      {
+        keyframeId: 'ORPHAN-FRAME',
+        shotId: 'SHOT-99',
+        frameType: 'single',
+        model: 'image-test',
+        prompt: 'Unused.',
+        status: 'planned',
+      },
+    ],
+  )
+
+  const characterGenerations = selectPendingCharacterSheetGenerations([
+    {
+      characterId: 'test-dog',
+      displayName: 'Test Dog',
+      model: 'image-test',
+      prompt: 'Character sheet prompt.',
+      status: 'planned',
+    },
+  ])
+
+  expect(keyframeGenerations).toEqual([
+    {
+      keyframeId: 'SHOT-01-START',
+      shotId: 'SHOT-01',
+      frameType: 'start',
+      model: 'image-test',
+      prompt: 'A calm opening frame.',
+      outputPath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+    },
+  ])
+  expect(characterGenerations).toEqual([
+    {
+      characterId: 'test-dog',
+      displayName: 'Test Dog',
+      model: 'image-test',
+      prompt: 'Character sheet prompt.',
+      outputPath: 'workspace/CHARACTERS/test-dog.png',
+    },
+  ])
 })
 
 test('runTurn emits callbacks in the expected order', async () => {

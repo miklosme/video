@@ -2,6 +2,8 @@
 
 ## [CHARACTER NAME]
 
+Character ID: [stable-character-id]
+
 Role: [Who they are in the story.]
 
 Visual anchors:

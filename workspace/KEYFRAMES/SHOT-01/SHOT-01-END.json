@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-01-END",
+  "shotId": "SHOT-01",
+  "frameType": "end",
+  "model": "google/imagen-4.0-fast-generate-001",
+  "prompt": "A photo of a black dog sitting on a chair in the same clean minimal interior, simple composition, soft natural daylight, neutral background, centered framing, calm and still, clean fur texture, no text, no logos.",
+  "status": "planned"
+}

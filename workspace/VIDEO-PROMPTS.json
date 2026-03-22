@@ -5,10 +5,7 @@
     "model": "google/veo-3.1-fast-generate-001",
     "prompt": "Close-up, static camera, a white dog sits on a chair in a clean minimal interior. Over the duration of the clip, the dog transforms into a black dog while the composition, lighting, and background remain unchanged. Soft natural daylight, neutral tones, calm pacing, subtle magical transformation, no camera movement, no text, no logos. Ambient: quiet room tone.",
     "status": "planned",
-    "keyframePromptIds": [
-      "shot-01-start",
-      "shot-01-end"
-    ]
+    "keyframeIds": ["SHOT-01-START", "SHOT-01-END"]
   },
   {
     "promptId": "shot-02-video",
@@ -16,9 +13,6 @@
     "model": "google/veo-3.1-fast-generate-001",
     "prompt": "Medium shot, gentle slow push-in, a white dog in the same clean minimal interior undergoes a simple color transformation into a black dog. Keep the environment consistent and uncluttered, with soft natural daylight and calm pacing. The movement should feel elegant and understated, with the transformation clearly readable from start to finish. Ambient: quiet room tone, soft breath, no dialogue.",
     "status": "planned",
-    "keyframePromptIds": [
-      "shot-02-start",
-      "shot-02-end"
-    ]
+    "keyframeIds": ["SHOT-02-START", "SHOT-02-END"]
   }
 ]

@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-02-START",
+  "shotId": "SHOT-02",
+  "frameType": "start",
+  "model": "google/imagen-4.0-fast-generate-001",
+  "prompt": "A photo of a white dog in the same clean minimal interior, simple composition, soft natural daylight, neutral background, slightly wider framing that leaves room for motion, calm and still, clean fur texture, no text, no logos.",
+  "status": "planned"
+}

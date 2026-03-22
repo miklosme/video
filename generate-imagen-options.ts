@@ -12,6 +12,7 @@ export interface GenerateImagenOptionsInput {
   aspectRatio?: string
   safetyFilterLevel?: string
   outputDir?: string
+  outputPath?: string
   namePrefix?: string
   keyframeId?: string
   shotId?: string
@@ -53,7 +54,10 @@ export async function generateImagenOptions(
   const imageCount = input.n ?? 1
   const aspectRatio = input.aspectRatio ?? '16:9'
   const safetyFilterLevel = input.safetyFilterLevel ?? 'OFF'
-  const outputDir = resolvePath(input.outputDir ?? 'output')
+  const explicitOutputPath = input.outputPath ? resolvePath(input.outputPath) : null
+  const outputDir = explicitOutputPath
+    ? path.dirname(explicitOutputPath)
+    : resolvePath(input.outputDir ?? 'output')
   const logFile = input.logFile ? resolvePath(input.logFile) : resolveDefaultLogFile()
   const namePrefix = input.namePrefix ? `${input.namePrefix}-` : ''
   const createdAtPrefix = startedAt.replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-')
@@ -87,10 +91,9 @@ export async function generateImagenOptions(
         continue
       }
 
-      const outputPath = path.join(
-        outputDir,
-        `${namePrefix}${createdAtPrefix}-imagen-option-${index + 1}.png`,
-      )
+      const outputPath =
+        explicitOutputPath ??
+        path.join(outputDir, `${namePrefix}${createdAtPrefix}-imagen-option-${index + 1}.png`)
       const imageBuffer = Buffer.from(image.b64_json, 'base64')
 
       await writeFile(outputPath, imageBuffer)

@@ -6,7 +6,7 @@
     "title": "Quiet white dog on the chair",
     "goal": "Introduce the white dog in a clean, minimal pose before the transformation begins.",
     "status": "planned",
-    "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-01-start.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png"
   },
   {
     "keyframeId": "SHOT-01-END",
@@ -15,7 +15,7 @@
     "title": "Reveal of the black dog",
     "goal": "Show the transformed black dog in the same simple setup, preserving continuity while making the change unmistakable.",
     "status": "planned",
-    "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-01-end.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png"
   },
   {
     "keyframeId": "SHOT-02-START",
@@ -24,7 +24,7 @@
     "title": "White dog before the switch",
     "goal": "Anchor the opening state of the second shot with the white dog held in a minimal, readable composition.",
     "status": "planned",
-    "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-02-start.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png"
   },
   {
     "keyframeId": "SHOT-02-END",
@@ -33,6 +33,6 @@
     "title": "Black dog after the switch",
     "goal": "Anchor the ending state of the second shot with the black dog clearly established in the same minimal world.",
     "status": "planned",
-    "imagePath": "workspace/STORYBOARD-SHOTS/SHOT-02-end.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png"
   }
 ]

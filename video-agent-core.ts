@@ -6,16 +6,22 @@ import { stepCountIs, tool, ToolLoopAgent, type ModelMessage } from 'ai'
 import { z } from 'zod'
 
 import {
+  loadCharacterSheets,
   loadConfig,
-  loadKeyframePrompts,
+  loadKeyframeArtifacts,
   loadKeyframes,
   loadModelOptions,
   loadStatus,
   loadVideoPrompts,
+  parseCharacterSheetEntry,
+  parseKeyframeArtifactEntry,
   validateConfigAgainstModelOptions,
   WORKFLOW_FILES,
+  WORKFLOW_FOLDERS,
   workspacePathExists,
+  type CharacterSheetEntry,
   type ConfigData,
+  type KeyframeArtifactEntry,
   type ModelOptionsData,
   type StatusData,
 } from './workflow-data'
@@ -29,12 +35,14 @@ const ALLOWED_WORKSPACE_FILES = new Set([
   'CHARACTERS.md',
   'STORYBOARD.md',
   'KEYFRAMES.json',
-  'KEYFRAME-PROMPTS.json',
   'VIDEO-PROMPTS.json',
   'STATUS.json',
 ])
 
-const ALLOWED_WORKSPACE_FOLDERS = new Set(['CHARACTER-SHEETS/', 'STORYBOARD-SHOTS/'])
+const ALLOWED_WORKSPACE_FOLDERS = new Set<string>([
+  WORKFLOW_FOLDERS.characters,
+  WORKFLOW_FOLDERS.keyframes,
+])
 
 export type TranscriptRole = 'assistant' | 'user' | 'tool'
 export type ArtifactReadiness = 'missing' | 'incomplete' | 'ready'
@@ -97,6 +105,14 @@ export interface WorkspaceFileReadResult {
   templatePath: string | null
   content: string | null
   templateContent?: string | null
+}
+
+export interface WorkspaceArtifactReadResult {
+  artifactPath: string
+  exists: boolean
+  workspacePath: string
+  content: string | null
+  entries?: string[]
 }
 
 export interface WorkspaceFolderResult {
@@ -174,6 +190,11 @@ export interface VideoAgentRuntime {
   ) => Promise<BootstrappedWorkspaceFile[]>
   readWorkspaceFile: (fileName: string) => Promise<WorkspaceFileReadResult>
   writeWorkspaceFile: (fileName: string, content: string) => Promise<WorkspaceWriteResult>
+  readWorkspaceArtifact: (artifactPath: string) => Promise<WorkspaceArtifactReadResult>
+  writeWorkspaceArtifact: (
+    artifactPath: string,
+    content: string,
+  ) => Promise<WorkspaceArtifactReadResult>
   ensureWorkspaceFolder: (folderName: string) => Promise<WorkspaceFolderResult>
   resetWorkflowFromMilestone: (startIndex: number) => Promise<WorkflowResetResult>
   runTurn: (options: RunTurnOptions) => Promise<RunTurnResult>
@@ -207,6 +228,44 @@ function assertWorkspaceFile(fileName: string) {
 function assertWorkspaceFolder(folderName: string) {
   if (!ALLOWED_WORKSPACE_FOLDERS.has(folderName)) {
     throw new Error(`Folder ${folderName} is not an allowed workspace source-of-truth folder.`)
+  }
+}
+
+function getAllowedWorkspaceArtifactFolder(artifactPath: string) {
+  const normalizedPath = path.posix.normalize(artifactPath.replace(/\\/g, '/'))
+
+  for (const folderName of ALLOWED_WORKSPACE_FOLDERS) {
+    if (normalizedPath === folderName || normalizedPath.startsWith(folderName)) {
+      return folderName
+    }
+  }
+
+  return null
+}
+
+function assertWorkspaceArtifactPath(artifactPath: string) {
+  const normalizedPath = path.posix.normalize(artifactPath.replace(/\\/g, '/'))
+
+  if (
+    path.posix.isAbsolute(normalizedPath) ||
+    normalizedPath === '..' ||
+    normalizedPath.startsWith('../')
+  ) {
+    throw new Error(`Artifact path ${artifactPath} must stay within workspace.`)
+  }
+
+  const folderName = getAllowedWorkspaceArtifactFolder(normalizedPath)
+
+  if (!folderName) {
+    throw new Error(`Artifact ${artifactPath} is not inside an allowed workspace folder.`)
+  }
+
+  if (normalizedPath.endsWith('/')) {
+    return
+  }
+
+  if (!normalizedPath.endsWith('.json')) {
+    throw new Error(`Artifact ${artifactPath} must be a JSON sidecar file.`)
   }
 }
 
@@ -356,13 +415,16 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
   lines.push('- Reserve "if you want, I can" for optional branches, not the default workflow path.')
   lines.push('Prompt-writing rules:')
   lines.push(
-    '- Before writing or revising KEYFRAME-PROMPTS.json or VIDEO-PROMPTS.json, read workspace/CONFIG.json and MODEL_PROMPTING_GUIDE.md.',
+    '- Before writing or revising keyframe sidecars, character-sheet sidecars, or VIDEO-PROMPTS.json, read workspace/CONFIG.json and MODEL_PROMPTING_GUIDE.md.',
   )
   lines.push(
-    '- Use workspace/CONFIG.json.imageModel for KEYFRAME-PROMPTS.json model fields and still-image prompting style.',
+    '- Use workspace/CONFIG.json.imageModel for workspace/KEYFRAMES/*.json and workspace/CHARACTERS/*.json model fields and still-image prompting style.',
   )
   lines.push(
     '- Use workspace/CONFIG.json.videoModel for VIDEO-PROMPTS.json model fields and motion-prompt style.',
+  )
+  lines.push(
+    '- Do not auto-run paid image generation. When sidecar JSON is ready but PNGs are missing, tell the user which script to run and continue after review.',
   )
   lines.push('Raw workspace/STATUS.json:')
   lines.push(rawStatusContent.trim())
@@ -518,9 +580,6 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
       case 'KEYFRAMES.json':
         await loadKeyframes(rootDir)
         return
-      case 'KEYFRAME-PROMPTS.json':
-        await loadKeyframePrompts(rootDir)
-        return
       case 'VIDEO-PROMPTS.json':
         await loadVideoPrompts(rootDir)
         return
@@ -574,6 +633,35 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
     return results.filter((result): result is BootstrappedWorkspaceFile => result !== null)
   }
 
+  const bootstrapMissingWorkspaceArtifacts = async (artifactNames: string[]) => {
+    const uniqueArtifactNames = [...new Set(artifactNames)]
+    const fileNames = uniqueArtifactNames.filter((artifactName) => !artifactName.endsWith('/'))
+    const folderNames = uniqueArtifactNames.filter((artifactName) => artifactName.endsWith('/'))
+    const bootstrappedFiles = await bootstrapMissingWorkspaceFiles(fileNames)
+    const bootstrappedFolders = await Promise.all(
+      folderNames.map(async (folderName) => {
+        if (await workspacePathExists(folderName, rootDir)) {
+          return null
+        }
+
+        const folderPath = resolveWorkspacePath(rootDir, folderName)
+        await mkdir(folderPath, { recursive: true })
+
+        return {
+          fileName: folderName,
+          workspacePath: folderPath,
+        }
+      }),
+    )
+
+    return [
+      ...bootstrappedFiles,
+      ...bootstrappedFolders.filter(
+        (result): result is BootstrappedWorkspaceFile => result !== null,
+      ),
+    ]
+  }
+
   const inspectWorkspaceArtifact = async (fileName: string): Promise<ArtifactReadiness> => {
     const workspacePath = resolveWorkspacePath(rootDir, fileName)
 
@@ -603,15 +691,6 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
           }
           case 'KEYFRAMES.json': {
             const entries = await loadKeyframes(rootDir)
-            if (entries.length === 0) {
-              return 'incomplete'
-            }
-
-            return containsPlaceholderValue(entries) ? 'incomplete' : 'ready'
-          }
-          case 'KEYFRAME-PROMPTS.json': {
-            await loadConfig(rootDir)
-            const entries = await loadKeyframePrompts(rootDir)
             if (entries.length === 0) {
               return 'incomplete'
             }
@@ -657,9 +736,115 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
     }
   }
 
+  const inspectCharacterSheetsPreparation = async (): Promise<ArtifactReadiness> => {
+    if (!(await workspacePathExists(WORKFLOW_FOLDERS.characters, rootDir))) {
+      return 'missing'
+    }
+
+    try {
+      const entries = await loadCharacterSheets(rootDir)
+
+      if (entries.length === 0) {
+        return 'incomplete'
+      }
+
+      return containsPlaceholderValue(entries) ? 'incomplete' : 'ready'
+    } catch {
+      return 'incomplete'
+    }
+  }
+
+  const inspectCharacterSheetsReview = async (): Promise<ArtifactReadiness> => {
+    const preparationState = await inspectCharacterSheetsPreparation()
+
+    if (preparationState === 'missing') {
+      return 'missing'
+    }
+
+    try {
+      const entries = await loadCharacterSheets(rootDir)
+      const imageStates = await Promise.all(
+        entries.map((entry) =>
+          workspacePathExists(`${WORKFLOW_FOLDERS.characters}${entry.characterId}.png`, rootDir),
+        ),
+      )
+
+      return imageStates.length > 0 && imageStates.every(Boolean) ? 'ready' : 'incomplete'
+    } catch {
+      return 'incomplete'
+    }
+  }
+
+  const inspectKeyframesPreparation = async (): Promise<ArtifactReadiness> => {
+    if (!(await workspacePathExists(WORKFLOW_FILES.keyframes, rootDir))) {
+      return 'missing'
+    }
+
+    try {
+      const [keyframes, artifacts] = await Promise.all([
+        loadKeyframes(rootDir),
+        loadKeyframeArtifacts(rootDir),
+      ])
+
+      if (keyframes.length === 0 || containsPlaceholderValue(keyframes)) {
+        return 'incomplete'
+      }
+
+      const artifactById = new Map(artifacts.map((entry) => [entry.keyframeId, entry]))
+      const allKeyframesPrepared = keyframes.every((entry) => {
+        const artifact = artifactById.get(entry.keyframeId)
+
+        return artifact !== undefined && !containsPlaceholderValue(artifact)
+      })
+
+      return allKeyframesPrepared ? 'ready' : 'incomplete'
+    } catch {
+      return 'incomplete'
+    }
+  }
+
+  const inspectKeyframesReview = async (): Promise<ArtifactReadiness> => {
+    const preparationState = await inspectKeyframesPreparation()
+
+    if (preparationState === 'missing') {
+      return 'missing'
+    }
+
+    try {
+      const keyframes = await loadKeyframes(rootDir)
+      const imageStates = await Promise.all(
+        keyframes.map((entry) =>
+          workspacePathExists(entry.imagePath.replace(/^workspace\//, ''), rootDir),
+        ),
+      )
+
+      return imageStates.length > 0 && imageStates.every(Boolean) ? 'ready' : 'incomplete'
+    } catch {
+      return 'incomplete'
+    }
+  }
+
   const inspectMilestoneArtifacts = async (
     item: StatusData[number],
   ): Promise<ArtifactReadiness> => {
+    const normalizedTitle = item.title.trim().toLowerCase()
+
+    if (normalizedTitle === 'prepare character sheets') {
+      return inspectCharacterSheetsPreparation()
+    }
+
+    if (normalizedTitle === 'review character sheets') {
+      return inspectCharacterSheetsReview()
+    }
+
+    if (normalizedTitle === 'prepare keyframes') {
+      return inspectKeyframesPreparation()
+    }
+
+    if (normalizedTitle === 'review keyframes') {
+      return inspectKeyframesReview()
+    }
+
     const artifactStates = await Promise.all(
       item.relatedFiles.map((fileName) => inspectWorkspaceArtifact(fileName)),
     )
@@ -750,7 +935,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
   }
 
   const applyWorkspaceFileWriteRules = async (fileName: string, content: string) => {
-    if (fileName !== WORKFLOW_FILES.keyframePrompts && fileName !== WORKFLOW_FILES.videoPrompts) {
+    if (fileName !== WORKFLOW_FILES.videoPrompts) {
       return content
     }
 
@@ -759,19 +944,6 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
 
     if (!Array.isArray(parsed)) {
       return content
-    }
-
-    if (fileName === WORKFLOW_FILES.keyframePrompts) {
-      const nextEntries = parsed.map((entry) =>
-        typeof entry === 'object' && entry !== null
-          ? {
-              ...entry,
-              model: config.imageModel,
-            }
-          : entry,
-      )
-
-      return JSON.stringify(nextEntries, null, 2)
     }
 
     const nextEntries = parsed.map((entry) =>
@@ -786,12 +958,52 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
     return JSON.stringify(nextEntries, null, 2)
   }
 
+  const validateWorkspaceArtifact = async (artifactPath: string, content: string) => {
+    const normalizedPath = path.posix.normalize(artifactPath.replace(/\\/g, '/'))
+    const parsed = JSON.parse(content)
+
+    if (normalizedPath.startsWith(WORKFLOW_FOLDERS.characters)) {
+      parseCharacterSheetEntry(parsed, normalizedPath)
+      return
+    }
+
+    if (normalizedPath.startsWith(WORKFLOW_FOLDERS.keyframes)) {
+      parseKeyframeArtifactEntry(parsed, normalizedPath)
+    }
+  }
+
+  const applyWorkspaceArtifactWriteRules = async (artifactPath: string, content: string) => {
+    const config = await loadConfig(rootDir)
+    const normalizedPath = path.posix.normalize(artifactPath.replace(/\\/g, '/'))
+    const parsed = JSON.parse(content)
+
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      return content
+    }
+
+    if (
+      normalizedPath.startsWith(WORKFLOW_FOLDERS.characters) ||
+      normalizedPath.startsWith(WORKFLOW_FOLDERS.keyframes)
+    ) {
+      return JSON.stringify(
+        {
+          ...parsed,
+          model: config.imageModel,
+        },
+        null,
+        2,
+      )
+    }
+
+    return content
+  }
+
   const bootstrapNextMilestoneScaffoldInternal = async (workflow: WorkflowSummary) => {
     if (!workflow.nextMilestone) {
       return []
     }
 
-    return bootstrapMissingWorkspaceFiles(workflow.nextMilestone.relatedFiles)
+    return bootstrapMissingWorkspaceArtifacts(workflow.nextMilestone.relatedFiles)
   }
 
   const readWorkspaceFileInternal = async (fileName: string): Promise<WorkspaceFileReadResult> => {
@@ -826,6 +1038,33 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
       templatePath: templateExists ? templatePath : null,
       templateContent: templateExists ? await readFile(templatePath, 'utf8') : null,
       content: null,
+    }
+  }
+
+  const readWorkspaceArtifactInternal = async (
+    artifactPath: string,
+  ): Promise<WorkspaceArtifactReadResult> => {
+    assertWorkspaceArtifactPath(artifactPath)
+
+    const normalizedPath = path.posix.normalize(artifactPath.replace(/\\/g, '/'))
+    const workspacePath = resolveWorkspacePath(rootDir, normalizedPath)
+    const exists = await workspacePathExists(normalizedPath, rootDir)
+
+    if (normalizedPath.endsWith('/')) {
+      return {
+        artifactPath: normalizedPath,
+        exists,
+        workspacePath,
+        content: null,
+        entries: exists ? (await readdir(workspacePath)).sort() : [],
+      }
+    }
+
+    return {
+      artifactPath: normalizedPath,
+      exists,
+      workspacePath,
+      content: exists ? await readFile(workspacePath, 'utf8') : null,
     }
   }
 
@@ -910,6 +1149,50 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
       workspacePath,
       bootstrappedFiles,
       workflow: nextWorkflow,
+    }
+  }
+
+  const writeWorkspaceArtifactInternal = async (
+    artifactPath: string,
+    content: string,
+    options: {
+      emitToolEvents?: boolean
+    } = {},
+  ): Promise<WorkspaceArtifactReadResult> => {
+    assertWorkspaceArtifactPath(artifactPath)
+
+    const normalizedPath = path.posix.normalize(artifactPath.replace(/\\/g, '/'))
+    const workspacePath = resolveWorkspacePath(rootDir, normalizedPath)
+    const previousContent = await readFile(workspacePath, 'utf8').catch(() => null)
+    const nextContent = await applyWorkspaceArtifactWriteRules(normalizedPath, content)
+    const normalizedContent = normalizeFileContent(normalizedPath, nextContent)
+
+    await mkdir(path.dirname(workspacePath), { recursive: true })
+    await writeFile(workspacePath, normalizedContent, 'utf8')
+
+    try {
+      await validateWorkspaceArtifact(normalizedPath, normalizedContent)
+    } catch (error) {
+      if (previousContent === null) {
+        await rm(workspacePath, { force: true })
+      } else {
+        await writeFile(workspacePath, previousContent, 'utf8')
+      }
+
+      throw error
+    }
+
+    if (options.emitToolEvents) {
+      emitToolEvent(`Updated ${normalizedPath}`)
+    }
+    emitFileChange(normalizedPath)
+    emitWorkflowChange(await loadWorkflowSummaryInternal())
+
+    return {
+      artifactPath: normalizedPath,
+      exists: true,
+      workspacePath,
+      content: normalizedContent,
     }
   }
 
@@ -1022,12 +1305,29 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             fileName: z
               .string()
               .describe(
-                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, or KEYFRAME-PROMPTS.json',
+                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, KEYFRAMES.json, or VIDEO-PROMPTS.json',
               ),
           }),
           execute: async ({ fileName }) => {
             const result = await readWorkspaceFileInternal(fileName)
             emitToolEvent(`Read ${fileName}`)
+
+            return result
+          },
+        }),
+        readWorkspaceArtifact: tool({
+          description:
+            'Read one JSON sidecar artifact or list one canonical workspace folder such as CHARACTERS/ or KEYFRAMES/.',
+          inputSchema: z.object({
+            artifactPath: z
+              .string()
+              .describe(
+                'Folder path like CHARACTERS/ or JSON sidecar path like CHARACTERS/the-dog.json or KEYFRAMES/SHOT-01/SHOT-01-START.json',
+              ),
+          }),
+          execute: async ({ artifactPath }) => {
+            const result = await readWorkspaceArtifactInternal(artifactPath)
+            emitToolEvent(`Read ${artifactPath}`)
 
             return result
           },
@@ -1063,13 +1363,25 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
           execute: async ({ fileName, content }) =>
             writeWorkspaceFileInternal(fileName, content, { emitToolEvents: true }),
         }),
+        writeWorkspaceArtifact: tool({
+          description:
+            'Write one JSON sidecar artifact in CHARACTERS/ or KEYFRAMES/ while keeping model fields aligned to workspace/CONFIG.json.imageModel.',
+          inputSchema: z.object({
+            artifactPath: z
+              .string()
+              .describe(
+                'JSON sidecar path like CHARACTERS/the-dog.json or KEYFRAMES/SHOT-01/SHOT-01-START.json',
+              ),
+            content: z.string().describe('The complete new JSON file contents.'),
+          }),
+          execute: async ({ artifactPath, content }) =>
+            writeWorkspaceArtifactInternal(artifactPath, content, { emitToolEvents: true }),
+        }),
         createWorkspaceFolder: tool({
           description:
-            'Create or confirm one canonical workspace folder such as CHARACTER-SHEETS/ or STORYBOARD-SHOTS/ when the creative workflow needs it.',
+            'Create or confirm one canonical workspace folder such as CHARACTERS/ or KEYFRAMES/ when the creative workflow needs it.',
           inputSchema: z.object({
-            folderName: z
-              .string()
-              .describe('Canonical workspace folder name such as CHARACTER-SHEETS/'),
+            folderName: z.string().describe('Canonical workspace folder name such as CHARACTERS/'),
           }),
           execute: async ({ folderName }) =>
             ensureWorkspaceFolderInternal(folderName, { emitToolEvents: true }),
@@ -1120,6 +1432,12 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
     },
     writeWorkspaceFile(fileName, content) {
       return writeWorkspaceFileInternal(fileName, content)
+    },
+    readWorkspaceArtifact(artifactPath) {
+      return readWorkspaceArtifactInternal(artifactPath)
+    },
+    writeWorkspaceArtifact(artifactPath, content) {
+      return writeWorkspaceArtifactInternal(artifactPath, content)
     },
     ensureWorkspaceFolder(folderName) {
       return ensureWorkspaceFolderInternal(folderName)

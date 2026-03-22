@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "app": "bun app.tsx",
+    "generate:characters": "./generate-character-sheets.sh",
     "generate:keyframes": "./generate-keyframes.sh",
     "status:checklist": "bun render-status-checklist.ts",
     "validate:data": "bun validate-workflow-data.ts",

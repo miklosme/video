@@ -68,7 +68,7 @@ const CONFIG_FIELD_LABELS: Record<ConfigField, string> = {
 
 const CONFIG_FIELD_DESCRIPTIONS: Record<ConfigField, string> = {
   agentModel: 'Used for the creative chat agent in this app.',
-  imageModel: 'Used for still-image and keyframe prompt generation.',
+  imageModel: 'Used for still-image sidecars and image generation.',
   videoModel: 'Used for motion and video prompt generation.',
 }
 

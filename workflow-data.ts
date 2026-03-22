@@ -1,4 +1,4 @@
-import { access, readFile } from 'node:fs/promises'
+import { access, readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 
 export const FRAME_TYPES = ['start', 'end', 'single'] as const
@@ -28,19 +28,26 @@ export interface KeyframeEntry {
 
 export type KeyframesData = KeyframeEntry[]
 
-export interface KeyframePromptEntry {
-  promptId: string
+export interface KeyframeArtifactEntry {
   keyframeId: string
   shotId: string
   frameType: FrameType
-  label: string
   model: string
   prompt: string
   status: string
-  outputPath: string
 }
 
-export type KeyframePromptsData = KeyframePromptEntry[]
+export type KeyframeArtifactsData = KeyframeArtifactEntry[]
+
+export interface CharacterSheetEntry {
+  characterId: string
+  displayName: string
+  model: string
+  prompt: string
+  status: string
+}
+
+export type CharacterSheetsData = CharacterSheetEntry[]
 
 export interface VideoPromptEntry {
   promptId: string
@@ -48,7 +55,7 @@ export interface VideoPromptEntry {
   model: string
   prompt: string
   status: string
-  keyframePromptIds: string[]
+  keyframeIds: string[]
 }
 
 export type VideoPromptsData = VideoPromptEntry[]
@@ -97,9 +104,51 @@ export const WORKFLOW_FILES = {
   config: 'CONFIG.json',
   status: 'STATUS.json',
   keyframes: 'KEYFRAMES.json',
-  keyframePrompts: 'KEYFRAME-PROMPTS.json',
   videoPrompts: 'VIDEO-PROMPTS.json',
 } as const
+
+export const WORKFLOW_FOLDERS = {
+  characters: 'CHARACTERS/',
+  keyframes: 'KEYFRAMES/',
+} as const
+
+function folderStem(folderName: string) {
+  return folderName.replace(/\/+$/, '')
+}
+
+export function getCharacterSheetJsonPath(characterId: string) {
+  return path.posix.join(
+    WORKSPACE_DIR,
+    folderStem(WORKFLOW_FOLDERS.characters),
+    `${characterId}.json`,
+  )
+}
+
+export function getCharacterSheetImagePath(characterId: string) {
+  return path.posix.join(
+    WORKSPACE_DIR,
+    folderStem(WORKFLOW_FOLDERS.characters),
+    `${characterId}.png`,
+  )
+}
+
+export function getKeyframeArtifactJsonPath(entry: Pick<KeyframeEntry, 'shotId' | 'keyframeId'>) {
+  return path.posix.join(
+    WORKSPACE_DIR,
+    folderStem(WORKFLOW_FOLDERS.keyframes),
+    entry.shotId,
+    `${entry.keyframeId}.json`,
+  )
+}
+
+export function getKeyframeImagePath(entry: Pick<KeyframeEntry, 'shotId' | 'keyframeId'>) {
+  return path.posix.join(
+    WORKSPACE_DIR,
+    folderStem(WORKFLOW_FOLDERS.keyframes),
+    entry.shotId,
+    `${entry.keyframeId}.png`,
+  )
+}
 
 export function resolveWorkflowPath(fileName: string, cwd = process.cwd()) {
   return path.resolve(cwd, WORKSPACE_DIR, fileName)
@@ -211,15 +260,23 @@ function parseStatusData(value: unknown): StatusData {
 
 function parseKeyframeEntry(value: unknown, context: string): KeyframeEntry {
   const object = expectObject(value, context)
+  const keyframeId = expectString(object.keyframeId, `${context}.keyframeId`)
+  const shotId = expectString(object.shotId, `${context}.shotId`)
+  const imagePath = expectString(object.imagePath, `${context}.imagePath`)
+  const expectedImagePath = getKeyframeImagePath({ keyframeId, shotId })
+
+  if (imagePath !== expectedImagePath) {
+    throw new Error(`${context}.imagePath must be "${expectedImagePath}".`)
+  }
 
   return {
-    keyframeId: expectString(object.keyframeId, `${context}.keyframeId`),
-    shotId: expectString(object.shotId, `${context}.shotId`),
+    keyframeId,
+    shotId,
     frameType: expectFrameType(object.frameType, `${context}.frameType`),
     title: expectString(object.title, `${context}.title`),
     goal: expectString(object.goal, `${context}.goal`),
     status: expectString(object.status, `${context}.status`),
-    imagePath: expectString(object.imagePath, `${context}.imagePath`),
+    imagePath,
   }
 }
 
@@ -229,26 +286,29 @@ function parseKeyframesData(value: unknown): KeyframesData {
   )
 }
 
-function parseKeyframePromptEntry(value: unknown, context: string): KeyframePromptEntry {
+export function parseKeyframeArtifactEntry(value: unknown, context: string): KeyframeArtifactEntry {
   const object = expectObject(value, context)
 
   return {
-    promptId: expectString(object.promptId, `${context}.promptId`),
     keyframeId: expectString(object.keyframeId, `${context}.keyframeId`),
     shotId: expectString(object.shotId, `${context}.shotId`),
     frameType: expectFrameType(object.frameType, `${context}.frameType`),
-    label: expectString(object.label, `${context}.label`),
     model: expectString(object.model, `${context}.model`),
     prompt: expectString(object.prompt, `${context}.prompt`),
     status: expectString(object.status, `${context}.status`),
-    outputPath: expectString(object.outputPath, `${context}.outputPath`),
   }
 }
 
-function parseKeyframePromptsData(value: unknown): KeyframePromptsData {
-  return expectArray(value, 'KEYFRAME-PROMPTS.json').map((entry, index) =>
-    parseKeyframePromptEntry(entry, `KEYFRAME-PROMPTS.json[${index}]`),
-  )
+export function parseCharacterSheetEntry(value: unknown, context: string): CharacterSheetEntry {
+  const object = expectObject(value, context)
+
+  return {
+    characterId: expectString(object.characterId, `${context}.characterId`),
+    displayName: expectString(object.displayName, `${context}.displayName`),
+    model: expectString(object.model, `${context}.model`),
+    prompt: expectString(object.prompt, `${context}.prompt`),
+    status: expectString(object.status, `${context}.status`),
+  }
 }
 
 function parseVideoPromptEntry(value: unknown, context: string): VideoPromptEntry {
@@ -260,7 +320,7 @@ function parseVideoPromptEntry(value: unknown, context: string): VideoPromptEntr
     model: expectString(object.model, `${context}.model`),
     prompt: expectString(object.prompt, `${context}.prompt`),
     status: expectString(object.status, `${context}.status`),
-    keyframePromptIds: expectStringArray(object.keyframePromptIds, `${context}.keyframePromptIds`),
+    keyframeIds: expectStringArray(object.keyframeIds, `${context}.keyframeIds`),
   }
 }
 
@@ -312,6 +372,56 @@ async function readRepoJsonFile<T>(
   return parser(JSON.parse(raw))
 }
 
+async function listJsonFilesInDirectory(
+  directoryPath: string,
+  options: {
+    recursive?: boolean
+  } = {},
+): Promise<string[]> {
+  const { recursive = false } = options
+  const entries = await readdir(directoryPath, { withFileTypes: true }).catch(() => [])
+  const filePaths: string[] = []
+
+  for (const entry of [...entries].sort((left, right) => left.name.localeCompare(right.name))) {
+    const nextPath = path.join(directoryPath, entry.name)
+
+    if (entry.isDirectory()) {
+      if (recursive) {
+        filePaths.push(...(await listJsonFilesInDirectory(nextPath, { recursive: true })))
+      }
+      continue
+    }
+
+    if (entry.isFile() && entry.name.endsWith('.json')) {
+      filePaths.push(nextPath)
+    }
+  }
+
+  return filePaths
+}
+
+async function loadJsonEntriesFromFolder<T>(
+  folderName: string,
+  parser: (value: unknown, context: string) => T,
+  cwd = process.cwd(),
+  options: {
+    recursive?: boolean
+  } = {},
+) {
+  const folderPath = resolveWorkflowPath(folderName, cwd)
+  const filePaths = await listJsonFilesInDirectory(folderPath, options)
+  const workspaceRoot = resolveWorkflowPath('', cwd)
+  const entries = await Promise.all(
+    filePaths.map(async (filePath) => {
+      const raw = await readFile(filePath, 'utf8')
+      const relativePath = path.relative(workspaceRoot, filePath).split(path.sep).join('/')
+      return parser(JSON.parse(raw), relativePath)
+    }),
+  )
+
+  return entries
+}
+
 export async function loadStatus(cwd = process.cwd()) {
   return readJsonFile(WORKFLOW_FILES.status, parseStatusData, cwd)
 }
@@ -328,8 +438,25 @@ export async function loadKeyframes(cwd = process.cwd()) {
   return readJsonFile(WORKFLOW_FILES.keyframes, parseKeyframesData, cwd)
 }
 
-export async function loadKeyframePrompts(cwd = process.cwd()) {
-  return readJsonFile(WORKFLOW_FILES.keyframePrompts, parseKeyframePromptsData, cwd)
+export async function loadKeyframeArtifacts(cwd = process.cwd()) {
+  const entries = await loadJsonEntriesFromFolder(
+    WORKFLOW_FOLDERS.keyframes,
+    parseKeyframeArtifactEntry,
+    cwd,
+    { recursive: true },
+  )
+
+  return entries.sort((left, right) => left.keyframeId.localeCompare(right.keyframeId))
+}
+
+export async function loadCharacterSheets(cwd = process.cwd()) {
+  const entries = await loadJsonEntriesFromFolder(
+    WORKFLOW_FOLDERS.characters,
+    parseCharacterSheetEntry,
+    cwd,
+  )
+
+  return entries.sort((left, right) => left.characterId.localeCompare(right.characterId))
 }
 
 export async function loadVideoPrompts(cwd = process.cwd()) {

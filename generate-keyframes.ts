@@ -1,100 +1,137 @@
+import { access } from 'node:fs/promises'
 import path from 'node:path'
 
 import arg from 'arg'
 
 import { generateImagenOptions } from './generate-imagen-options'
-import { loadKeyframePrompts } from './workflow-data'
+import {
+  loadKeyframeArtifacts,
+  loadKeyframes,
+  type FrameType,
+  type KeyframeArtifactEntry,
+  type KeyframeEntry,
+} from './workflow-data'
 
 interface GenerateKeyframesArgs {
   keyframeId?: string
   shotId?: string
-  promptId?: string
-  outputRoot?: string
+}
+
+export interface PendingKeyframeGeneration {
+  keyframeId: string
+  shotId: string
+  frameType: FrameType
+  model: string
+  prompt: string
+  outputPath: string
 }
 
 function parseArgs(): GenerateKeyframesArgs {
   const args = arg({
     '--keyframe-id': String,
     '--shot-id': String,
-    '--prompt-id': String,
-    '--output-root': String,
   })
 
   return {
     keyframeId: args['--keyframe-id'],
     shotId: args['--shot-id'],
-    promptId: args['--prompt-id'],
-    outputRoot: args['--output-root'],
   }
 }
 
-function sanitizeLabel(label: string) {
-  return label
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+async function fileExists(filePath: string) {
+  try {
+    await access(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
+
+export function selectPendingKeyframeGenerations(
+  keyframes: KeyframeEntry[],
+  artifacts: KeyframeArtifactEntry[],
+  filters: GenerateKeyframesArgs = {},
+) {
+  const artifactById = new Map(artifacts.map((entry) => [entry.keyframeId, entry]))
+
+  return keyframes
+    .filter((entry) => {
+      if (filters.keyframeId && entry.keyframeId !== filters.keyframeId) {
+        return false
+      }
+
+      if (filters.shotId && entry.shotId !== filters.shotId) {
+        return false
+      }
+
+      return artifactById.has(entry.keyframeId)
+    })
+    .map<PendingKeyframeGeneration>((entry) => {
+      const artifact = artifactById.get(entry.keyframeId)
+
+      if (!artifact) {
+        throw new Error(`Missing keyframe artifact for "${entry.keyframeId}".`)
+      }
+
+      return {
+        keyframeId: entry.keyframeId,
+        shotId: entry.shotId,
+        frameType: entry.frameType,
+        model: artifact.model,
+        prompt: artifact.prompt,
+        outputPath: entry.imagePath,
+      }
+    })
 }
 
 async function main() {
-  const { keyframeId, shotId, promptId, outputRoot } = parseArgs()
-  const prompts = await loadKeyframePrompts()
-  const selectedPrompts = prompts.filter((entry) => {
-    if (keyframeId && entry.keyframeId !== keyframeId) {
-      return false
-    }
+  const filters = parseArgs()
+  const [keyframes, artifacts] = await Promise.all([loadKeyframes(), loadKeyframeArtifacts()])
+  const plannedGenerations = selectPendingKeyframeGenerations(keyframes, artifacts, filters)
 
-    if (shotId && entry.shotId !== shotId) {
-      return false
-    }
-
-    if (promptId && entry.promptId !== promptId) {
-      return false
-    }
-
-    return true
-  })
-
-  if (selectedPrompts.length === 0) {
+  if (plannedGenerations.length === 0) {
     throw new Error(
-      `No keyframe prompt matched${
-        promptId
-          ? ` prompt ${promptId}`
-          : keyframeId
-            ? ` keyframe ${keyframeId}`
-            : shotId
-              ? ` shot ${shotId}`
-              : ' the provided filters'
+      `No keyframe artifact matched${
+        filters.keyframeId
+          ? ` keyframe ${filters.keyframeId}`
+          : filters.shotId
+            ? ` shot ${filters.shotId}`
+            : ' the provided filters'
       }.`,
     )
   }
 
   let generatedCount = 0
+  let skippedCount = 0
 
-  for (const entry of selectedPrompts) {
-    const preferredOutputPath = outputRoot
-      ? path.resolve(outputRoot, entry.shotId, `${entry.promptId}.png`)
-      : path.resolve(process.cwd(), entry.outputPath)
-    const outputDir = path.dirname(preferredOutputPath)
-    const namePrefix = sanitizeLabel(entry.label) || entry.promptId
+  for (const generation of plannedGenerations) {
+    const absoluteOutputPath = path.resolve(process.cwd(), generation.outputPath)
 
-    console.log(`Generating ${entry.shotId} ${entry.keyframeId} ${entry.promptId} -> ${outputDir}`)
+    if (await fileExists(absoluteOutputPath)) {
+      console.log(
+        `Skipping ${generation.keyframeId}; image already exists at ${generation.outputPath}`,
+      )
+      skippedCount += 1
+      continue
+    }
+
+    console.log(`Generating ${generation.keyframeId} -> ${generation.outputPath}`)
 
     await generateImagenOptions({
-      prompt: entry.prompt,
-      model: entry.model,
-      outputDir,
-      namePrefix,
-      keyframeId: entry.keyframeId,
-      shotId: entry.shotId,
-      frameType: entry.frameType,
-      promptId: entry.promptId,
+      prompt: generation.prompt,
+      model: generation.model,
+      outputPath: generation.outputPath,
+      keyframeId: generation.keyframeId,
+      shotId: generation.shotId,
+      frameType: generation.frameType,
     })
 
     generatedCount += 1
   }
 
-  console.log(`Generated ${generatedCount} keyframe prompt${generatedCount === 1 ? '' : 's'}.`)
+  console.log(
+    `Keyframe sync complete. Generated ${generatedCount}; skipped ${skippedCount} existing image${skippedCount === 1 ? '' : 's'}.`,
+  )
 }
 
 if (import.meta.main) {

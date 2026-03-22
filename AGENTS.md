@@ -18,12 +18,11 @@ When a technical task depends on creative context, treat these as the source of 
   - `workspace/STATUS.json`
   - `workspace/STORY.md`
   - `workspace/CHARACTERS.md`
+  - `workspace/CHARACTERS/`
   - `workspace/STORYBOARD.md`
   - `workspace/KEYFRAMES.json`
-  - `workspace/KEYFRAME-PROMPTS.json`
+  - `workspace/KEYFRAMES/`
   - `workspace/VIDEO-PROMPTS.json`
-  - `workspace/CHARACTER-SHEETS/`
-  - `workspace/STORYBOARD-SHOTS/`
 - `templates/` as the scaffold library that mirrors the canonical workspace file shapes for new project setup
 
 Legacy workflow files may still exist in `workspace/`, but they are not part of the simplified creative agent flow unless the user explicitly asks to work with them.
@@ -34,7 +33,7 @@ Do not silently rewrite story canon, storyboard content, prompt content, or stru
 
 - Keep workspace source-of-truth filename stems uppercase in the form `NAME.ext`.
 - Keep template scaffold filenames in the form `templates/NAME.template.ext`.
-- Keep canonical image folders in uppercase hyphenated names: `CHARACTER-SHEETS/` and `STORYBOARD-SHOTS/`.
+- Keep canonical generated-artifact folders in uppercase names: `CHARACTERS/` and `KEYFRAMES/`.
 - When creating a missing workspace file, copy the matching file from `templates/` first and then replace the scaffold-only content.
 - Keep the placeholder convention consistent: `TBD` for unresolved creative content, `TODO` for coding-agent work.
 - Keep `templates/` and `workspace/` aligned: if a canonical workspace file's headings or schema changes, update the matching template in the same change.

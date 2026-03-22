@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-01-START",
+  "shotId": "SHOT-01",
+  "frameType": "start",
+  "model": "google/imagen-4.0-fast-generate-001",
+  "prompt": "A photo of a white dog sitting on a chair in a clean minimal interior, simple composition, soft natural daylight, neutral background, centered framing, calm and still, clean fur texture, no text, no logos.",
+  "status": "planned"
+}

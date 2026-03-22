@@ -2,8 +2,9 @@ import { access } from 'node:fs/promises'
 import path from 'node:path'
 
 import {
+  loadCharacterSheets,
   loadConfig,
-  loadKeyframePrompts,
+  loadKeyframeArtifacts,
   loadKeyframes,
   loadModelOptions,
   loadStatus,
@@ -14,9 +15,10 @@ import {
   validateConfigAgainstModelOptions,
   WORKFLOW_FILES,
   workspacePathExists,
+  type CharacterSheetEntry,
   type FrameType,
+  type KeyframeArtifactEntry,
   type KeyframeEntry,
-  type KeyframePromptEntry,
   type VideoPromptEntry,
 } from './workflow-data'
 
@@ -44,8 +46,8 @@ async function requireRepoPath(fileName: string, label: string) {
   return filePath
 }
 
-function groupByShotId(entries: KeyframeEntry[]) {
-  const grouped = new Map<string, KeyframeEntry[]>()
+function groupByShotId<T extends { shotId: string }>(entries: T[]) {
+  const grouped = new Map<string, T[]>()
 
   for (const entry of entries) {
     const shotEntries = grouped.get(entry.shotId) ?? []
@@ -86,44 +88,53 @@ function validateKeyframes(keyframes: KeyframeEntry[]) {
   }
 }
 
-function validateKeyframePrompts(keyframes: KeyframeEntry[], prompts: KeyframePromptEntry[]) {
+function validateKeyframeArtifacts(keyframes: KeyframeEntry[], artifacts: KeyframeArtifactEntry[]) {
   const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
-  const promptIds = new Set<string>()
+  const artifactIds = new Set<string>()
 
-  for (const prompt of prompts) {
-    if (promptIds.has(prompt.promptId)) {
-      throw new Error(`Duplicate promptId "${prompt.promptId}" in workspace/KEYFRAME-PROMPTS.json.`)
+  for (const artifact of artifacts) {
+    if (artifactIds.has(artifact.keyframeId)) {
+      throw new Error(
+        `Duplicate keyframe artifact "${artifact.keyframeId}" in workspace/KEYFRAMES/.`,
+      )
     }
 
-    promptIds.add(prompt.promptId)
+    artifactIds.add(artifact.keyframeId)
 
-    const keyframe = keyframeById.get(prompt.keyframeId)
+    const keyframe = keyframeById.get(artifact.keyframeId)
 
     if (!keyframe) {
+      continue
+    }
+
+    if (artifact.shotId !== keyframe.shotId) {
       throw new Error(
-        `Keyframe prompt "${prompt.promptId}" references missing keyframeId "${prompt.keyframeId}".`,
+        `Keyframe artifact "${artifact.keyframeId}" has shotId "${artifact.shotId}" but keyframe "${artifact.keyframeId}" belongs to shot "${keyframe.shotId}".`,
       )
     }
 
-    if (prompt.shotId !== keyframe.shotId) {
+    if (artifact.frameType !== keyframe.frameType) {
       throw new Error(
-        `Keyframe prompt "${prompt.promptId}" has shotId "${prompt.shotId}" but keyframe "${prompt.keyframeId}" belongs to shot "${keyframe.shotId}".`,
-      )
-    }
-
-    if (prompt.frameType !== keyframe.frameType) {
-      throw new Error(
-        `Keyframe prompt "${prompt.promptId}" has frameType "${prompt.frameType}" but keyframe "${prompt.keyframeId}" uses frameType "${keyframe.frameType}".`,
+        `Keyframe artifact "${artifact.keyframeId}" has frameType "${artifact.frameType}" but keyframe "${artifact.keyframeId}" uses frameType "${keyframe.frameType}".`,
       )
     }
   }
 }
 
-function validateVideoPrompts(
-  keyframePrompts: KeyframePromptEntry[],
-  videoPrompts: VideoPromptEntry[],
-) {
-  const keyframePromptById = new Map(keyframePrompts.map((entry) => [entry.promptId, entry]))
+function validateCharacterSheets(characterSheets: CharacterSheetEntry[]) {
+  const characterIds = new Set<string>()
+
+  for (const entry of characterSheets) {
+    if (characterIds.has(entry.characterId)) {
+      throw new Error(`Duplicate character sheet "${entry.characterId}" in workspace/CHARACTERS/.`)
+    }
+
+    characterIds.add(entry.characterId)
+  }
+}
+
+function validateVideoPrompts(keyframes: KeyframeEntry[], videoPrompts: VideoPromptEntry[]) {
+  const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
   const videoPromptIds = new Set<string>()
 
   for (const videoPrompt of videoPrompts) {
@@ -135,18 +146,18 @@ function validateVideoPrompts(
 
     videoPromptIds.add(videoPrompt.promptId)
 
-    if (videoPrompt.keyframePromptIds.length === 0 || videoPrompt.keyframePromptIds.length > 2) {
+    if (videoPrompt.keyframeIds.length === 0 || videoPrompt.keyframeIds.length > 2) {
       throw new Error(
-        `Video prompt "${videoPrompt.promptId}" must reference either one single keyframe prompt or a start/end pair.`,
+        `Video prompt "${videoPrompt.promptId}" must reference either one single keyframe or a start/end pair.`,
       )
     }
 
-    const anchors = videoPrompt.keyframePromptIds.map((keyframePromptId) => {
-      const anchor = keyframePromptById.get(keyframePromptId)
+    const anchors = videoPrompt.keyframeIds.map((keyframeId) => {
+      const anchor = keyframeById.get(keyframeId)
 
       if (!anchor) {
         throw new Error(
-          `Video prompt "${videoPrompt.promptId}" references missing keyframe prompt "${keyframePromptId}".`,
+          `Video prompt "${videoPrompt.promptId}" references missing keyframe "${keyframeId}".`,
         )
       }
 
@@ -155,7 +166,7 @@ function validateVideoPrompts(
 
     if (anchors.some((anchor) => anchor.shotId !== videoPrompt.shotId)) {
       throw new Error(
-        `Video prompt "${videoPrompt.promptId}" must only reference keyframe prompts from shot "${videoPrompt.shotId}".`,
+        `Video prompt "${videoPrompt.promptId}" must only reference keyframes from shot "${videoPrompt.shotId}".`,
       )
     }
 
@@ -164,7 +175,7 @@ function validateVideoPrompts(
     if (anchors.length === 1) {
       if (!frameTypes.has('single')) {
         throw new Error(
-          `Video prompt "${videoPrompt.promptId}" references one keyframe prompt, so it must use frameType "single".`,
+          `Video prompt "${videoPrompt.promptId}" references one keyframe, so it must use frameType "single".`,
         )
       }
 
@@ -173,7 +184,7 @@ function validateVideoPrompts(
 
     if (!frameTypes.has('start') || !frameTypes.has('end') || frameTypes.has('single')) {
       throw new Error(
-        `Video prompt "${videoPrompt.promptId}" must reference one "start" and one "end" keyframe prompt when using two anchors. Found frame types: ${summarizeFrameTypes(anchors)}.`,
+        `Video prompt "${videoPrompt.promptId}" must reference one "start" and one "end" keyframe when using two anchors. Found frame types: ${summarizeFrameTypes(anchors)}.`,
       )
     }
   }
@@ -190,16 +201,17 @@ async function main() {
   validateConfigAgainstModelOptions(config, modelOptions)
   const status = await loadStatus()
   const keyframesExists = await workspacePathExists(WORKFLOW_FILES.keyframes)
-  const keyframePromptsExists = await workspacePathExists(WORKFLOW_FILES.keyframePrompts)
   const videoPromptsExists = await workspacePathExists(WORKFLOW_FILES.videoPrompts)
+  const characterSheets = await loadCharacterSheets()
+  const keyframeArtifacts = await loadKeyframeArtifacts()
 
   const keyframes = keyframesExists ? await loadKeyframes() : []
-  const keyframePrompts = keyframePromptsExists ? await loadKeyframePrompts() : []
   const videoPrompts = videoPromptsExists ? await loadVideoPrompts() : []
 
+  validateCharacterSheets(characterSheets)
   validateKeyframes(keyframes)
-  validateKeyframePrompts(keyframes, keyframePrompts)
-  validateVideoPrompts(keyframePrompts, videoPrompts)
+  validateKeyframeArtifacts(keyframes, keyframeArtifacts)
+  validateVideoPrompts(keyframes, videoPrompts)
 
   console.log(
     JSON.stringify(
@@ -209,10 +221,10 @@ async function main() {
         config,
         statusItems: status.length,
         readyMilestones: status.filter((item) => item.checked).length,
+        characterSheetsCount: characterSheets.length,
         keyframesPresent: keyframesExists,
         keyframesCount: keyframes.length,
-        keyframePromptsPresent: keyframePromptsExists,
-        keyframePromptsCount: keyframePrompts.length,
+        keyframeArtifactsCount: keyframeArtifacts.length,
         videoPromptsPresent: videoPromptsExists,
         videoPromptsCount: videoPrompts.length,
       },

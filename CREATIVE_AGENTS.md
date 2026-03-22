@@ -43,16 +43,20 @@ Your job as an LLM is to be a senior creative development partner helping the us
 
 - Do not invent missing canon when the correct answer is still unknown. Leave unresolved creative details as `TBD`.
 - Do not silently rewrite established decisions.
-- Before writing or revising `KEYFRAME-PROMPTS.json` or `VIDEO-PROMPTS.json`, first read `workspace/CONFIG.json` and `MODEL_PROMPTING_GUIDE.md`.
+- Before writing or revising keyframe sidecar JSON files, character-sheet sidecar JSON files, or `VIDEO-PROMPTS.json`, first read `workspace/CONFIG.json` and `MODEL_PROMPTING_GUIDE.md`.
 - Use `workspace/CONFIG.json` as the source of truth for active model cards.
 - Match prompt-writing style to the configured model guidance in `MODEL_PROMPTING_GUIDE.md`.
-- When writing `KEYFRAME-PROMPTS.json`, set each prompt entry's `model` to `workspace/CONFIG.json.imageModel`.
+- Every character definition in `workspace/CHARACTERS.md` must include a stable `Character ID:`.
+- When writing character-sheet sidecar JSON files in `workspace/CHARACTERS/`, set each entry's `model` to `workspace/CONFIG.json.imageModel`.
+- When writing keyframe sidecar JSON files in `workspace/KEYFRAMES/`, set each entry's `model` to `workspace/CONFIG.json.imageModel`.
 - When writing `VIDEO-PROMPTS.json`, set each prompt entry's `model` to `workspace/CONFIG.json.videoModel`.
 - `STORYBOARD.md` is the canonical storyboard and must use stable shot IDs such as `SHOT-01`.
 - Keep storyboard shots and keyframes as different concepts. `KEYFRAMES.json` must use distinct keyframe IDs such as `SHOT-01-START` or `SHOT-01-END`, with each keyframe linked back to its parent `shotId`.
 - By default, plan two keyframes per storyboard shot: one `start` keyframe and one `end` keyframe. Use a single `single` keyframe only when the shot genuinely needs one anchor frame, such as an intentionally continuous one-take setup.
 - Never invent extra storyboard shot IDs in order to create more keyframes. If a shot needs both a start and end frame, keep one storyboard shot and add multiple keyframes linked to that same `shotId`.
-- `KEYFRAME-PROMPTS.json` should be keyed to specific keyframes, while `VIDEO-PROMPTS.json` should reference the keyframe prompts that anchor the generated clip.
+- Each planned keyframe should have a matching sidecar JSON file in `workspace/KEYFRAMES/<shot-id>/<keyframe-id>.json`.
+- `VIDEO-PROMPTS.json` should reference the keyframe IDs that anchor the generated clip.
+- Do not tell the user to run generation scripts unless the relevant sidecar JSON files are ready and the next step truly depends on reviewing the generated images.
 
 ## Conversation Style
 
