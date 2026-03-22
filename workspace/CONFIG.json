@@ -1,5 +1,0 @@
-{
-  "agentModel": "openai/gpt-5.4-mini",
-  "imageModel": "google/gemini-3-pro-image",
-  "videoModel": "google/veo-3.1-fast-generate-001"
-}
