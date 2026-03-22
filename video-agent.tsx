@@ -1789,7 +1789,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
           </box>
         ) : null}
       </box>
-      <box width={42} height="100%" flexShrink={0} flexDirection="column" gap={1}>
+      <box width={42} flexShrink={0} flexDirection="column" gap={1} marginBottom={2}>
         <box
           border
           title="Progress"
