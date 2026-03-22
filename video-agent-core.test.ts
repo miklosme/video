@@ -4,8 +4,12 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { selectPendingCharacterSheetGenerations } from './generate-character-sheets'
-import { selectPendingKeyframeGenerations } from './generate-keyframes'
+import {
+  planKeyframeGenerationReferences,
+  selectPendingKeyframeGenerations,
+} from './generate-keyframes'
 import { createVideoAgentRuntime, type WorkflowSummary } from './video-agent-core'
+import { loadKeyframes, type KeyframeEntry } from './workflow-data'
 
 async function writeRepoFile(rootDir: string, relativePath: string, content: string) {
   const filePath = path.resolve(rootDir, relativePath)
@@ -283,6 +287,7 @@ test('loadWorkflowSummary distinguishes keyframe preparation from keyframe revie
             goal: 'Set the opening pose.',
             status: 'planned',
             imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+            characterIds: ['test-dog'],
           },
         ],
         null,
@@ -363,6 +368,7 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
         goal: 'Set the opening pose.',
         status: 'planned',
         imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+        characterIds: ['test-dog'],
       },
     ],
     [
@@ -403,6 +409,7 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
       model: 'image-test',
       prompt: 'A calm opening frame.',
       outputPath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+      characterIds: ['test-dog'],
     },
   ])
   expect(characterGenerations).toEqual([
@@ -414,6 +421,123 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
       outputPath: 'workspace/CHARACTERS/test-dog.png',
     },
   ])
+})
+
+test('loadKeyframes parses required characterIds', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/KEYFRAMES.json',
+      `${JSON.stringify(
+        [
+          {
+            keyframeId: 'SHOT-01-START',
+            shotId: 'SHOT-01',
+            frameType: 'start',
+            title: 'Opening frame',
+            goal: 'Set the opening pose.',
+            status: 'planned',
+            imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+            characterIds: ['test-dog'],
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    const keyframes = await loadKeyframes(repo.rootDir)
+
+    expect(keyframes[0]?.characterIds).toEqual(['test-dog'])
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('keyframe reference planning includes relevant character sheets and same-shot start frames', () => {
+  const keyframes: KeyframeEntry[] = [
+    {
+      keyframeId: 'SHOT-01-START',
+      shotId: 'SHOT-01',
+      frameType: 'start',
+      title: 'Opening frame',
+      goal: 'Set the opening pose.',
+      status: 'planned',
+      imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+      characterIds: ['dog-01'],
+    },
+    {
+      keyframeId: 'SHOT-01-END',
+      shotId: 'SHOT-01',
+      frameType: 'end',
+      title: 'Ending frame',
+      goal: 'Set the ending pose.',
+      status: 'planned',
+      imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
+      characterIds: ['dog-01'],
+    },
+  ]
+
+  expect(planKeyframeGenerationReferences(keyframes[0]!, [...keyframes])).toEqual([
+    {
+      kind: 'character-sheet',
+      path: 'workspace/CHARACTERS/dog-01.png',
+    },
+  ])
+
+  expect(planKeyframeGenerationReferences(keyframes[1]!, [...keyframes])).toEqual([
+    {
+      kind: 'character-sheet',
+      path: 'workspace/CHARACTERS/dog-01.png',
+    },
+    {
+      kind: 'start-frame',
+      path: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+    },
+  ])
+})
+
+test('loadWorkflowSummary normalizes removed image models to the first supported option', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(
+      repo.rootDir,
+      'MODEL_OPTIONS.json',
+      `${JSON.stringify(
+        {
+          agentModels: ['agent-test'],
+          imageModels: ['image-reference-default', 'image-reference-alt'],
+          videoModels: ['video-test'],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/CONFIG.json',
+      `${JSON.stringify(
+        {
+          agentModel: 'agent-test',
+          imageModel: 'google/imagen-4.0-fast-generate-001',
+          videoModel: 'video-test',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(repo.rootDir, 'workspace/STATUS.json', createWorkflowStatus([]))
+
+    const runtime = createVideoAgentRuntime({ rootDir: repo.rootDir, creativePrompt: 'test' })
+    const workflow = await runtime.loadWorkflowSummary()
+
+    expect(workflow.config.imageModel).toBe('image-reference-default')
+  } finally {
+    await repo.cleanup()
+  }
 })
 
 test('runTurn emits callbacks in the expected order', async () => {

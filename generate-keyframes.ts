@@ -5,9 +5,11 @@ import arg from 'arg'
 
 import { generateImagenOptions } from './generate-imagen-options'
 import {
+  getCharacterSheetImagePath,
   loadKeyframeArtifacts,
   loadKeyframes,
   type FrameType,
+  type GenerationReferenceEntry,
   type KeyframeArtifactEntry,
   type KeyframeEntry,
 } from './workflow-data'
@@ -24,6 +26,7 @@ export interface PendingKeyframeGeneration {
   model: string
   prompt: string
   outputPath: string
+  characterIds: string[]
 }
 
 function parseArgs(): GenerateKeyframesArgs {
@@ -80,8 +83,59 @@ export function selectPendingKeyframeGenerations(
         model: artifact.model,
         prompt: artifact.prompt,
         outputPath: entry.imagePath,
+        characterIds: entry.characterIds,
       }
     })
+}
+
+export function planKeyframeGenerationReferences(
+  generation: Pick<PendingKeyframeGeneration, 'keyframeId' | 'shotId' | 'frameType'> & {
+    characterIds: readonly string[]
+  },
+  keyframes: KeyframeEntry[],
+): GenerationReferenceEntry[] {
+  const references: GenerationReferenceEntry[] = generation.characterIds.map((characterId) => ({
+    kind: 'character-sheet',
+    path: getCharacterSheetImagePath(characterId),
+  }))
+
+  if (generation.frameType !== 'end') {
+    return references
+  }
+
+  const startKeyframe = keyframes.find(
+    (entry) => entry.shotId === generation.shotId && entry.frameType === 'start',
+  )
+
+  if (!startKeyframe) {
+    throw new Error(
+      `Cannot generate ${generation.keyframeId}; shot "${generation.shotId}" is missing a start keyframe.`,
+    )
+  }
+
+  references.push({
+    kind: 'start-frame',
+    path: startKeyframe.imagePath,
+  })
+
+  return references
+}
+
+async function assertReferenceFilesExist(
+  references: GenerationReferenceEntry[],
+  keyframeId: string,
+) {
+  for (const reference of references) {
+    const absoluteReferencePath = path.resolve(process.cwd(), reference.path)
+
+    if (await fileExists(absoluteReferencePath)) {
+      continue
+    }
+
+    throw new Error(
+      `Cannot generate ${keyframeId}; required ${reference.kind} reference is missing at ${reference.path}.`,
+    )
+  }
 }
 
 async function main() {
@@ -117,6 +171,9 @@ async function main() {
 
     console.log(`Generating ${generation.keyframeId} -> ${generation.outputPath}`)
 
+    const references = planKeyframeGenerationReferences(generation, keyframes)
+    await assertReferenceFilesExist(references, generation.keyframeId)
+
     await generateImagenOptions({
       prompt: generation.prompt,
       model: generation.model,
@@ -124,6 +181,7 @@ async function main() {
       keyframeId: generation.keyframeId,
       shotId: generation.shotId,
       frameType: generation.frameType,
+      references,
     })
 
     generatedCount += 1

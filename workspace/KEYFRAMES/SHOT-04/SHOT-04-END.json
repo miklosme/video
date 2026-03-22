@@ -2,7 +2,7 @@
   "keyframeId": "SHOT-04-END",
   "shotId": "SHOT-04",
   "frameType": "end",
-  "model": "google/imagen-4.0-fast-generate-001",
-  "prompt": "A photo of a small dog in a simple indoor setting, the dog now completely black after the transformation, natural lighting, clean background, realistic fur texture, clear subject separation, candid documentary style.",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of a small black dog in a simple indoor setting, after the transformation, the dog's fur now fully black, clear readable change in color, natural daylight, clean background, realistic fur texture, close framing, crisp focus, documentary-style realism.",
   "status": "planned"
 }

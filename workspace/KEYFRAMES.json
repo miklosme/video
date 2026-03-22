@@ -3,72 +3,80 @@
     "keyframeId": "SHOT-01-START",
     "shotId": "SHOT-01",
     "frameType": "start",
-    "title": "Food blows in, dog reacts",
-    "goal": "Establish the food entering frame and the dog tracking it.",
+    "title": "Dog and food enter the frame",
+    "goal": "Establish the dog reacting as the food blows toward it.",
     "status": "planned",
-    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png",
+    "characterIds": ["dog-01"]
   },
   {
     "keyframeId": "SHOT-01-END",
     "shotId": "SHOT-01",
     "frameType": "end",
-    "title": "Dog commits to the food",
-    "goal": "End on the dog beginning to move in toward the food.",
+    "title": "Dog starts moving in",
+    "goal": "End on the dog beginning its approach toward the food.",
     "status": "planned",
-    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png",
+    "characterIds": ["dog-01"]
   },
   {
     "keyframeId": "SHOT-02-START",
     "shotId": "SHOT-02",
     "frameType": "start",
-    "title": "Dog starts approaching",
-    "goal": "Show the dog closing distance toward the food.",
+    "title": "Dog closes the distance",
+    "goal": "Show the dog stepping or walking toward the food.",
     "status": "planned",
-    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png",
+    "characterIds": ["dog-01"]
   },
   {
     "keyframeId": "SHOT-02-END",
     "shotId": "SHOT-02",
     "frameType": "end",
     "title": "Dog arrives at the food",
-    "goal": "End with the dog right at the food, ready to eat.",
+    "goal": "End with the dog at the food, ready to eat.",
     "status": "planned",
-    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png",
+    "characterIds": ["dog-01"]
   },
   {
     "keyframeId": "SHOT-03-START",
     "shotId": "SHOT-03",
     "frameType": "start",
     "title": "Dog begins eating",
-    "goal": "Capture the first bite or first chew.",
+    "goal": "Capture the first moment of eating.",
     "status": "planned",
-    "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-START.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-START.png",
+    "characterIds": ["dog-01"]
   },
   {
     "keyframeId": "SHOT-03-END",
     "shotId": "SHOT-03",
     "frameType": "end",
-    "title": "Dog finishes the eating beat",
-    "goal": "Hold on the dog actively eating before the reveal.",
+    "title": "Dog continues eating",
+    "goal": "Hold on the dog eating to anchor the action.",
     "status": "planned",
-    "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-END.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-END.png",
+    "characterIds": ["dog-01"]
   },
   {
     "keyframeId": "SHOT-04-START",
     "shotId": "SHOT-04",
     "frameType": "start",
-    "title": "Dog before transformation",
-    "goal": "Show the dog immediately before becoming black.",
+    "title": "Dog before the transformation",
+    "goal": "Show the dog immediately before it turns black.",
     "status": "planned",
-    "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-START.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-START.png",
+    "characterIds": ["dog-01"]
   },
   {
     "keyframeId": "SHOT-04-END",
     "shotId": "SHOT-04",
     "frameType": "end",
-    "title": "Dog becomes black",
-    "goal": "Land the transformation clearly in-frame.",
+    "title": "Dog turns black",
+    "goal": "Reveal the final transformed dog in black fur.",
     "status": "planned",
-    "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-END.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-END.png",
+    "characterIds": ["dog-01"]
   }
 ]

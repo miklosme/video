@@ -24,6 +24,7 @@ export interface KeyframeEntry {
   goal: string
   status: string
   imagePath: string
+  characterIds: string[]
 }
 
 export type KeyframesData = KeyframeEntry[]
@@ -91,10 +92,18 @@ export interface GenerationLogEntry {
   frameType: FrameType | null
   promptId: string | null
   logFile: string
+  references: GenerationReferenceEntry[]
   error: {
     name: string
     message: string
   } | null
+}
+
+export type GenerationReferenceKind = 'character-sheet' | 'start-frame'
+
+export interface GenerationReferenceEntry {
+  kind: GenerationReferenceKind
+  path: string
 }
 
 export const WORKSPACE_DIR = 'workspace'
@@ -277,6 +286,7 @@ function parseKeyframeEntry(value: unknown, context: string): KeyframeEntry {
     goal: expectString(object.goal, `${context}.goal`),
     status: expectString(object.status, `${context}.status`),
     imagePath,
+    characterIds: expectStringArray(object.characterIds, `${context}.characterIds`),
   }
 }
 

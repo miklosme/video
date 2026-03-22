@@ -421,6 +421,9 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
     '- Use workspace/CONFIG.json.imageModel for workspace/KEYFRAMES/*.json and workspace/CHARACTERS/*.json model fields and still-image prompting style.',
   )
   lines.push(
+    '- Every KEYFRAMES.json entry must include characterIds listing only the characters visible in that frame, in reference priority order.',
+  )
+  lines.push(
     '- Character sidecar schema is exact: { characterId, displayName, model, prompt, status }.',
   )
   lines.push(

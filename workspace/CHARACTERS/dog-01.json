@@ -1,7 +1,7 @@
 {
   "characterId": "dog-01",
   "displayName": "The Dog",
-  "model": "google/imagen-4.0-fast-generate-001",
+  "model": "google/gemini-3.1-flash-image-preview",
   "prompt": "A photo of a medium-sized dog with a clean, readable silhouette in a clean studio look, calm and alert in profile or three-quarter view. The dog is the single on-screen subject and visual anchor for the transformation. Start with a bright white coat and later become a deep black coat, with the coat color change as the key visual effect. Natural, confident presence, settled posture, no extra markings, no mixed coat patterns, no exaggerated expression, no cartoon styling, no breed-specific details that could cause drift.",
   "status": "ready"
 }

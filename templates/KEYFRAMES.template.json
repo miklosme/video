@@ -6,7 +6,8 @@
     "title": "TBD",
     "goal": "TBD",
     "status": "planned",
-    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png",
+    "characterIds": ["TBD"]
   },
   {
     "keyframeId": "SHOT-01-END",
@@ -15,6 +16,7 @@
     "title": "TBD",
     "goal": "TBD",
     "status": "planned",
-    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png"
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png",
+    "characterIds": ["TBD"]
   }
 ]

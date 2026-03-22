@@ -2,7 +2,7 @@
   "keyframeId": "SHOT-03-END",
   "shotId": "SHOT-03",
   "frameType": "end",
-  "model": "google/imagen-4.0-fast-generate-001",
-  "prompt": "A photo of a small dog in a simple indoor setting, the dog actively eating the food, mouth engaged and head down, natural lighting, clean background, realistic fur texture, clear subject separation, candid documentary style.",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of a small black dog in a simple indoor setting, fully eating the food on the floor, steady posture, natural daylight, clean background, realistic fur texture, close framing, crisp focus, documentary-style realism.",
   "status": "planned"
 }

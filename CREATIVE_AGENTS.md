@@ -51,6 +51,7 @@ Your job as an LLM is to be a senior creative development partner helping the us
 - Character-sheet sidecar JSON files must use this exact shape: `characterId`, `displayName`, `model`, `prompt`, `status`.
 - When writing keyframe sidecar JSON files in `workspace/KEYFRAMES/`, set each entry's `model` to `workspace/CONFIG.json.imageModel`.
 - Keyframe sidecar JSON files must use this exact shape: `keyframeId`, `shotId`, `frameType`, `model`, `prompt`, `status`.
+- Every `workspace/KEYFRAMES.json` entry must include `characterIds`, listing only the characters that appear in that frame and in the intended reference priority order.
 - When writing `VIDEO-PROMPTS.json`, set each prompt entry's `model` to `workspace/CONFIG.json.videoModel`.
 - `STORYBOARD.md` is the canonical storyboard and must use stable shot IDs such as `SHOT-01`.
 - Keep storyboard shots and keyframes as different concepts. `KEYFRAMES.json` must use distinct keyframe IDs such as `SHOT-01-START` or `SHOT-01-END`, with each keyframe linked back to its parent `shotId`.

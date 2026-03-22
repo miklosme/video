@@ -2,6 +2,7 @@ import { access } from 'node:fs/promises'
 import path from 'node:path'
 
 import {
+  getCharacterSheetImagePath,
   loadCharacterSheets,
   loadConfig,
   loadKeyframeArtifacts,
@@ -62,8 +63,12 @@ function summarizeFrameTypes(entries: { frameType: FrameType }[]) {
   return [...new Set(entries.map((entry) => entry.frameType))].sort().join(', ')
 }
 
-function validateKeyframes(keyframes: KeyframeEntry[]) {
+async function validateKeyframes(
+  keyframes: KeyframeEntry[],
+  characterSheets: CharacterSheetEntry[],
+) {
   const keyframeIds = new Set<string>()
+  const characterIds = new Set(characterSheets.map((entry) => entry.characterId))
 
   for (const entry of keyframes) {
     if (keyframeIds.has(entry.keyframeId)) {
@@ -71,6 +76,24 @@ function validateKeyframes(keyframes: KeyframeEntry[]) {
     }
 
     keyframeIds.add(entry.keyframeId)
+
+    for (const characterId of entry.characterIds) {
+      if (!characterIds.has(characterId)) {
+        throw new Error(
+          `Keyframe "${entry.keyframeId}" references missing character "${characterId}" in workspace/CHARACTERS/.`,
+        )
+      }
+
+      const characterSheetImagePath = resolveRepoPath(getCharacterSheetImagePath(characterId))
+
+      try {
+        await access(characterSheetImagePath)
+      } catch {
+        throw new Error(
+          `Keyframe "${entry.keyframeId}" requires character sheet image "${path.relative(process.cwd(), characterSheetImagePath)}".`,
+        )
+      }
+    }
   }
 
   for (const [shotId, entries] of groupByShotId(keyframes)) {
@@ -209,7 +232,7 @@ async function main() {
   const videoPrompts = videoPromptsExists ? await loadVideoPrompts() : []
 
   validateCharacterSheets(characterSheets)
-  validateKeyframes(keyframes)
+  await validateKeyframes(keyframes, characterSheets)
   validateKeyframeArtifacts(keyframes, keyframeArtifacts)
   validateVideoPrompts(keyframes, videoPrompts)
 

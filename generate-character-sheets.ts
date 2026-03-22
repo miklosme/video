@@ -89,6 +89,7 @@ async function main() {
       prompt: generation.prompt,
       model: generation.model,
       outputPath: generation.outputPath,
+      references: [],
     })
 
     generatedCount += 1

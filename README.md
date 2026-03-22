@@ -31,7 +31,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `workspace/CHARACTERS.md` stores textual character definitions, and each character section should include a stable `Character ID:`.
 - `workspace/CHARACTERS/` stores character-sheet sidecar JSON files plus the generated `.png` sheets beside them.
 - `workspace/STORYBOARD.md` is the single canonical storyboard file and should use stable shot IDs such as `SHOT-01`.
-- `workspace/KEYFRAMES.json` should use distinct keyframe IDs such as `SHOT-01-START` and `SHOT-01-END`, each linked back to a parent `shotId`.
+- `workspace/KEYFRAMES.json` should use distinct keyframe IDs such as `SHOT-01-START` and `SHOT-01-END`, each linked back to a parent `shotId`, and each keyframe entry must list the relevant `characterIds` for that frame.
 - `workspace/KEYFRAMES/` stores one sidecar JSON and one generated `.png` per keyframe, grouped under each `shotId`.
 - By default, plan one `start` and one `end` keyframe per storyboard shot. Use `single` only for a deliberate one-anchor exception.
 - Use `TBD` for unresolved creative information and `TODO` for coding work.
@@ -39,6 +39,6 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 ## Tooling Notes
 
 - `bun validate-workflow-data.ts` validates required workflow files and the simplified JSON schemas.
-- `./generate-character-sheets.sh` syncs missing `workspace/CHARACTERS/*.png` files from their sidecar JSON files.
-- `./generate-keyframes.sh` syncs missing `workspace/KEYFRAMES/**/*.png` files from their sidecar JSON files and `workspace/KEYFRAMES.json`.
-- `generate-imagen-options.ts` preserves the existing CLI contract, supports `AI_GATEWAY_API_KEY`, and can still append generation records to `workspace/GENERATION-LOG.jsonl` when used directly.
+- `bun generate-character-sheets.ts` syncs missing `workspace/CHARACTERS/*.png` files from their sidecar JSON files.
+- `bun generate-keyframes.ts` syncs missing `workspace/KEYFRAMES/**/*.png` files from their sidecar JSON files and `workspace/KEYFRAMES.json`, attaching the relevant character sheets for each keyframe and the same-shot start frame for end-frame generation.
+- `generate-imagen-options.ts` preserves the direct CLI contract, uses the Vercel AI Gateway through the AI SDK, supports `AI_GATEWAY_API_KEY`, and appends generation records to `workspace/GENERATION-LOG.jsonl`.
