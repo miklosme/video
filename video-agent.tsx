@@ -2,7 +2,12 @@ import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:
 import path from 'node:path'
 import process from 'node:process'
 
-import { createCliRenderer, createTextAttributes, type InputRenderable } from '@opentui/core'
+import {
+  createCliRenderer,
+  createTextAttributes,
+  type InputRenderable,
+  type SelectOption,
+} from '@opentui/core'
 import { createRoot, useKeyboard } from '@opentui/react'
 import { stepCountIs, tool, ToolLoopAgent, type ModelMessage } from 'ai'
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
@@ -713,36 +718,6 @@ function renderConfigCard(
       }}
     >
       <text wrapMode="word" content={value} />
-    </box>
-  )
-}
-
-function getSelectedModelIndex(values: string[], currentValue: string) {
-  const selectedIndex = values.indexOf(currentValue)
-
-  return selectedIndex === -1 ? 0 : selectedIndex
-}
-
-function renderConfigChoice(
-  key: string,
-  label: string,
-  value: string,
-  isSelected: boolean,
-  onChoose: () => void,
-) {
-  return (
-    <box
-      key={key}
-      border
-      paddingLeft={1}
-      paddingRight={1}
-      backgroundColor={isSelected ? '#334455' : undefined}
-      onMouseDown={onChoose}
-    >
-      <text wrapMode="word">
-        <span attributes={DIM_TEXT_ATTRIBUTES}>{`${label}. `}</span>
-        <span fg={isSelected ? 'yellow' : undefined}>{value}</span>
-      </text>
     </box>
   )
 }
@@ -1492,15 +1467,16 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
     setOpenConfigField(field)
   }
 
-  const saveConfig = async () => {
+  const saveConfig = async (nextConfigOverride?: ConfigDraft) => {
     if (isBusy || isResettingMilestone || isSavingConfig) {
       return
     }
 
+    const nextConfigDraft = nextConfigOverride ?? configDraft
     const nextConfig = {
-      agentModel: configDraft.agentModel,
-      imageModel: configDraft.imageModel,
-      videoModel: configDraft.videoModel,
+      agentModel: nextConfigDraft.agentModel,
+      imageModel: nextConfigDraft.imageModel,
+      videoModel: nextConfigDraft.videoModel,
     }
 
     setRuntimeErrorState(null)
@@ -1533,46 +1509,6 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
       if (event.name === 'escape') {
         closeConfigDialog()
         return
-      }
-
-      if (event.name === 'up' || event.name === 'k') {
-        const currentIndex = getSelectedModelIndex(activeConfigOptions, activeConfigValue)
-        const nextIndex =
-          currentIndex === 0 ? activeConfigOptions.length - 1 : Math.max(0, currentIndex - 1)
-        const nextValue = activeConfigOptions[nextIndex]
-
-        if (nextValue) {
-          setOpenConfigValue(nextValue)
-        }
-
-        return
-      }
-
-      if (event.name === 'down' || event.name === 'j') {
-        const currentIndex = getSelectedModelIndex(activeConfigOptions, activeConfigValue)
-        const nextIndex = currentIndex === activeConfigOptions.length - 1 ? 0 : currentIndex + 1
-        const nextValue = activeConfigOptions[nextIndex]
-
-        if (nextValue) {
-          setOpenConfigValue(nextValue)
-        }
-
-        return
-      }
-
-      if (event.name === 'return' || event.name === 'linefeed') {
-        void saveConfig()
-        return
-      }
-
-      if (typeof event.sequence === 'string' && /^[1-9]$/.test(event.sequence)) {
-        const optionIndex = Number(event.sequence) - 1
-        const optionValue = activeConfigOptions[optionIndex]
-
-        if (optionValue) {
-          setOpenConfigValue(optionValue)
-          void saveConfig()
-        }
       }
 
       return
@@ -1610,6 +1546,11 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
     openConfigField === null ? [] : getModelOptionsForField(workflow.modelOptions, openConfigField)
   const activeConfigValue =
     openConfigField === null ? '' : getConfigFieldValue(configDraft, openConfigField)
+  const activeConfigSelectOptions: SelectOption[] = activeConfigOptions.map((option) => ({
+    name: option,
+    description: option === activeConfigValue ? 'Current selection' : 'Available option',
+    value: option,
+  }))
 
   const setOpenConfigValue = (value: string) => {
     if (openConfigField === null) {
@@ -1866,7 +1807,8 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
           justifyContent="center"
         >
           <box
-            width={84}
+            width={96}
+            height={24}
             border
             title={`Select ${activeConfigLabel}`}
             padding={1}
@@ -1876,54 +1818,38 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
             <box marginBottom={1}>
               <text wrapMode="word">{activeConfigDescription ?? ''}</text>
             </box>
-            <box marginBottom={1} flexDirection="column">
+            <box marginBottom={1} flexDirection="column" height={16}>
               <text content={activeConfigLabel ?? ''} wrapMode="word" />
-              <box flexDirection="column" gap={1}>
-                {activeConfigOptions.map((option, index) =>
-                  renderConfigChoice(
-                    `config-option-${option}`,
-                    String(index + 1),
-                    option,
-                    option === activeConfigValue,
-                    () => {
-                      setOpenConfigValue(option)
-                      void saveConfig()
-                    },
-                  ),
-                )}
-              </box>
-            </box>
-            <box marginBottom={1}>
-              <text wrapMode="word">
-                Click an option, or use Up/Down then Enter. Number keys like 1 or 2 also work.
-              </text>
-            </box>
-            <box flexDirection="row" justifyContent="flex-end" gap={1}>
-              <box
-                border
-                width={10}
-                height={3}
-                alignItems="center"
-                justifyContent="center"
-                onMouseDown={() => {
-                  closeConfigDialog()
+              <select
+                focused
+                style={{ height: 14 }}
+                options={activeConfigSelectOptions}
+                selectedIndex={Math.max(0, activeConfigOptions.indexOf(activeConfigValue))}
+                onChange={(_, option) => {
+                  if (!option?.value || typeof option.value !== 'string') {
+                    return
+                  }
+
+                  setConfigDraft((current) =>
+                    updateConfigDraftField(current, openConfigField, option.value),
+                  )
                 }}
-              >
-                <text content="Cancel" wrapMode="word" />
-              </box>
-              <box
-                border
-                width={10}
-                height={3}
-                alignItems="center"
-                justifyContent="center"
-                backgroundColor="white"
-                onMouseDown={() => {
-                  void saveConfig()
+                onSelect={(_, option) => {
+                  if (!option?.value || typeof option.value !== 'string') {
+                    return
+                  }
+
+                  setConfigDraft((current) => {
+                    const nextDraft = updateConfigDraftField(current, openConfigField, option.value)
+
+                    queueMicrotask(() => {
+                      void saveConfig(nextDraft)
+                    })
+
+                    return nextDraft
+                  })
                 }}
-              >
-                <text fg="black" content={isSavingConfig ? 'Saving...' : 'Save'} wrapMode="word" />
-              </box>
+              />
             </box>
           </box>
         </box>
