@@ -1,0 +1,58 @@
+[
+  {
+    "title": "Define concept",
+    "instruction": "Establish the core premise, subject, and transformation clearly enough that the project has a specific creative identity and can move into story development.",
+    "checked": true,
+    "relatedFiles": [
+      "IDEA.md"
+    ]
+  },
+  {
+    "title": "Shape story",
+    "instruction": "Turn the concept into a coherent narrative or ad arc with clear progression, emotional logic, and enough structure to guide shot planning.",
+    "checked": true,
+    "relatedFiles": [
+      "STORY.md"
+    ]
+  },
+  {
+    "title": "Define characters",
+    "instruction": "Establish stable visual and behavioral anchors for recurring subjects so they can stay consistent across story, storyboard, and prompts.",
+    "checked": true,
+    "relatedFiles": [
+      "CHARACTERS.md"
+    ]
+  },
+  {
+    "title": "Build storyboard",
+    "instruction": "Create a shot-by-shot plan with stable shot IDs and clear visual intent so the sequence can guide keyframes and prompts.",
+    "checked": true,
+    "relatedFiles": [
+      "STORYBOARD.md"
+    ]
+  },
+  {
+    "title": "Plan keyframes",
+    "instruction": "Plan distinct keyframes for each storyboard shot, defaulting to one start and one end frame per shot unless a deliberate single-frame exception is justified.",
+    "checked": true,
+    "relatedFiles": [
+      "KEYFRAMES.json"
+    ]
+  },
+  {
+    "title": "Write keyframe prompts",
+    "instruction": "Write still-image prompts that are specific, visually grounded, and executable for the planned keyframes.",
+    "checked": true,
+    "relatedFiles": [
+      "KEYFRAME-PROMPTS.json"
+    ]
+  },
+  {
+    "title": "Write video prompts",
+    "instruction": "Write motion prompts that are executable, consistent with the storyboard and keyframes, and clear about camera, action, and continuity.",
+    "checked": true,
+    "relatedFiles": [
+      "VIDEO-PROMPTS.json"
+    ]
+  }
+]

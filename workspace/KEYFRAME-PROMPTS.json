@@ -1,0 +1,46 @@
+[
+  {
+    "promptId": "shot-01-start",
+    "keyframeId": "SHOT-01-START",
+    "shotId": "SHOT-01",
+    "frameType": "start",
+    "label": "start keyframe",
+    "model": "google/imagen-4.0-fast-generate-001",
+    "prompt": "A photo of a white dog sitting on a chair in a clean minimal interior, simple composition, soft natural daylight, neutral background, centered framing, calm and still, clean fur texture, no text, no logos.",
+    "status": "planned",
+    "outputPath": "keyframes/SHOT-01/shot-01-start.png"
+  },
+  {
+    "promptId": "shot-01-end",
+    "keyframeId": "SHOT-01-END",
+    "shotId": "SHOT-01",
+    "frameType": "end",
+    "label": "end keyframe",
+    "model": "google/imagen-4.0-fast-generate-001",
+    "prompt": "A photo of a black dog sitting on a chair in the same clean minimal interior, simple composition, soft natural daylight, neutral background, centered framing, calm and still, clean fur texture, no text, no logos.",
+    "status": "planned",
+    "outputPath": "keyframes/SHOT-01/shot-01-end.png"
+  },
+  {
+    "promptId": "shot-02-start",
+    "keyframeId": "SHOT-02-START",
+    "shotId": "SHOT-02",
+    "frameType": "start",
+    "label": "start keyframe",
+    "model": "google/imagen-4.0-fast-generate-001",
+    "prompt": "A photo of a white dog in the same clean minimal interior, simple composition, soft natural daylight, neutral background, slightly wider framing that leaves room for motion, calm and still, clean fur texture, no text, no logos.",
+    "status": "planned",
+    "outputPath": "keyframes/SHOT-02/shot-02-start.png"
+  },
+  {
+    "promptId": "shot-02-end",
+    "keyframeId": "SHOT-02-END",
+    "shotId": "SHOT-02",
+    "frameType": "end",
+    "label": "end keyframe",
+    "model": "google/imagen-4.0-fast-generate-001",
+    "prompt": "A photo of a black dog in the same clean minimal interior, simple composition, soft natural daylight, neutral background, slightly wider framing that leaves room for motion, calm and still, clean fur texture, no text, no logos.",
+    "status": "planned",
+    "outputPath": "keyframes/SHOT-02/shot-02-end.png"
+  }
+]
