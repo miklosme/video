@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-01-END",
+  "shotId": "SHOT-01",
+  "frameType": "end",
+  "model": "google/imagen-4.0-fast-generate-001",
+  "prompt": "A photo of a small dog in a simple indoor setting, the food now closer in the foreground and the dog starting to move in toward it, focused posture, natural lighting, clean background, realistic fur texture, clear subject separation, candid documentary style.",
+  "status": "planned"
+}

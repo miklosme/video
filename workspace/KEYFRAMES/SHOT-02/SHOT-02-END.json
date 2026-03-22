@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-02-END",
+  "shotId": "SHOT-02",
+  "frameType": "end",
+  "model": "google/imagen-4.0-fast-generate-001",
+  "prompt": "A photo of a small dog in a simple indoor setting, the dog arrived at the food and leaning in to eat, focused and close to the ground, natural lighting, clean background, realistic fur texture, clear subject separation, candid documentary style.",
+  "status": "planned"
+}

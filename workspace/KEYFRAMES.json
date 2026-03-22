@@ -1,0 +1,74 @@
+[
+  {
+    "keyframeId": "SHOT-01-START",
+    "shotId": "SHOT-01",
+    "frameType": "start",
+    "title": "Food blows in, dog reacts",
+    "goal": "Establish the food entering frame and the dog tracking it.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png"
+  },
+  {
+    "keyframeId": "SHOT-01-END",
+    "shotId": "SHOT-01",
+    "frameType": "end",
+    "title": "Dog commits to the food",
+    "goal": "End on the dog beginning to move in toward the food.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png"
+  },
+  {
+    "keyframeId": "SHOT-02-START",
+    "shotId": "SHOT-02",
+    "frameType": "start",
+    "title": "Dog starts approaching",
+    "goal": "Show the dog closing distance toward the food.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png"
+  },
+  {
+    "keyframeId": "SHOT-02-END",
+    "shotId": "SHOT-02",
+    "frameType": "end",
+    "title": "Dog arrives at the food",
+    "goal": "End with the dog right at the food, ready to eat.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png"
+  },
+  {
+    "keyframeId": "SHOT-03-START",
+    "shotId": "SHOT-03",
+    "frameType": "start",
+    "title": "Dog begins eating",
+    "goal": "Capture the first bite or first chew.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-START.png"
+  },
+  {
+    "keyframeId": "SHOT-03-END",
+    "shotId": "SHOT-03",
+    "frameType": "end",
+    "title": "Dog finishes the eating beat",
+    "goal": "Hold on the dog actively eating before the reveal.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-END.png"
+  },
+  {
+    "keyframeId": "SHOT-04-START",
+    "shotId": "SHOT-04",
+    "frameType": "start",
+    "title": "Dog before transformation",
+    "goal": "Show the dog immediately before becoming black.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-START.png"
+  },
+  {
+    "keyframeId": "SHOT-04-END",
+    "shotId": "SHOT-04",
+    "frameType": "end",
+    "title": "Dog becomes black",
+    "goal": "Land the transformation clearly in-frame.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-END.png"
+  }
+]

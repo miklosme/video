@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-02-START",
+  "shotId": "SHOT-02",
+  "frameType": "start",
+  "model": "google/imagen-4.0-fast-generate-001",
+  "prompt": "A photo of a small dog in a simple indoor setting, the dog beginning to approach a piece of food on the floor, intent expression, natural lighting, clean background, realistic fur texture, clear subject separation, candid documentary style.",
+  "status": "planned"
+}

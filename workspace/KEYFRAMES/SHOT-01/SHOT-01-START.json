@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-01-START",
+  "shotId": "SHOT-01",
+  "frameType": "start",
+  "model": "google/imagen-4.0-fast-generate-001",
+  "prompt": "A photo of a small dog in a simple indoor setting, a piece of food blown into the frame toward the dog, the dog reacting and tracking the food with alert focus, natural lighting, clean background, realistic fur texture, clear subject separation, candid documentary style.",
+  "status": "planned"
+}
