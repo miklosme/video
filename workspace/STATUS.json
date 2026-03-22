@@ -42,7 +42,7 @@
   {
     "title": "Write keyframe prompts",
     "instruction": "Write still-image prompts that are specific, visually grounded, and executable for the planned keyframes.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": [
       "KEYFRAME-PROMPTS.json"
     ]
@@ -50,7 +50,7 @@
   {
     "title": "Write video prompts",
     "instruction": "Write motion prompts that are executable, consistent with the storyboard and keyframes, and clear about camera, action, and continuity.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": [
       "VIDEO-PROMPTS.json"
     ]
