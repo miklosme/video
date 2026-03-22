@@ -1,3 +1,4 @@
+import { spawn } from 'node:child_process'
 import { access, copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
@@ -5,10 +6,12 @@ import process from 'node:process'
 import {
   createCliRenderer,
   createTextAttributes,
+  type CliRenderer,
   type InputRenderable,
+  type Selection,
   type SelectOption,
 } from '@opentui/core'
-import { createRoot, useKeyboard } from '@opentui/react'
+import { createRoot, useKeyboard, useRenderer } from '@opentui/react'
 import { stepCountIs, tool, ToolLoopAgent, type ModelMessage } from 'ai'
 import { useEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { z } from 'zod'
@@ -36,6 +39,7 @@ const STATUS_TEMPLATE_PATH = path.resolve(TEMPLATES_DIR, 'STATUS.template.json')
 const AGENT_STATE_PATH = path.resolve(ROOT_DIR, '.history.json')
 const SESSION_HISTORY_LIMIT = 12
 const PERSISTED_AGENT_STATE_VERSION = 1
+const COPY_NOTIFICATION_DURATION_MS = 2200
 
 const ALLOWED_WORKSPACE_FILES = new Set([
   'IDEA.md',
@@ -174,8 +178,69 @@ const persistedAgentStateSchema = z.object({
 
 const DIM_TEXT_ATTRIBUTES = createTextAttributes({ dim: true })
 
+const SELECTION_HIGHLIGHT_BG = '#315b83'
+const SELECTION_HIGHLIGHT_FG = '#ffffff'
+
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function runClipboardCommand(command: string, args: string[], text: string) {
+  return new Promise<boolean>((resolve) => {
+    const child = spawn(command, args, {
+      stdio: ['pipe', 'ignore', 'ignore'],
+    })
+
+    child.on('error', () => {
+      resolve(false)
+    })
+
+    child.on('close', (code) => {
+      resolve(code === 0)
+    })
+
+    child.stdin.on('error', () => {
+      resolve(false)
+    })
+    child.stdin.end(text)
+  })
+}
+
+async function copyTextWithSystemClipboard(text: string) {
+  if (process.platform === 'darwin') {
+    return runClipboardCommand('pbcopy', [], text)
+  }
+
+  if (process.platform === 'win32') {
+    return runClipboardCommand('clip', [], text)
+  }
+
+  const candidates: Array<{ command: string; args: string[] }> = []
+
+  if (process.env.WAYLAND_DISPLAY || process.env.XDG_SESSION_TYPE === 'wayland') {
+    candidates.push({ command: 'wl-copy', args: [] })
+  }
+
+  candidates.push(
+    { command: 'xclip', args: ['-selection', 'clipboard'] },
+    { command: 'xsel', args: ['--clipboard', '--input'] },
+  )
+
+  for (const candidate of candidates) {
+    if (await runClipboardCommand(candidate.command, candidate.args, text)) {
+      return true
+    }
+  }
+
+  return false
+}
+
+async function copySelectionText(renderer: CliRenderer, text: string) {
+  if (renderer.copyToClipboardOSC52(text)) {
+    return true
+  }
+
+  return copyTextWithSystemClipboard(text)
 }
 
 async function fileExists(targetPath: string) {
@@ -1288,6 +1353,7 @@ function createVideoAgent(
 }
 
 function App({ creativePrompt, initialWorkflow, initialSession, statePersistence }: AppProps) {
+  const renderer = useRenderer()
   const [transcript, setTranscript] = useState<TranscriptEntry[]>(initialSession.transcript)
   const [composerValue, setComposerValue] = useState(initialSession.composerValue)
   const [workflow, setWorkflow] = useState(initialWorkflow)
@@ -1301,6 +1367,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
     createConfigDraft(initialWorkflow.config),
   )
   const [isSavingConfig, setIsSavingConfig] = useState(false)
+  const [copyNotification, setCopyNotification] = useState<string | null>(null)
 
   const transcriptRef = useRef<TranscriptEntry[]>(initialSession.transcript)
   const composerValueRef = useRef(initialSession.composerValue)
@@ -1309,6 +1376,7 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   const activeAssistantEntryIdRef = useRef<string | null>(null)
   const assistantHasStartedRef = useRef(false)
   const composerInputRef = useRef<InputRenderable | null>(null)
+  const copyNotificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bridgeRef = useRef<AgentBridge>({
     recordToolEvent: () => {},
     recordFileChange: () => {},
@@ -1373,6 +1441,55 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
   useEffect(() => {
     persistSession()
   }, [])
+
+  useEffect(() => {
+    return () => {
+      if (copyNotificationTimeoutRef.current) {
+        clearTimeout(copyNotificationTimeoutRef.current)
+      }
+    }
+  }, [])
+
+  useEffect(() => {
+    const showCopyNotification = (message: string) => {
+      if (copyNotificationTimeoutRef.current) {
+        clearTimeout(copyNotificationTimeoutRef.current)
+      }
+
+      setCopyNotification(message)
+      copyNotificationTimeoutRef.current = setTimeout(() => {
+        setCopyNotification(null)
+        copyNotificationTimeoutRef.current = null
+      }, COPY_NOTIFICATION_DURATION_MS)
+    }
+
+    const handleSelection = (selection: Selection | null) => {
+      if (!selection) {
+        return
+      }
+
+      const selectedText = selection.getSelectedText()
+
+      if (selectedText.length === 0) {
+        return
+      }
+
+      void (async () => {
+        const copied = await copySelectionText(renderer, selectedText)
+        showCopyNotification(
+          copied
+            ? `Copied ${selectedText.length} character${selectedText.length === 1 ? '' : 's'}`
+            : 'Selection captured, but clipboard copy is unavailable',
+        )
+      })()
+    }
+
+    renderer.on('selection', handleSelection)
+
+    return () => {
+      renderer.off('selection', handleSelection)
+    }
+  }, [renderer])
 
   bridgeRef.current.recordToolEvent = (message) => {
     const toolEntry = {
@@ -1681,7 +1798,12 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
               return (
                 <box key={entry.id} width="100%" alignItems="flex-end" marginBottom={marginBottom}>
                   <box width="90%" backgroundColor="#5a5a5a" padding={1} paddingLeft={2}>
-                    <text content={entry.text} wrapMode="word" />
+                    <text
+                      content={entry.text}
+                      wrapMode="word"
+                      selectionBg={SELECTION_HIGHLIGHT_BG}
+                      selectionFg={SELECTION_HIGHLIGHT_FG}
+                    />
                   </box>
                 </box>
               )
@@ -1689,7 +1811,12 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
 
             return (
               <box key={entry.id} marginBottom={marginBottom}>
-                <text content={entry.text} wrapMode="word" />
+                <text
+                  content={entry.text}
+                  wrapMode="word"
+                  selectionBg={SELECTION_HIGHLIGHT_BG}
+                  selectionFg={SELECTION_HIGHLIGHT_FG}
+                />
               </box>
             )
           })}
@@ -1916,6 +2043,21 @@ function App({ creativePrompt, initialWorkflow, initialSession, statePersistence
               </box>
             </box>
           </box>
+        </box>
+      ) : null}
+      {copyNotification ? (
+        <box
+          position="absolute"
+          right={2}
+          top={1}
+          zIndex={21}
+          border
+          paddingLeft={1}
+          paddingRight={1}
+          borderColor="#facc15"
+          backgroundColor="#000000"
+        >
+          <text content={copyNotification} fg="#facc15" />
         </box>
       ) : null}
     </box>

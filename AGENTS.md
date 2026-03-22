@@ -46,7 +46,7 @@ Do not silently rewrite story canon, storyboard content, prompt content, or stru
 - If you create tooling or scripts that interact with creative files, preserve the simplified file responsibilities, schemas, and naming conventions.
 - If you change a canonical `workspace/` file's expected structure, update the matching template in the same change.
 - If a requested technical change conflicts with established creative content, stop and surface the conflict instead of guessing.
-- After finishing technical work, run the relevant QA scripts to validate correctness before handing off: `bun run validate:data`, `bun run typecheck`, and `bun run format:check`.
+- After finishing technical work, run the relevant QA scripts to validate correctness before handing off: `bun run validate:data`, `bun run typecheck`, and `bun run format`.
 
 ## Script Notes
 

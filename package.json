@@ -10,7 +10,6 @@
     "validate:data": "bun validate-workflow-data.ts",
     "typecheck": "tsc --noEmit --pretty",
     "format": "prettier --write .",
-    "format:check": "prettier --check .",
     "reset": "bun reset-history.ts",
     "reset:all": "rm -f .history.json",
     "reset:hard": "rm -rf workspace/ .history.json && mkdir workspace/ && echo '' > workspace/.gitkeep"
