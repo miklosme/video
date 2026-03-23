@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-03-END",
-  "shotId": "SHOT-03",
-  "frameType": "end",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of a generic nice black dog, medium-small friendly build, soft rounded silhouette, clean black fur, floppy ears, dark eyes and nose, natural proportions, calm affectionate expression, in the same simple clean studio-like setting with a plain background, soft even lighting, realistic pet portrait, no collar, no clothing, no accessories.",
-  "status": "ready"
-}

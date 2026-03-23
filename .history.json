@@ -874,13 +874,13 @@
   ],
   "composerValue": "",
   "recentChanges": [
+    "STATUS.json",
+    "KEYFRAMES/",
+    "KEYFRAMES.json",
     "CHARACTERS.md",
     "CHARACTERS/white-dog.json",
     "CHARACTERS/black-dog.json",
     "CHARACTERS/",
-    "STATUS.json",
-    "KEYFRAMES/",
-    "KEYFRAMES.json",
     "KEYFRAMES/SHOT-02/SHOT-02-END.json"
   ],
   "runtimeError": null
