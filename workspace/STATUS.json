@@ -84,11 +84,11 @@
     ]
   },
   {
-    "title": "Write video prompts",
-    "instruction": "Write motion prompts that are executable, consistent with the storyboard and keyframes, and clear about camera, action, and continuity.",
+    "title": "Write shot prompts",
+    "instruction": "Write one motion prompt per shot so each planned shot is executable, consistent with the storyboard and keyframes, and clear about camera, action, and continuity.",
     "checked": false,
     "relatedFiles": [
-      "VIDEO-PROMPTS.json"
+      "SHOT-PROMPTS.json"
     ]
   }
 ]

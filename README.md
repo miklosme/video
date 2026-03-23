@@ -20,7 +20,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `workspace/STORYBOARD.png`
 - `workspace/KEYFRAMES.json`
 - `workspace/KEYFRAMES/`
-- `workspace/VIDEO-PROMPTS.json`
+- `workspace/SHOT-PROMPTS.json`
 
 ## Working Rules
 

@@ -25,7 +25,7 @@ Input:  "A weathered Hungarian shepherd in his 60s, deep-set eyes,
 
 Output: {
   name: "shepherd",
-  description: "...",       // full text, passed into video prompts later
+  description: "...",       // full text, passed into shot prompts later
   physicalTraits: string,   // face, build, age, skin, hair
   wardrobe: string,         // clothing, accessories
   distinctiveFeatures: string // scars, tattoos, props, anything unique

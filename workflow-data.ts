@@ -50,7 +50,7 @@ export interface CharacterSheetEntry {
 
 export type CharacterSheetsData = CharacterSheetEntry[]
 
-export interface VideoPromptEntry {
+export interface ShotPromptEntry {
   promptId: string
   shotId: string
   model: string
@@ -59,7 +59,7 @@ export interface VideoPromptEntry {
   keyframeIds: string[]
 }
 
-export type VideoPromptsData = VideoPromptEntry[]
+export type ShotPromptsData = ShotPromptEntry[]
 
 export interface ConfigData {
   agentModel: string
@@ -115,7 +115,7 @@ export const WORKFLOW_FILES = {
   storyboard: 'STORYBOARD.md',
   storyboardImage: 'STORYBOARD.png',
   keyframes: 'KEYFRAMES.json',
-  videoPrompts: 'VIDEO-PROMPTS.json',
+  shotPrompts: 'SHOT-PROMPTS.json',
 } as const
 
 export const WORKFLOW_FOLDERS = {
@@ -327,7 +327,7 @@ export function parseCharacterSheetEntry(value: unknown, context: string): Chara
   }
 }
 
-function parseVideoPromptEntry(value: unknown, context: string): VideoPromptEntry {
+function parseShotPromptEntry(value: unknown, context: string): ShotPromptEntry {
   const object = expectObject(value, context)
 
   return {
@@ -340,9 +340,9 @@ function parseVideoPromptEntry(value: unknown, context: string): VideoPromptEntr
   }
 }
 
-function parseVideoPromptsData(value: unknown): VideoPromptsData {
-  return expectArray(value, 'VIDEO-PROMPTS.json').map((entry, index) =>
-    parseVideoPromptEntry(entry, `VIDEO-PROMPTS.json[${index}]`),
+function parseShotPromptsData(value: unknown): ShotPromptsData {
+  return expectArray(value, 'SHOT-PROMPTS.json').map((entry, index) =>
+    parseShotPromptEntry(entry, `SHOT-PROMPTS.json[${index}]`),
   )
 }
 
@@ -475,8 +475,8 @@ export async function loadCharacterSheets(cwd = process.cwd()) {
   return entries.sort((left, right) => left.characterId.localeCompare(right.characterId))
 }
 
-export async function loadVideoPrompts(cwd = process.cwd()) {
-  return readJsonFile(WORKFLOW_FILES.videoPrompts, parseVideoPromptsData, cwd)
+export async function loadShotPrompts(cwd = process.cwd()) {
+  return readJsonFile(WORKFLOW_FILES.shotPrompts, parseShotPromptsData, cwd)
 }
 
 export function validateConfigAgainstModelOptions(

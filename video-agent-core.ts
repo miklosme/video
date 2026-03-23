@@ -11,8 +11,8 @@ import {
   loadKeyframeArtifacts,
   loadKeyframes,
   loadModelOptions,
+  loadShotPrompts,
   loadStatus,
-  loadVideoPrompts,
   parseCharacterSheetEntry,
   parseKeyframeArtifactEntry,
   validateConfigAgainstModelOptions,
@@ -35,7 +35,7 @@ const ALLOWED_WORKSPACE_FILES = new Set([
   'CHARACTERS.md',
   'STORYBOARD.md',
   'KEYFRAMES.json',
-  'VIDEO-PROMPTS.json',
+  'SHOT-PROMPTS.json',
   'STATUS.json',
 ])
 
@@ -421,7 +421,7 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
   lines.push('- Reserve "if you want, I can" for optional branches, not the default workflow path.')
   lines.push('Prompt-writing rules:')
   lines.push(
-    '- Before writing or revising keyframe sidecars, character-sheet sidecars, or VIDEO-PROMPTS.json, read workspace/CONFIG.json and MODEL_PROMPTING_GUIDE.md.',
+    '- Before writing or revising keyframe sidecars, character-sheet sidecars, or SHOT-PROMPTS.json, read workspace/CONFIG.json and MODEL_PROMPTING_GUIDE.md.',
   )
   lines.push(
     '- STORYBOARD.png is the cheap full-project storyboard review artifact generated from workspace/STORYBOARD.md before keyframes are locked.',
@@ -448,7 +448,7 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
     '- Keyframe sidecar schema is exact: { keyframeId, shotId, frameType, model, prompt, status }.',
   )
   lines.push(
-    '- Use workspace/CONFIG.json.videoModel for VIDEO-PROMPTS.json model fields and motion-prompt style.',
+    '- Use workspace/CONFIG.json.videoModel for SHOT-PROMPTS.json model fields and shot-motion prompting style.',
   )
   lines.push(
     '- Do not auto-run paid image generation. When sidecar JSON is ready but PNGs are missing, tell the user which script to run and continue after review.',
@@ -607,8 +607,8 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
       case 'KEYFRAMES.json':
         await loadKeyframes(rootDir)
         return
-      case 'VIDEO-PROMPTS.json':
-        await loadVideoPrompts(rootDir)
+      case 'SHOT-PROMPTS.json':
+        await loadShotPrompts(rootDir)
         return
       case 'STATUS.json':
         await loadStatus(rootDir)
@@ -730,9 +730,9 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
 
             return containsPlaceholderValue(entries) ? 'incomplete' : 'ready'
           }
-          case 'VIDEO-PROMPTS.json': {
+          case 'SHOT-PROMPTS.json': {
             await loadConfig(rootDir)
-            const entries = await loadVideoPrompts(rootDir)
+            const entries = await loadShotPrompts(rootDir)
             if (entries.length === 0) {
               return 'incomplete'
             }
@@ -968,7 +968,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
   }
 
   const applyWorkspaceFileWriteRules = async (fileName: string, content: string) => {
-    if (fileName !== WORKFLOW_FILES.videoPrompts) {
+    if (fileName !== WORKFLOW_FILES.shotPrompts) {
       return content
     }
 
@@ -1338,7 +1338,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             fileName: z
               .string()
               .describe(
-                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, KEYFRAMES.json, or VIDEO-PROMPTS.json',
+                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, KEYFRAMES.json, or SHOT-PROMPTS.json',
               ),
           }),
           execute: async ({ fileName }) => {
@@ -1389,7 +1389,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             fileName: z
               .string()
               .describe(
-                'Canonical workspace filename such as CONFIG.json, STORY.md, KEYFRAMES.json, or VIDEO-PROMPTS.json',
+                'Canonical workspace filename such as CONFIG.json, STORY.md, KEYFRAMES.json, or SHOT-PROMPTS.json',
               ),
             content: z.string().describe('The complete new file contents.'),
           }),
