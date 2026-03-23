@@ -1,7 +1,0 @@
-{
-  "characterId": "black-dog",
-  "displayName": "Black Dog",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A clean studio reference photo of a friendly generic dog, single subject, full-body or clearly readable framing, neutral pose or slight three-quarter view, plain seamless background, soft even lighting, clean black coat, simple no-frills dog design, stable silhouette and proportions.",
-  "status": "ready"
-}
