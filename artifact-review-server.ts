@@ -1,11 +1,14 @@
-import { access } from 'node:fs/promises'
+import { access, readFile } from 'node:fs/promises'
 import process from 'node:process'
 
 import {
   getCharacterSheetImagePath,
+  getStoryboardImagePath,
   loadCharacterSheets,
   loadKeyframes,
   resolveRepoPath,
+  resolveWorkflowPath,
+  WORKFLOW_FILES,
   type CharacterSheetEntry,
   type FrameType,
   type KeyframeEntry,
@@ -36,6 +39,12 @@ interface KeyframeReviewSlot {
 interface KeyframeReviewShot {
   shotId: string
   slots: KeyframeReviewSlot[]
+}
+
+interface StoryboardReviewState {
+  imageUrl: string
+  imageExists: boolean
+  markdown: string | null
 }
 
 export interface ArtifactReviewServer {
@@ -177,6 +186,21 @@ async function buildCharacterCards(cwd: string): Promise<CharacterReviewCard[]> 
   )
 }
 
+async function buildStoryboardReviewState(cwd: string): Promise<StoryboardReviewState> {
+  const imagePath = getStoryboardImagePath()
+  const absoluteImagePath = resolveRepoPath(imagePath, cwd)
+  const markdown = await readFile(
+    resolveWorkflowPath(WORKFLOW_FILES.storyboard, cwd),
+    'utf8',
+  ).catch(() => null)
+
+  return {
+    imageUrl: `/${encodeImageUrl(imagePath)}`,
+    imageExists: await fileExists(absoluteImagePath),
+    markdown,
+  }
+}
+
 function renderCharacterCard(card: CharacterReviewCard) {
   const visual = card.imageExists
     ? `<img src="${card.imageUrl}" alt="${escapeHtml(card.displayName)}" loading="lazy">`
@@ -200,6 +224,27 @@ function renderCharacterSheet(cards: CharacterReviewCard[]) {
     <div class="character-grid">
       ${cards.map(renderCharacterCard).join('')}
     </div>
+  `
+}
+
+function renderStoryboard(review: StoryboardReviewState) {
+  const visual = review.imageExists
+    ? `<img src="${review.imageUrl}" alt="Storyboard" loading="lazy">`
+    : '<div class="placeholder">No storyboard image yet</div>'
+
+  const markdown = review.markdown?.trim()
+  const markdownHtml = markdown
+    ? `<pre class="storyboard-markdown">${escapeHtml(markdown)}</pre>`
+    : '<div class="storyboard-empty">No storyboard markdown yet.</div>'
+
+  return `
+    <section class="storyboard-panel">
+      <div class="storyboard-visual">${visual}</div>
+      <div class="storyboard-copy">
+        <p class="storyboard-heading">Source Storyboard</p>
+        ${markdownHtml}
+      </div>
+    </section>
   `
 }
 
@@ -238,11 +283,12 @@ function renderKeyframes(shots: KeyframeReviewShot[]) {
   return shots.map(renderShot).join('')
 }
 
-type Tab = 'characters' | 'keyframes'
+type Tab = 'characters' | 'storyboard' | 'keyframes'
 
 function renderTabs(activeTab: Tab) {
   const tabs: { id: Tab; label: string; href: string }[] = [
     { id: 'characters', label: 'Characters', href: '/' },
+    { id: 'storyboard', label: 'Storyboard', href: '/storyboard' },
     { id: 'keyframes', label: 'Keyframes', href: '/keyframes' },
   ]
 
@@ -264,7 +310,7 @@ function renderPage(activeTab: Tab, content: string) {
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Storyboard</title>
+    <title>Artifact Review</title>
     <style>
       * { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -358,6 +404,68 @@ function renderPage(activeTab: Tab, content: string) {
 
       /* Keyframes */
 
+      .storyboard-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 2fr) minmax(320px, 1fr);
+        gap: 20px;
+        align-items: start;
+      }
+
+      .storyboard-visual {
+        aspect-ratio: 16 / 9;
+        border-radius: 8px;
+        overflow: hidden;
+        background: #181818;
+        border: 1px solid #222;
+      }
+
+      .storyboard-visual img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        background: #101010;
+      }
+
+      .storyboard-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .storyboard-heading {
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        color: #777;
+        text-transform: uppercase;
+      }
+
+      .storyboard-markdown,
+      .storyboard-empty {
+        min-height: 240px;
+        border-radius: 8px;
+        border: 1px solid #222;
+        background: #141414;
+        padding: 14px;
+      }
+
+      .storyboard-markdown {
+        color: #bbb;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 12px;
+        line-height: 1.5;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+
+      .storyboard-empty {
+        display: grid;
+        place-items: center;
+        color: #555;
+        font-size: 12px;
+      }
+
       .shot {
         display: grid;
         grid-template-columns: 80px 1fr;
@@ -435,6 +543,10 @@ function renderPage(activeTab: Tab, content: string) {
       @media (max-width: 700px) {
         .board { padding: 16px; }
 
+        .storyboard-panel {
+          grid-template-columns: 1fr;
+        }
+
         .shot {
           grid-template-columns: 1fr;
           gap: 8px;
@@ -501,6 +613,23 @@ async function serveCharacterImage(requestPath: string, cwd: string) {
   return new Response(Bun.file(absolutePath))
 }
 
+async function serveStoryboardImage(requestPath: string, cwd: string) {
+  const decodedPath = decodeURIComponent(requestPath.slice(1))
+  const storyboardImagePath = getStoryboardImagePath()
+
+  if (decodedPath !== storyboardImagePath) {
+    return new Response('Not Found', { status: 404 })
+  }
+
+  const absolutePath = resolveRepoPath(storyboardImagePath, cwd)
+
+  if (!(await fileExists(absolutePath))) {
+    return new Response('Not Found', { status: 404 })
+  }
+
+  return new Response(Bun.file(absolutePath))
+}
+
 async function serveCharactersPage(cwd: string) {
   const cards = await buildCharacterCards(cwd)
 
@@ -513,6 +642,14 @@ async function serveKeyframesPage(cwd: string) {
   const shots = await buildReviewShots(cwd)
 
   return new Response(renderPage('keyframes', renderKeyframes(shots)), {
+    headers: HTML_HEADERS,
+  })
+}
+
+async function serveStoryboardPage(cwd: string) {
+  const review = await buildStoryboardReviewState(cwd)
+
+  return new Response(renderPage('storyboard', renderStoryboard(review)), {
     headers: HTML_HEADERS,
   })
 }
@@ -543,8 +680,16 @@ export function startArtifactReviewServer(options: { cwd?: string; preferredPort
           return serveKeyframesPage(cwd)
         }
 
+        if (url.pathname === '/storyboard') {
+          return serveStoryboardPage(cwd)
+        }
+
         if (url.pathname.startsWith('/workspace/CHARACTERS/')) {
           return serveCharacterImage(url.pathname, cwd)
+        }
+
+        if (url.pathname === `/${getStoryboardImagePath()}`) {
+          return serveStoryboardImage(url.pathname, cwd)
         }
 
         if (url.pathname.startsWith('/workspace/KEYFRAMES/')) {

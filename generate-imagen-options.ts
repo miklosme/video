@@ -89,33 +89,39 @@ function mediaTypeToExtension(mediaType: string | undefined) {
   }
 }
 
-function buildPromptText(
+export function buildPromptText(
   prompt: string,
   references: GenerationReferenceEntry[],
   aspectRatio: string,
   model: string,
+  shotId?: string,
 ) {
   const promptLines = [prompt]
 
   if (references.length > 0) {
-    const characterReferenceCount = references.filter(
-      (reference) => reference.kind === 'character-sheet',
-    ).length
-    const hasStartFrameReference = references.some((reference) => reference.kind === 'start-frame')
-
     promptLines.push('')
-    promptLines.push('Use the attached reference images to preserve visual consistency.')
+    promptLines.push('Use the attached reference images in the provided order of priority.')
 
-    if (characterReferenceCount > 0) {
-      promptLines.push(
-        `Character identity references attached: ${characterReferenceCount}. Keep the same subject identity, markings, and silhouette.`,
-      )
-    }
+    for (const [index, reference] of references.entries()) {
+      const referenceNumber = index + 1
 
-    if (hasStartFrameReference) {
-      promptLines.push(
-        'A same-shot start frame reference is attached. Match its continuity for composition, setting, and subject identity while rendering the requested end beat.',
-      )
+      switch (reference.kind) {
+        case 'start-frame':
+          promptLines.push(
+            `Reference ${referenceNumber} is the same-shot start frame. Treat it as the strongest continuity reference for composition, setting, and subject identity while rendering the requested end beat.`,
+          )
+          break
+        case 'storyboard':
+          promptLines.push(
+            `Reference ${referenceNumber} is the full-project storyboard board. Focus on the panel labeled "${shotId ?? 'current shot'}" for the intended shot composition and visual intent.`,
+          )
+          break
+        case 'character-sheet':
+          promptLines.push(
+            `Reference ${referenceNumber} is a character identity sheet. Preserve the same subject identity, markings, and silhouette.`,
+          )
+          break
+      }
     }
   }
 
@@ -147,9 +153,16 @@ async function generateImagesWithGateway(input: {
   aspectRatio: string
   safetyFilterLevel: string
   references: GenerationReferenceEntry[]
+  shotId?: string
 }) {
   const gateway = createGatewayProvider()
-  const promptText = buildPromptText(input.prompt, input.references, input.aspectRatio, input.model)
+  const promptText = buildPromptText(
+    input.prompt,
+    input.references,
+    input.aspectRatio,
+    input.model,
+    input.shotId,
+  )
   const loadedReferences = await loadReferenceImages(input.references)
 
   if (IMAGE_ONLY_MODELS.has(input.model)) {
@@ -253,6 +266,7 @@ export async function generateImagenOptions(
       aspectRatio,
       safetyFilterLevel,
       references,
+      shotId: input.shotId,
     })
 
     await mkdir(outputDir, { recursive: true })

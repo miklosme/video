@@ -36,6 +36,12 @@
     "relatedFiles": ["STORYBOARD.md"]
   },
   {
+    "title": "Review storyboard",
+    "instruction": "Generate and review one full-project storyboard board from STORYBOARD.md before committing to keyframes.",
+    "checked": false,
+    "relatedFiles": ["STORYBOARD.md", "STORYBOARD.png"]
+  },
+  {
     "title": "Plan keyframes",
     "instruction": "Plan distinct keyframes for each storyboard shot, defaulting to one start and one end frame per shot unless a deliberate single-frame exception is justified.",
     "checked": false,

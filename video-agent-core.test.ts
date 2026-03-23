@@ -323,6 +323,62 @@ test('loadWorkflowSummary distinguishes keyframe preparation from keyframe revie
   }
 })
 
+test('loadWorkflowSummary distinguishes storyboard authoring from storyboard review', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/CONFIG.json', createValidConfig())
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/STATUS.json',
+      createWorkflowStatus([
+        {
+          title: 'Build storyboard',
+          instruction: 'Write the storyboard markdown.',
+          checked: false,
+          relatedFiles: ['STORYBOARD.md'],
+        },
+        {
+          title: 'Review storyboard',
+          instruction: 'Review the storyboard image.',
+          checked: false,
+          relatedFiles: ['STORYBOARD.md', 'STORYBOARD.png'],
+        },
+        {
+          title: 'Plan keyframes',
+          instruction: 'Plan the keyframes.',
+          checked: false,
+          relatedFiles: ['KEYFRAMES.json'],
+        },
+      ]),
+    )
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/STORYBOARD.md',
+      '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n- Visual: The white dog sits by the bowl.\n',
+    )
+
+    const runtime = createVideoAgentRuntime({ rootDir: repo.rootDir, creativePrompt: 'test' })
+    const workflowBeforeImage = await runtime.loadWorkflowSummary()
+
+    expect(workflowBeforeImage.status[0]).toMatchObject({ checked: true, state: 'ready' })
+    expect(workflowBeforeImage.status[1]).toMatchObject({
+      checked: false,
+      state: 'incomplete',
+    })
+    expect(workflowBeforeImage.nextMilestone).toMatchObject({ title: 'Review storyboard' })
+
+    await writeRepoFile(repo.rootDir, 'workspace/STORYBOARD.png', 'png-bytes')
+
+    const workflowAfterImage = await runtime.loadWorkflowSummary()
+
+    expect(workflowAfterImage.status[1]).toMatchObject({ checked: true, state: 'ready' })
+    expect(workflowAfterImage.nextMilestone).toMatchObject({ title: 'Plan keyframes' })
+  } finally {
+    await repo.cleanup()
+  }
+})
+
 test('writeWorkspaceArtifact aligns image sidecar models to config', async () => {
   const repo = await createTestRepo()
 
@@ -482,6 +538,10 @@ test('keyframe reference planning includes relevant character sheets and same-sh
 
   expect(planKeyframeGenerationReferences(keyframes[0]!, [...keyframes])).toEqual([
     {
+      kind: 'storyboard',
+      path: 'workspace/STORYBOARD.png',
+    },
+    {
       kind: 'character-sheet',
       path: 'workspace/CHARACTERS/dog-01.png',
     },
@@ -489,12 +549,37 @@ test('keyframe reference planning includes relevant character sheets and same-sh
 
   expect(planKeyframeGenerationReferences(keyframes[1]!, [...keyframes])).toEqual([
     {
+      kind: 'start-frame',
+      path: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+    },
+    {
+      kind: 'storyboard',
+      path: 'workspace/STORYBOARD.png',
+    },
+    {
       kind: 'character-sheet',
       path: 'workspace/CHARACTERS/dog-01.png',
     },
+  ])
+
+  expect(
+    planKeyframeGenerationReferences(
+      {
+        keyframeId: 'SHOT-02-SINGLE',
+        shotId: 'SHOT-02',
+        frameType: 'single',
+        characterIds: ['dog-01'],
+      },
+      [...keyframes],
+    ),
+  ).toEqual([
     {
-      kind: 'start-frame',
-      path: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+      kind: 'storyboard',
+      path: 'workspace/STORYBOARD.png',
+    },
+    {
+      kind: 'character-sheet',
+      path: 'workspace/CHARACTERS/dog-01.png',
     },
   ])
 })

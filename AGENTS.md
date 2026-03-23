@@ -49,6 +49,8 @@ Do not silently rewrite story canon, storyboard content, prompt content, or stru
 
 ## Script Notes
 
+Generation scripts that create canonical workspace artifacts must be idempotent by default. If the target artifact already exists, skip it instead of overwriting unless the user explicitly asks for a re-render or a breaking CLI change.
+
 ### `generate-imagen-options.ts`
 
 If you modify this script or related tooling:

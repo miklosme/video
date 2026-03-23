@@ -6,6 +6,7 @@ import arg from 'arg'
 import { generateImagenOptions } from './generate-imagen-options'
 import {
   getCharacterSheetImagePath,
+  getStoryboardImagePath,
   loadKeyframeArtifacts,
   loadKeyframes,
   type FrameType,
@@ -94,13 +95,20 @@ export function planKeyframeGenerationReferences(
   },
   keyframes: KeyframeEntry[],
 ): GenerationReferenceEntry[] {
-  const references: GenerationReferenceEntry[] = generation.characterIds.map((characterId) => ({
-    kind: 'character-sheet',
-    path: getCharacterSheetImagePath(characterId),
-  }))
+  const storyboardReference: GenerationReferenceEntry = {
+    kind: 'storyboard',
+    path: getStoryboardImagePath(),
+  }
+
+  const characterReferences: GenerationReferenceEntry[] = generation.characterIds.map(
+    (characterId) => ({
+      kind: 'character-sheet',
+      path: getCharacterSheetImagePath(characterId),
+    }),
+  )
 
   if (generation.frameType !== 'end') {
-    return references
+    return [storyboardReference, ...characterReferences]
   }
 
   const startKeyframe = keyframes.find(
@@ -113,12 +121,14 @@ export function planKeyframeGenerationReferences(
     )
   }
 
-  references.push({
-    kind: 'start-frame',
-    path: startKeyframe.imagePath,
-  })
-
-  return references
+  return [
+    {
+      kind: 'start-frame',
+      path: startKeyframe.imagePath,
+    },
+    storyboardReference,
+    ...characterReferences,
+  ]
 }
 
 async function assertReferenceFilesExist(

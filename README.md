@@ -17,6 +17,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `workspace/CHARACTERS.md`
 - `workspace/CHARACTERS/`
 - `workspace/STORYBOARD.md`
+- `workspace/STORYBOARD.png`
 - `workspace/KEYFRAMES.json`
 - `workspace/KEYFRAMES/`
 - `workspace/VIDEO-PROMPTS.json`
@@ -31,6 +32,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `workspace/CHARACTERS.md` stores textual character definitions, and each character section should include a stable `Character ID:`.
 - `workspace/CHARACTERS/` stores character-sheet sidecar JSON files plus the generated `.png` sheets beside them.
 - `workspace/STORYBOARD.md` is the single canonical storyboard file and should use stable shot IDs such as `SHOT-01`.
+- `workspace/STORYBOARD.png` is the single storyboard review artifact for the whole project, generated from `workspace/STORYBOARD.md` before keyframe review.
 - `workspace/KEYFRAMES.json` should use distinct keyframe IDs such as `SHOT-01-START` and `SHOT-01-END`, each linked back to a parent `shotId`, and each keyframe entry must list the relevant `characterIds` for that frame.
 - `workspace/KEYFRAMES/` stores one sidecar JSON and one generated `.png` per keyframe, grouped under each `shotId`.
 - By default, plan one `start` and one `end` keyframe per storyboard shot. Use `single` only for a deliberate one-anchor exception.
@@ -40,5 +42,6 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 
 - `bun validate-workflow-data.ts` validates required workflow files and the simplified JSON schemas.
 - `bun generate-character-sheets.ts` syncs missing `workspace/CHARACTERS/*.png` files from their sidecar JSON files.
-- `bun generate-keyframes.ts` syncs missing `workspace/KEYFRAMES/**/*.png` files from their sidecar JSON files and `workspace/KEYFRAMES.json`, attaching the relevant character sheets for each keyframe and the same-shot start frame for end-frame generation.
+- `bun generate-storyboard.ts` syncs the missing `workspace/STORYBOARD.png` review board from the raw contents of `workspace/STORYBOARD.md`.
+- `bun generate-keyframes.ts` syncs missing `workspace/KEYFRAMES/**/*.png` files from their sidecar JSON files and `workspace/KEYFRAMES.json`, attaching the storyboard review board for all keyframes, the relevant character sheets, and the same-shot start frame first for end-frame generation.
 - `generate-imagen-options.ts` preserves the direct CLI contract, uses the Vercel AI Gateway through the AI SDK, supports `AI_GATEWAY_API_KEY`, and appends generation records to `workspace/GENERATION-LOG.jsonl`.

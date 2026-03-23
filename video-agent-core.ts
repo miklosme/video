@@ -44,6 +44,8 @@ const ALLOWED_WORKSPACE_FOLDERS = new Set<string>([
   WORKFLOW_FOLDERS.keyframes,
 ])
 
+const GENERATED_WORKSPACE_FILE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp'])
+
 export type TranscriptRole = 'assistant' | 'user' | 'tool'
 export type ArtifactReadiness = 'missing' | 'incomplete' | 'ready'
 export type WorkflowVisualState = ArtifactReadiness | 'approved'
@@ -269,6 +271,10 @@ function assertWorkspaceArtifactPath(artifactPath: string) {
   }
 }
 
+function isBootstrappableWorkspaceFile(fileName: string) {
+  return ALLOWED_WORKSPACE_FILES.has(fileName)
+}
+
 function createDefaultConfigFromModelOptions(modelOptions: ModelOptionsData): ConfigData {
   const agentModel = modelOptions.agentModels[0]
   const imageModel = modelOptions.imageModels[0]
@@ -418,6 +424,9 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
     '- Before writing or revising keyframe sidecars, character-sheet sidecars, or VIDEO-PROMPTS.json, read workspace/CONFIG.json and MODEL_PROMPTING_GUIDE.md.',
   )
   lines.push(
+    '- STORYBOARD.png is the cheap full-project storyboard review artifact generated from workspace/STORYBOARD.md before keyframes are locked.',
+  )
+  lines.push(
     '- Use workspace/CONFIG.json.imageModel for workspace/KEYFRAMES/*.json and workspace/CHARACTERS/*.json model fields and still-image prompting style.',
   )
   lines.push(
@@ -428,6 +437,9 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
   )
   lines.push(
     '- Every KEYFRAMES.json entry must include characterIds listing only the characters visible in that frame, in reference priority order.',
+  )
+  lines.push(
+    '- Keyframe image generation should attach STORYBOARD.png as an upstream visual reference and tell the model to follow the panel labeled with the current shotId.',
   )
   lines.push(
     '- Character sidecar schema is exact: { characterId, displayName, model, prompt, status }.',
@@ -650,7 +662,9 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
 
   const bootstrapMissingWorkspaceArtifacts = async (artifactNames: string[]) => {
     const uniqueArtifactNames = [...new Set(artifactNames)]
-    const fileNames = uniqueArtifactNames.filter((artifactName) => !artifactName.endsWith('/'))
+    const fileNames = uniqueArtifactNames.filter(
+      (artifactName) => !artifactName.endsWith('/') && isBootstrappableWorkspaceFile(artifactName),
+    )
     const folderNames = uniqueArtifactNames.filter((artifactName) => artifactName.endsWith('/'))
     const bootstrappedFiles = await bootstrapMissingWorkspaceFiles(fileNames)
     const bootstrappedFolders = await Promise.all(
@@ -691,6 +705,10 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
 
     if (!(await workspacePathExists(fileName, rootDir))) {
       return 'missing'
+    }
+
+    if (GENERATED_WORKSPACE_FILE_EXTENSIONS.has(path.extname(fileName).toLowerCase())) {
+      return 'ready'
     }
 
     if (fileName.endsWith('.json')) {

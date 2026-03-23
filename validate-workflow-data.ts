@@ -231,6 +231,24 @@ async function main() {
   const keyframes = keyframesExists ? await loadKeyframes() : []
   const videoPrompts = videoPromptsExists ? await loadVideoPrompts() : []
 
+  const storyboardReviewChecked = status.some(
+    (item) => item.title.trim().toLowerCase() === 'review storyboard' && item.checked,
+  )
+  const keyframeImagesMissing =
+    keyframeArtifacts.length > 0 &&
+    (
+      await Promise.all(
+        keyframes.map((entry) =>
+          workspacePathExists(entry.imagePath.replace(/^workspace\//, ''), process.cwd()),
+        ),
+      )
+    ).some((imageExists) => !imageExists)
+
+  if (storyboardReviewChecked || keyframeImagesMissing) {
+    await requireWorkspacePath(WORKFLOW_FILES.storyboard, 'workspace/STORYBOARD.md')
+    await requireWorkspacePath(WORKFLOW_FILES.storyboardImage, 'workspace/STORYBOARD.png')
+  }
+
   validateCharacterSheets(characterSheets)
   await validateKeyframes(keyframes, characterSheets)
   validateKeyframeArtifacts(keyframes, keyframeArtifacts)

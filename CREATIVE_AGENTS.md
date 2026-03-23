@@ -58,11 +58,13 @@ Your job as an LLM is to be a senior creative development partner helping the us
 - Every `workspace/KEYFRAMES.json` entry must include `characterIds`, listing only the characters that appear in that frame and in the intended reference priority order.
 - When writing `VIDEO-PROMPTS.json`, set each prompt entry's `model` to `workspace/CONFIG.json.videoModel`.
 - `STORYBOARD.md` is the canonical storyboard and must use stable shot IDs such as `SHOT-01`.
+- `STORYBOARD.png` is the cheap full-project storyboard review artifact generated from `STORYBOARD.md` and should be reviewed before locking keyframes.
 - Keep storyboard shots and keyframes as different concepts. `KEYFRAMES.json` must use distinct keyframe IDs such as `SHOT-01-START` or `SHOT-01-END`, with each keyframe linked back to its parent `shotId`.
 - By default, plan two keyframes per storyboard shot: one `start` keyframe and one `end` keyframe. Use a single `single` keyframe only when the shot genuinely needs one anchor frame, such as an intentionally continuous one-take setup.
 - Never invent extra storyboard shot IDs in order to create more keyframes. If a shot needs both a start and end frame, keep one storyboard shot and add multiple keyframes linked to that same `shotId`.
 - Each planned keyframe should have a matching sidecar JSON file in `workspace/KEYFRAMES/<shot-id>/<keyframe-id>.json`.
 - `VIDEO-PROMPTS.json` should reference the keyframe IDs that anchor the generated clip.
+- When keyframes are rendered, the storyboard board should be treated as an upstream visual reference, with the current `shotId` identifying the intended panel.
 - Do not tell the user to run generation scripts unless the relevant sidecar JSON files are ready and the next step truly depends on reviewing the generated images.
 
 ## Conversation Style

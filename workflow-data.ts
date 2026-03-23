@@ -99,7 +99,7 @@ export interface GenerationLogEntry {
   } | null
 }
 
-export type GenerationReferenceKind = 'character-sheet' | 'start-frame'
+export type GenerationReferenceKind = 'character-sheet' | 'start-frame' | 'storyboard'
 
 export interface GenerationReferenceEntry {
   kind: GenerationReferenceKind
@@ -112,6 +112,8 @@ export const MODEL_OPTIONS_FILE = 'MODEL_OPTIONS.json'
 export const WORKFLOW_FILES = {
   config: 'CONFIG.json',
   status: 'STATUS.json',
+  storyboard: 'STORYBOARD.md',
+  storyboardImage: 'STORYBOARD.png',
   keyframes: 'KEYFRAMES.json',
   videoPrompts: 'VIDEO-PROMPTS.json',
 } as const
@@ -139,6 +141,10 @@ export function getCharacterSheetImagePath(characterId: string) {
     folderStem(WORKFLOW_FOLDERS.characters),
     `${characterId}.png`,
   )
+}
+
+export function getStoryboardImagePath() {
+  return path.posix.join(WORKSPACE_DIR, WORKFLOW_FILES.storyboardImage)
 }
 
 export function getKeyframeArtifactJsonPath(entry: Pick<KeyframeEntry, 'shotId' | 'keyframeId'>) {

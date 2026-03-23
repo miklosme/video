@@ -6,6 +6,7 @@
   "scripts": {
     "app": "bun app.tsx",
     "generate:characters": "bun generate-character-sheets.ts",
+    "generate:storyboard": "bun generate-storyboard.ts",
     "generate:keyframes": "bun generate-keyframes.ts",
     "status:checklist": "bun render-status-checklist.ts",
     "validate:data": "bun validate-workflow-data.ts",
