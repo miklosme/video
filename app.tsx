@@ -14,6 +14,7 @@ import { createRoot, useKeyboard, useRenderer } from '@opentui/react'
 import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
+import { startKeyframeReviewServer, type KeyframeReviewServer } from './keyframe-review-server'
 import {
   createVideoAgentRuntime,
   type TranscriptEntry,
@@ -36,6 +37,7 @@ const COPY_NOTIFICATION_DURATION_MS = 2200
 interface AppProps {
   initialWorkflow: WorkflowSummary
   initialSession: PersistedAgentState
+  keyframeReviewUrl: string
   runtime: VideoAgentRuntime
   statePersistence: AgentStatePersistence
 }
@@ -439,7 +441,13 @@ function insertTranscriptEntryBefore(
   return [...transcript.slice(0, anchorIndex), nextEntry, ...transcript.slice(anchorIndex)]
 }
 
-function App({ initialWorkflow, initialSession, runtime, statePersistence }: AppProps) {
+function App({
+  initialWorkflow,
+  initialSession,
+  keyframeReviewUrl,
+  runtime,
+  statePersistence,
+}: AppProps) {
   const renderer = useRenderer()
   const [transcript, setTranscript] = useState<TranscriptEntry[]>(initialSession.transcript)
   const [composerValue, setComposerValue] = useState(initialSession.composerValue)
@@ -882,6 +890,9 @@ function App({ initialWorkflow, initialSession, runtime, statePersistence }: App
         ) : null}
       </box>
       <box width={42} flexShrink={0} flexDirection="column" gap={1} marginBottom={2}>
+        <box border title="Review" padding={1} flexShrink={0}>
+          <text content={`Keyframe review: ${keyframeReviewUrl}`} wrapMode="word" />
+        </box>
         <box
           border
           title="Progress"
@@ -1093,6 +1104,7 @@ async function main() {
     throw new Error('AI_GATEWAY_API_KEY is required to run app.tsx with the Vercel AI Gateway.')
   }
 
+  const keyframeReviewServer = startKeyframeReviewServer()
   const runtime = createVideoAgentRuntime()
   let initialWorkflow = await runtime.loadWorkflowSummary()
   const bootstrappedFiles = await runtime.bootstrapNextMilestoneScaffold(initialWorkflow)
@@ -1103,6 +1115,7 @@ async function main() {
 
   const initialSession = await loadPersistedAgentState(initialWorkflow)
   const statePersistence = createAgentStatePersistence()
+  const stopKeyframeReviewServer = createStopServer(keyframeReviewServer)
   let renderer: Awaited<ReturnType<typeof createCliRenderer>> | null = null
   let shuttingDown = false
 
@@ -1114,6 +1127,7 @@ async function main() {
     shuttingDown = true
 
     void (async () => {
+      await stopKeyframeReviewServer()
       await statePersistence.flush()
       renderer?.destroy()
       process.exit(exitCode)
@@ -1134,6 +1148,7 @@ async function main() {
       },
     ],
     onDestroy: () => {
+      void stopKeyframeReviewServer()
       void statePersistence.flush()
     },
   })
@@ -1152,10 +1167,23 @@ async function main() {
     <App
       initialWorkflow={initialWorkflow}
       initialSession={initialSession}
+      keyframeReviewUrl={keyframeReviewServer.url}
       runtime={runtime}
       statePersistence={statePersistence}
     />,
   )
+}
+
+function createStopServer(server: KeyframeReviewServer) {
+  let stopPromise: Promise<void> | null = null
+
+  return () => {
+    if (!stopPromise) {
+      stopPromise = server.stop()
+    }
+
+    return stopPromise
+  }
 }
 
 if (import.meta.main) {
