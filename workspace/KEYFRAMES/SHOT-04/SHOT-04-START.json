@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-04-START",
+  "shotId": "SHOT-04",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the brown Labrador calmly revealed beside the bowl of dog food in the same clean minimal interior, medium-wide composition, dog fully readable, calm attentive expression, soft even indoor light, simple polished after-state commercial image with strong continuity from the transformation shot. Follow the storyboard panel labeled SHOT-04 from STORYBOARD.png as the upstream visual reference.",
+  "status": "planned"
+}

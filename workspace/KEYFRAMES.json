@@ -1,0 +1,98 @@
+[
+  {
+    "keyframeId": "SHOT-01-START",
+    "shotId": "SHOT-01",
+    "frameType": "start",
+    "title": "Yellow Lab established by bowl",
+    "goal": "Establish the yellow Lab, the food bowl, and the clean advert setting before the transformation begins.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png",
+    "characterIds": [
+      "yellow-lab"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-01-END",
+    "shotId": "SHOT-01",
+    "frameType": "end",
+    "title": "Yellow Lab settles into feeding setup",
+    "goal": "Hold the yellow Lab and bowl in a stable readable composition that cleanly hands off into the eating action.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png",
+    "characterIds": [
+      "yellow-lab"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-02-START",
+    "shotId": "SHOT-02",
+    "frameType": "start",
+    "title": "Yellow Lab lowers to eat",
+    "goal": "Show the yellow Lab beginning to eat from the bowl so the product interaction is unmistakable.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png",
+    "characterIds": [
+      "yellow-lab"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-02-END",
+    "shotId": "SHOT-02",
+    "frameType": "end",
+    "title": "Yellow Lab actively eating",
+    "goal": "End on a clear feeding moment that sets up the transformation trigger and flows into the magical change.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png",
+    "characterIds": [
+      "yellow-lab"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-03-START",
+    "shotId": "SHOT-03",
+    "frameType": "start",
+    "title": "Transformation begins from yellow to brown",
+    "goal": "Anchor the start of the impossible change while preserving the same dog presence, posture, and feeding setup.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-START.png",
+    "characterIds": [
+      "yellow-lab"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-03-END",
+    "shotId": "SHOT-03",
+    "frameType": "end",
+    "title": "Brown Lab completes the transformation",
+    "goal": "Land the transformation clearly with the dog now fully brown in the same scene and position.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-END.png",
+    "characterIds": [
+      "brown-lab"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-04-START",
+    "shotId": "SHOT-04",
+    "frameType": "start",
+    "title": "Brown Lab revealed by bowl",
+    "goal": "Begin the final after-state shot with the brown Lab calm, readable, and clearly transformed.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-START.png",
+    "characterIds": [
+      "brown-lab"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-04-END",
+    "shotId": "SHOT-04",
+    "frameType": "end",
+    "title": "Brown Lab hero end image",
+    "goal": "Finish on a polished, simple after-image that lets the transformed brown Lab register as the final memorable payoff.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-END.png",
+    "characterIds": [
+      "brown-lab"
+    ]
+  }
+]

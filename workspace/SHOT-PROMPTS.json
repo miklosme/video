@@ -1,0 +1,42 @@
+[
+  {
+    "shotId": "SHOT-01",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-01.mp4",
+    "keyframeIds": [
+      "SHOT-01-START",
+      "SHOT-01-END"
+    ],
+    "durationSeconds": 3
+  },
+  {
+    "shotId": "SHOT-02",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-02.mp4",
+    "keyframeIds": [
+      "SHOT-02-START",
+      "SHOT-02-END"
+    ],
+    "durationSeconds": 3
+  },
+  {
+    "shotId": "SHOT-03",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-03.mp4",
+    "keyframeIds": [
+      "SHOT-03-START",
+      "SHOT-03-END"
+    ],
+    "durationSeconds": 3
+  },
+  {
+    "shotId": "SHOT-04",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-04.mp4",
+    "keyframeIds": [
+      "SHOT-04-START",
+      "SHOT-04-END"
+    ],
+    "durationSeconds": 3
+  }
+]

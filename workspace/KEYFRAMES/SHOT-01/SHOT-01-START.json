@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-01-START",
+  "shotId": "SHOT-01",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of a yellow Labrador retriever standing near a neat bowl of dog food in a clean minimal interior, medium-wide composition, the dog fully readable with clear face and body silhouette, calm attentive expression, soft natural indoor light, simple advert aesthetic, realistic detail, stable proportions and markings. Follow the storyboard panel labeled SHOT-01 from STORYBOARD.png as the upstream visual reference.",
+  "status": "planned"
+}

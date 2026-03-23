@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-01-END",
+  "shotId": "SHOT-01",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the same yellow Labrador retriever settled into the feeding setup beside the bowl of dog food in the same clean minimal interior, slightly more composed and stable than the opening frame, full body or nearly full body visible, readable face, calm expectant posture, soft even indoor light, simple polished commercial realism. Follow the storyboard panel labeled SHOT-01 from STORYBOARD.png as the upstream visual reference.",
+  "status": "planned"
+}

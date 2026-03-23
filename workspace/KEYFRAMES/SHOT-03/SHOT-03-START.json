@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-03-START",
+  "shotId": "SHOT-03",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the same Labrador at the bowl in the same clean minimal interior as the transformation begins, the dog still primarily a yellow Lab but with the first visible shift toward a brown coat, posture and placement matching the feeding setup, the magical change readable yet controlled, soft even light, realistic commercial style. Follow the storyboard panel labeled SHOT-03 from STORYBOARD.png as the upstream visual reference.",
+  "status": "planned"
+}

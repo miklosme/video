@@ -2,7 +2,7 @@
 
 ## Core Concept
 
-A simple dog food advert centered on a striking, magical transformation: a white dog eats the food and becomes a black dog.
+A simple dog food advert centered on a striking, magical transformation: a yellow Lab eats the food and becomes a brown Lab.
 
 ## Subject
 
@@ -10,7 +10,7 @@ Dog food / pet nutrition ad.
 
 ## Transformation
 
-White dog -> black dog after eating the food.
+Yellow Lab -> brown Lab after eating the food.
 
 ## Creative Identity
 

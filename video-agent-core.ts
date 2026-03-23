@@ -460,7 +460,7 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
   )
   lines.push('- Shot sidecar schema is exact: { shotId, model, prompt, status }.')
   lines.push(
-    '- Do not auto-run paid image or video generation. When sidecar JSON is ready but PNGs or MP4s are missing, tell the user which script to run and continue after review.',
+    '- Do not auto-run paid image or video generation. When sidecar JSON is ready but PNGs or MP4s are missing, tell the user they have to run the generation script and continue after review.',
   )
   lines.push('Raw workspace/STATUS.json:')
   lines.push(rawStatusContent.trim())

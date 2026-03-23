@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-03-END",
+  "shotId": "SHOT-03",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the Labrador now fully transformed into a brown Lab in the same position by the dog food bowl in the same clean minimal interior, the change complete and unambiguous, same friendly face, folded ears, sturdy build and silhouette, soft even light, realistic polished advert image. Follow the storyboard panel labeled SHOT-03 from STORYBOARD.png as the upstream visual reference.",
+  "status": "planned"
+}

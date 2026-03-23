@@ -1,0 +1,7 @@
+{
+  "characterId": "brown-lab",
+  "displayName": "Brown Lab",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A clean studio reference photo of a medium-large Labrador Retriever with a brown coat, single subject, full body visible, neutral standing pose with a slight three-quarter view, plain seamless light background, soft even lighting, readable friendly face, folded ears, sturdy athletic build, short dense fur, stable natural proportions, clear silhouette, sharp detail, centered composition.",
+  "status": "ready"
+}
