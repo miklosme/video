@@ -295,17 +295,512 @@
       "id": "assistant-1774283752343-zaeimr",
       "role": "assistant",
       "text": "I’ve fixed the missing character-sheet setup and marked everything through storyboard as reviewed in the project status.\n\nWhat’s now in place:\n- character sheet for **Hero Dog**\n- character sheet for **Dog Food Pack**\n- status saved through:\n  - concept\n  - story\n  - characters\n  - character sheets\n  - storyboard\n\nYou should be able to run the character sheet generation script now.\n\nNext meaningful step is the storyboard review image, then keyframe planning."
+    },
+    {
+      "id": "user-1774284008473-lnikiz",
+      "role": "user",
+      "text": "great, storyboard and image is done. progress forward"
+    },
+    {
+      "id": "tool-1774284012262-f9bunj",
+      "role": "tool",
+      "text": "Running getCreativeContext"
+    },
+    {
+      "id": "tool-1774284012270-rwh47j",
+      "role": "tool",
+      "text": "Completed getCreativeContext"
+    },
+    {
+      "id": "tool-1774284012273-m80q5z",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284012274-8ohj42",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284012278-a8i36t",
+      "role": "tool",
+      "text": "Read KEYFRAMES.json"
+    },
+    {
+      "id": "tool-1774284012278-c7jtxe",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284012278-r20kc1",
+      "role": "tool",
+      "text": "Read STORYBOARD.md"
+    },
+    {
+      "id": "tool-1774284012279-amt3mn",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284014781-xvffmg",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284014782-nc2cdo",
+      "role": "tool",
+      "text": "Running readPromptingGuide"
+    },
+    {
+      "id": "tool-1774284014783-m4erz7",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284014783-9dpv5d",
+      "role": "tool",
+      "text": "Read MODEL_PROMPTING_GUIDE.md"
+    },
+    {
+      "id": "tool-1774284014783-wg74ob",
+      "role": "tool",
+      "text": "Completed readPromptingGuide"
+    },
+    {
+      "id": "tool-1774284014784-5op7dl",
+      "role": "tool",
+      "text": "Read CONFIG.json"
+    },
+    {
+      "id": "tool-1774284014784-oxpzom",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284014784-c7fx4t",
+      "role": "tool",
+      "text": "Read CHARACTERS.md"
+    },
+    {
+      "id": "tool-1774284014784-zgw9v6",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284035976-0c8dtq",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284035978-9c60ci",
+      "role": "tool",
+      "text": "Running writeWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284035985-su31bz",
+      "role": "tool",
+      "text": "Created KEYFRAMES/"
+    },
+    {
+      "id": "tool-1774284035990-lu6omy",
+      "role": "tool",
+      "text": "Completed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284035991-616oma",
+      "role": "tool",
+      "text": "Updated KEYFRAMES.json (+141 -15)"
+    },
+    {
+      "id": "tool-1774284035991-98d4u3",
+      "role": "tool",
+      "text": "Completed writeWorkspaceFile"
+    },
+    {
+      "id": "assistant-1774284008473-d7ruvd",
+      "role": "assistant",
+      "text": "I moved the project forward and planned the keyframes.\n\nWhat’s set:\n- 12 keyframes across the 6-shot ad\n- start/end anchors for each shot\n- character priority assigned for each frame\n- progression stays very simple and commercial:\n  - notice bowl\n  - approach\n  - first bite\n  - transformation\n  - satisfied black dog\n  - pack shot\n\nKey creative choice: I kept two anchors per shot rather than collapsing anything, because the ad’s whole value is clarity. That gives you much better control over the transformation beat and the final product frame.\n\nNext up is preparing the keyframe image prompts. After that, you’ll be ready to generate the stills for review."
+    },
+    {
+      "id": "user-1774284051211-6qdm72",
+      "role": "user",
+      "text": "do the prompts"
+    },
+    {
+      "id": "tool-1774284054871-8m7ejj",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284054872-7pgnxg",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284054872-be3mwz",
+      "role": "tool",
+      "text": "Running readPromptingGuide"
+    },
+    {
+      "id": "tool-1774284054873-8fvg6k",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284054873-9ei4c1",
+      "role": "tool",
+      "text": "Running readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284054875-3ygrh5",
+      "role": "tool",
+      "text": "Read MODEL_PROMPTING_GUIDE.md"
+    },
+    {
+      "id": "tool-1774284054875-gtmljo",
+      "role": "tool",
+      "text": "Completed readPromptingGuide"
+    },
+    {
+      "id": "tool-1774284054875-9s0qz6",
+      "role": "tool",
+      "text": "Read CHARACTERS/"
+    },
+    {
+      "id": "tool-1774284054875-upzfbk",
+      "role": "tool",
+      "text": "Completed readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284054875-jud5nt",
+      "role": "tool",
+      "text": "Read CONFIG.json"
+    },
+    {
+      "id": "tool-1774284054875-znwsel",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284054875-6b7top",
+      "role": "tool",
+      "text": "Read KEYFRAMES.json"
+    },
+    {
+      "id": "tool-1774284054875-joj26u",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284054881-kvivco",
+      "role": "tool",
+      "text": "Read STORYBOARD.md"
+    },
+    {
+      "id": "tool-1774284054882-pzsmgu",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774284056576-zk6gij",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284056577-8wnboy",
+      "role": "tool",
+      "text": "Running readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284056578-2szemu",
+      "role": "tool",
+      "text": "Running readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284056585-65cvx4",
+      "role": "tool",
+      "text": "Read CHARACTERS/hero-dog.json"
+    },
+    {
+      "id": "tool-1774284056589-7xj9ua",
+      "role": "tool",
+      "text": "Completed readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284056589-u9oqqt",
+      "role": "tool",
+      "text": "Confirmed KEYFRAMES/"
+    },
+    {
+      "id": "tool-1774284056589-z9ww2t",
+      "role": "tool",
+      "text": "Read CHARACTERS/dog-food-pack.json"
+    },
+    {
+      "id": "tool-1774284056589-qcpe65",
+      "role": "tool",
+      "text": "Completed readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284056591-syz4qe",
+      "role": "tool",
+      "text": "Completed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284059018-59lest",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284059019-4ngkyo",
+      "role": "tool",
+      "text": "Failed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284059021-88c108",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284059021-p5hfvf",
+      "role": "tool",
+      "text": "Failed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284059021-brsxnn",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284059022-jrxlqz",
+      "role": "tool",
+      "text": "Failed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284059022-bj6xau",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284059022-1hloyl",
+      "role": "tool",
+      "text": "Failed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284059023-ilvgbr",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284059023-194rfh",
+      "role": "tool",
+      "text": "Failed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284059023-5c6nua",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284059023-2u23rh",
+      "role": "tool",
+      "text": "Failed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774284090986-srrlt1",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284090988-2zlxur",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284090988-d78vhu",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284090989-wehk4g",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284090989-by2zmr",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284090990-7n7fln",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284090998-upm24m",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-02/SHOT-02-END.json"
+    },
+    {
+      "id": "tool-1774284090999-9v2vt7",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-01/SHOT-01-END.json"
+    },
+    {
+      "id": "tool-1774284090999-etgxro",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-01/SHOT-01-START.json"
+    },
+    {
+      "id": "tool-1774284090999-hz2ung",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-03/SHOT-03-END.json"
+    },
+    {
+      "id": "tool-1774284090999-784kkc",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-03/SHOT-03-START.json"
+    },
+    {
+      "id": "tool-1774284090999-bc7oh1",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-02/SHOT-02-START.json"
+    },
+    {
+      "id": "tool-1774284091006-q2akrz",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091006-1g8m5n",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091006-35oaxn",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091006-1drd2w",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091006-3hyrfg",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091006-s8t5n3",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091020-gzxdcp",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091021-9d07m3",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-04/SHOT-04-START.json"
+    },
+    {
+      "id": "tool-1774284091022-dvb7of",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091027-wkkkp9",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091028-alqn91",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-04/SHOT-04-END.json"
+    },
+    {
+      "id": "tool-1774284091028-zkldej",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091071-9q5ypl",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091071-l0gfv4",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091075-zwkbvb",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091075-mno38i",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091075-boduts",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-05/SHOT-05-START.json"
+    },
+    {
+      "id": "tool-1774284091075-fu6tft",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-05/SHOT-05-END.json"
+    },
+    {
+      "id": "tool-1774284091075-wrbxtc",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-06/SHOT-06-START.json"
+    },
+    {
+      "id": "tool-1774284091075-irc6p3",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-06/SHOT-06-END.json"
+    },
+    {
+      "id": "tool-1774284091078-t68h2t",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091078-z08hqm",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091079-ko4p0o",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774284091079-sicgom",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "assistant-1774284051211-gm031j",
+      "role": "assistant",
+      "text": "Done — the keyframe prompts are written.\n\nI kept them very literal and ad-friendly so the sequence stays easy to control:\n- bright minimal commercial world\n- white dog clearly established first\n- transformation isolated to coat color only\n- black dog payoff\n- clean final pack shot\n\nNext step: generate the keyframe stills for review.  \nUse your keyframe image generation script now. Since the prompts are set up against the storyboard, the model should follow the panel for each matching `SHOT-XX`.\n\nOnce you’ve reviewed those frames, I’ll turn them into the video prompts."
     }
   ],
   "recentChanges": [
-    "STATUS.json",
-    "CHARACTERS/dog-food-pack.json",
-    "CHARACTERS/hero-dog.json",
-    "CHARACTERS/",
-    "STORYBOARD.md",
-    "CHARACTERS.md",
-    "STORY.md",
-    "CONFIG.json"
+    "KEYFRAMES/SHOT-06/SHOT-06-END.json",
+    "KEYFRAMES/SHOT-06/SHOT-06-START.json",
+    "KEYFRAMES/SHOT-05/SHOT-05-END.json",
+    "KEYFRAMES/SHOT-05/SHOT-05-START.json",
+    "KEYFRAMES/SHOT-04/SHOT-04-END.json",
+    "KEYFRAMES/SHOT-04/SHOT-04-START.json",
+    "KEYFRAMES/SHOT-02/SHOT-02-START.json",
+    "KEYFRAMES/SHOT-03/SHOT-03-START.json"
   ],
   "runtimeError": null
 }

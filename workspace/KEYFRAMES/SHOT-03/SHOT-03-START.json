@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-03-START",
+  "shotId": "SHOT-03",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A clean commercial photo of the Hero Dog at the bowl in a bright minimal premium ad interior, closer medium framing, the white dog lowering its head toward the bowl just before the first bite, face, ears, and body still readable, dog food and bowl visible, soft even lighting, polished uncluttered background. Follow the storyboard board panel labeled SHOT-03 as the upstream visual reference for composition and staging. Keep the dog identity stable: medium-sized friendly dog, floppy ears, expressive eyes, pure white fur, no collar, natural healthy detail.",
+  "status": "pending"
+}

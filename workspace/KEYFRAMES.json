@@ -1,0 +1,148 @@
+[
+  {
+    "keyframeId": "SHOT-01-START",
+    "shotId": "SHOT-01",
+    "frameType": "start",
+    "title": "White dog notices the bowl",
+    "goal": "Establish the dog, the bowl, and the bright premium ad world in one instantly readable setup.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png",
+    "characterIds": [
+      "hero-dog"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-01-END",
+    "shotId": "SHOT-01",
+    "frameType": "end",
+    "title": "Dog locks onto the food",
+    "goal": "End the opening shot with the white dog clearly focused on the bowl, setting up the move toward it.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png",
+    "characterIds": [
+      "hero-dog"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-02-START",
+    "shotId": "SHOT-02",
+    "frameType": "start",
+    "title": "Approach begins",
+    "goal": "Show the white dog beginning to move toward the bowl with happy anticipation.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png",
+    "characterIds": [
+      "hero-dog"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-02-END",
+    "shotId": "SHOT-02",
+    "frameType": "end",
+    "title": "Dog reaches the bowl",
+    "goal": "Land the dog close to the bowl so the next shot can cut naturally into the eating action.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png",
+    "characterIds": [
+      "hero-dog"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-03-START",
+    "shotId": "SHOT-03",
+    "frameType": "start",
+    "title": "First bite setup",
+    "goal": "Frame the white dog lowering to the bowl just before the first bite, keeping identity and food visible.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-START.png",
+    "characterIds": [
+      "hero-dog"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-03-END",
+    "shotId": "SHOT-03",
+    "frameType": "end",
+    "title": "White dog eating",
+    "goal": "End on the white dog actively eating from the bowl, ready to bridge into the transformation beat.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-END.png",
+    "characterIds": [
+      "hero-dog"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-04-START",
+    "shotId": "SHOT-04",
+    "frameType": "start",
+    "title": "Transformation begins",
+    "goal": "Anchor the start of the magical coat-color shift while the dog remains in the eating position.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-START.png",
+    "characterIds": [
+      "hero-dog"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-04-END",
+    "shotId": "SHOT-04",
+    "frameType": "end",
+    "title": "Transformation completed",
+    "goal": "Resolve the visual hook with the same dog now fully black, the transformation reading as elegant and unmistakable.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-END.png",
+    "characterIds": [
+      "hero-dog"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-05-START",
+    "shotId": "SHOT-05",
+    "frameType": "start",
+    "title": "Black dog lifts its head",
+    "goal": "Show the transformed black dog coming out of the bowl moment into a clear satisfied reaction.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-05/SHOT-05-START.png",
+    "characterIds": [
+      "hero-dog"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-05-END",
+    "shotId": "SHOT-05",
+    "frameType": "end",
+    "title": "Satisfied black dog pose",
+    "goal": "Hold a polished, calm, healthy-looking black dog pose that clearly registers the result of the transformation.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-05/SHOT-05-END.png",
+    "characterIds": [
+      "hero-dog"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-06-START",
+    "shotId": "SHOT-06",
+    "frameType": "start",
+    "title": "Product frame setup",
+    "goal": "Introduce the final composition with the black dog beside the pack and bowl in a clean commercial arrangement.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-06/SHOT-06-START.png",
+    "characterIds": [
+      "hero-dog",
+      "dog-food-pack"
+    ]
+  },
+  {
+    "keyframeId": "SHOT-06-END",
+    "shotId": "SHOT-06",
+    "frameType": "end",
+    "title": "Locked end frame",
+    "goal": "Finish on a simple premium pack shot with the black dog and product both cleanly readable and brandable.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-06/SHOT-06-END.png",
+    "characterIds": [
+      "dog-food-pack",
+      "hero-dog"
+    ]
+  }
+]
