@@ -7,9 +7,7 @@
     "goal": "Establish the white dog in a clean, minimal hero composition before eating begins.",
     "status": "planned",
     "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png",
-    "characterIds": [
-      "white-dog"
-    ]
+    "characterIds": ["white-dog"]
   },
   {
     "keyframeId": "SHOT-01-END",
@@ -19,9 +17,7 @@
     "goal": "Hold the same composition as the dog focuses on the food, preserving continuity into the next shot.",
     "status": "planned",
     "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png",
-    "characterIds": [
-      "white-dog"
-    ]
+    "characterIds": ["white-dog"]
   },
   {
     "keyframeId": "SHOT-02-START",
@@ -31,9 +27,7 @@
     "goal": "Show the white dog taking the first bite in the same simple setup, just before the shift.",
     "status": "planned",
     "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png",
-    "characterIds": [
-      "white-dog"
-    ]
+    "characterIds": ["white-dog"]
   },
   {
     "keyframeId": "SHOT-02-END",
@@ -43,10 +37,7 @@
     "goal": "Capture the eating beat as the coat color changes subtly and almost imperceptibly from white to black.",
     "status": "planned",
     "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png",
-    "characterIds": [
-      "white-dog",
-      "black-dog"
-    ]
+    "characterIds": ["white-dog", "black-dog"]
   },
   {
     "keyframeId": "SHOT-03-START",
@@ -56,9 +47,7 @@
     "goal": "Present the transformed black dog in the same minimal environment as the payoff frame.",
     "status": "planned",
     "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-START.png",
-    "characterIds": [
-      "black-dog"
-    ]
+    "characterIds": ["black-dog"]
   },
   {
     "keyframeId": "SHOT-03-END",
@@ -68,8 +57,6 @@
     "goal": "Let the final black dog image land cleanly as the closing beat.",
     "status": "planned",
     "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-END.png",
-    "characterIds": [
-      "black-dog"
-    ]
+    "characterIds": ["black-dog"]
   }
 ]

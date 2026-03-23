@@ -2,6 +2,6 @@
   "characterId": "black-dog",
   "displayName": "Black Dog",
   "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of a generic nice black dog, medium-small friendly build, soft rounded silhouette, clean black fur, floppy ears, dark eyes and nose, natural proportions, calm affectionate expression, simple clean background, realistic pet portrait, soft even lighting, no collar, no clothing, no accessories.",
+  "prompt": "Clean studio reference photo of a single friendly black dog, medium-small build, soft rounded silhouette, natural proportions, clean black fur, floppy ears, dark eyes and nose, calm affectionate expression. Full body visible from head to paws, centered in frame, slight three-quarter view, neutral standing pose, seamless light gray background, soft even studio lighting, sharp facial detail, clear body silhouette, realistic pet photography. No collar, no clothing, no accessories, no props, no text, no collage, no split panels, no multiple dogs.",
   "status": "ready"
 }

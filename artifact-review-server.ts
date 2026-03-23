@@ -492,10 +492,7 @@ async function serveCharacterImage(requestPath: string, cwd: string) {
     return new Response('Not Found', { status: 404 })
   }
 
-  const absolutePath = resolveRepoPath(
-    getCharacterSheetImagePath(matchingEntry.characterId),
-    cwd,
-  )
+  const absolutePath = resolveRepoPath(getCharacterSheetImagePath(matchingEntry.characterId), cwd)
 
   if (!(await fileExists(absolutePath))) {
     return new Response('Not Found', { status: 404 })

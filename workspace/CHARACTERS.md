@@ -19,8 +19,8 @@ Behavior anchors:
 
 Prompt wording:
 
-- Use: friendly white dog, generic nice dog, soft rounded features, natural proportions, clean white fur
-- Avoid: breed-specific traits, stylized markings, accessories, dramatic expressions
+- Use: single friendly white dog, full body visible, slight three-quarter view, soft rounded features, natural proportions, clean white fur, plain studio background, soft even lighting, clear silhouette, visible face and paws
+- Avoid: tight close-up portraits, cropped body, dramatic expressions, breed-specific traits, stylized markings, props, accessories, multiple dogs, text, collage layouts
 
 ## Black Dog
 
@@ -41,5 +41,5 @@ Behavior anchors:
 
 Prompt wording:
 
-- Use: friendly black dog, generic nice dog, soft rounded features, natural proportions, clean black fur
-- Avoid: breed-specific traits, stylized markings, accessories, dramatic expressions
+- Use: single friendly black dog, full body visible, slight three-quarter view, soft rounded features, natural proportions, clean black fur, plain studio background, soft even lighting, clear silhouette, visible face and paws
+- Avoid: tight close-up portraits, cropped body, dramatic expressions, breed-specific traits, stylized markings, props, accessories, multiple dogs, text, collage layouts
