@@ -890,9 +890,6 @@ function App({
         ) : null}
       </box>
       <box width={42} flexShrink={0} flexDirection="column" gap={1} marginBottom={2}>
-        <box border title="Review" padding={1} flexShrink={0}>
-          <text content={`Artifact review: ${artifactReviewUrl}`} wrapMode="word" />
-        </box>
         <box
           border
           title="Progress"
@@ -926,6 +923,14 @@ function App({
               ))}
             </box>
           </scrollbox>
+          <box
+            marginTop={1}
+            onMouseDown={() => {
+              spawn('open', [artifactReviewUrl], { stdio: 'ignore', detached: true }).unref()
+            }}
+          >
+            <text content={`UI: ${artifactReviewUrl}`} wrapMode="word" />
+          </box>
         </box>
         <box flexDirection="column" gap={0}>
           {renderConfigCard(
