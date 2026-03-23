@@ -1,10 +1,8 @@
 [
   {
-    "promptId": "shot-01",
     "shotId": "SHOT-01",
-    "model": "TBD",
-    "prompt": "TBD",
     "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-01.mp4",
     "keyframeIds": ["SHOT-01-START", "SHOT-01-END"]
   }
 ]

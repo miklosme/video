@@ -60,9 +60,21 @@
     "relatedFiles": ["KEYFRAMES.json", "KEYFRAMES/"]
   },
   {
-    "title": "Write shot prompts",
-    "instruction": "Write one motion prompt per shot so each planned shot is executable, consistent with the storyboard and keyframes, and clear about camera, action, and continuity.",
+    "title": "Plan shots",
+    "instruction": "Write one planning entry per shot so each storyboard beat has canonical keyframe anchors and a canonical output video path.",
     "checked": false,
     "relatedFiles": ["SHOT-PROMPTS.json"]
+  },
+  {
+    "title": "Prepare shots",
+    "instruction": "Write one sidecar JSON file per shot so video generation has stable prompts, IDs, and model metadata.",
+    "checked": false,
+    "relatedFiles": ["SHOT-PROMPTS.json", "SHOTS/"]
+  },
+  {
+    "title": "Review shots",
+    "instruction": "Generate and review one canonical MP4 per planned shot before treating the motion sequence as locked.",
+    "checked": false,
+    "relatedFiles": ["SHOT-PROMPTS.json", "SHOTS/"]
   }
 ]

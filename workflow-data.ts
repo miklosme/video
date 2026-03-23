@@ -50,16 +50,23 @@ export interface CharacterSheetEntry {
 
 export type CharacterSheetsData = CharacterSheetEntry[]
 
-export interface ShotPromptEntry {
-  promptId: string
+export interface ShotEntry {
+  shotId: string
+  status: string
+  videoPath: string
+  keyframeIds: string[]
+}
+
+export type ShotsData = ShotEntry[]
+
+export interface ShotArtifactEntry {
   shotId: string
   model: string
   prompt: string
   status: string
-  keyframeIds: string[]
 }
 
-export type ShotPromptsData = ShotPromptEntry[]
+export type ShotArtifactsData = ShotArtifactEntry[]
 
 export interface ConfigData {
   agentModel: string
@@ -81,9 +88,12 @@ export interface GenerationLogEntry {
   model: string
   prompt: string
   settings: {
-    imageCount: number
-    aspectRatio: string
-    safetyFilterLevel: string
+    imageCount?: number
+    videoCount?: number
+    aspectRatio?: string
+    safetyFilterLevel?: string
+    durationSeconds?: number
+    referenceImageCount?: number
   }
   outputDir: string
   outputPaths: string[]
@@ -99,7 +109,7 @@ export interface GenerationLogEntry {
   } | null
 }
 
-export type GenerationReferenceKind = 'character-sheet' | 'start-frame' | 'storyboard'
+export type GenerationReferenceKind = 'character-sheet' | 'start-frame' | 'end-frame' | 'storyboard'
 
 export interface GenerationReferenceEntry {
   kind: GenerationReferenceKind
@@ -121,6 +131,7 @@ export const WORKFLOW_FILES = {
 export const WORKFLOW_FOLDERS = {
   characters: 'CHARACTERS/',
   keyframes: 'KEYFRAMES/',
+  shots: 'SHOTS/',
 } as const
 
 function folderStem(folderName: string) {
@@ -163,6 +174,14 @@ export function getKeyframeImagePath(entry: Pick<KeyframeEntry, 'shotId' | 'keyf
     entry.shotId,
     `${entry.keyframeId}.png`,
   )
+}
+
+export function getShotArtifactJsonPath(entry: Pick<ShotEntry, 'shotId'>) {
+  return path.posix.join(WORKSPACE_DIR, folderStem(WORKFLOW_FOLDERS.shots), `${entry.shotId}.json`)
+}
+
+export function getShotVideoPath(entry: Pick<ShotEntry, 'shotId'>) {
+  return path.posix.join(WORKSPACE_DIR, folderStem(WORKFLOW_FOLDERS.shots), `${entry.shotId}.mp4`)
 }
 
 export function resolveWorkflowPath(fileName: string, cwd = process.cwd()) {
@@ -327,22 +346,38 @@ export function parseCharacterSheetEntry(value: unknown, context: string): Chara
   }
 }
 
-function parseShotPromptEntry(value: unknown, context: string): ShotPromptEntry {
+function parseShotEntry(value: unknown, context: string): ShotEntry {
   const object = expectObject(value, context)
+  const shotId = expectString(object.shotId, `${context}.shotId`)
+  const videoPath = expectString(object.videoPath, `${context}.videoPath`)
+  const expectedVideoPath = getShotVideoPath({ shotId })
+
+  if (videoPath !== expectedVideoPath) {
+    throw new Error(`${context}.videoPath must be "${expectedVideoPath}".`)
+  }
 
   return {
-    promptId: expectString(object.promptId, `${context}.promptId`),
-    shotId: expectString(object.shotId, `${context}.shotId`),
-    model: expectString(object.model, `${context}.model`),
-    prompt: expectString(object.prompt, `${context}.prompt`),
+    shotId,
     status: expectString(object.status, `${context}.status`),
+    videoPath,
     keyframeIds: expectStringArray(object.keyframeIds, `${context}.keyframeIds`),
   }
 }
 
-function parseShotPromptsData(value: unknown): ShotPromptsData {
+export function parseShotArtifactEntry(value: unknown, context: string): ShotArtifactEntry {
+  const object = expectObject(value, context)
+
+  return {
+    shotId: expectString(object.shotId, `${context}.shotId`),
+    model: expectString(object.model, `${context}.model`),
+    prompt: expectString(object.prompt, `${context}.prompt`),
+    status: expectString(object.status, `${context}.status`),
+  }
+}
+
+function parseShotsData(value: unknown): ShotsData {
   return expectArray(value, 'SHOT-PROMPTS.json').map((entry, index) =>
-    parseShotPromptEntry(entry, `SHOT-PROMPTS.json[${index}]`),
+    parseShotEntry(entry, `SHOT-PROMPTS.json[${index}]`),
   )
 }
 
@@ -476,7 +511,17 @@ export async function loadCharacterSheets(cwd = process.cwd()) {
 }
 
 export async function loadShotPrompts(cwd = process.cwd()) {
-  return readJsonFile(WORKFLOW_FILES.shotPrompts, parseShotPromptsData, cwd)
+  return readJsonFile(WORKFLOW_FILES.shotPrompts, parseShotsData, cwd)
+}
+
+export async function loadShotArtifacts(cwd = process.cwd()) {
+  const entries = await loadJsonEntriesFromFolder(
+    WORKFLOW_FOLDERS.shots,
+    parseShotArtifactEntry,
+    cwd,
+  )
+
+  return entries.sort((left, right) => left.shotId.localeCompare(right.shotId))
 }
 
 export function validateConfigAgainstModelOptions(

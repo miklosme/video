@@ -11,17 +11,17 @@ import {
   loadKeyframeArtifacts,
   loadKeyframes,
   loadModelOptions,
+  loadShotArtifacts,
   loadShotPrompts,
   loadStatus,
   parseCharacterSheetEntry,
   parseKeyframeArtifactEntry,
+  parseShotArtifactEntry,
   validateConfigAgainstModelOptions,
   WORKFLOW_FILES,
   WORKFLOW_FOLDERS,
   workspacePathExists,
-  type CharacterSheetEntry,
   type ConfigData,
-  type KeyframeArtifactEntry,
   type ModelOptionsData,
   type StatusData,
 } from './workflow-data'
@@ -42,9 +42,10 @@ const ALLOWED_WORKSPACE_FILES = new Set([
 const ALLOWED_WORKSPACE_FOLDERS = new Set<string>([
   WORKFLOW_FOLDERS.characters,
   WORKFLOW_FOLDERS.keyframes,
+  WORKFLOW_FOLDERS.shots,
 ])
 
-const GENERATED_WORKSPACE_FILE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp'])
+const GENERATED_WORKSPACE_FILE_EXTENSIONS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.mp4'])
 
 export type TranscriptRole = 'assistant' | 'user' | 'tool'
 export type ArtifactReadiness = 'missing' | 'incomplete' | 'ready'
@@ -421,7 +422,7 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
   lines.push('- Reserve "if you want, I can" for optional branches, not the default workflow path.')
   lines.push('Prompt-writing rules:')
   lines.push(
-    '- Before writing or revising keyframe sidecars, character-sheet sidecars, or SHOT-PROMPTS.json, read workspace/CONFIG.json and MODEL_PROMPTING_GUIDE.md.',
+    '- Before writing or revising keyframe sidecars, character-sheet sidecars, shot sidecars, or SHOT-PROMPTS.json, read workspace/CONFIG.json and MODEL_PROMPTING_GUIDE.md.',
   )
   lines.push(
     '- STORYBOARD.png is the cheap full-project storyboard review artifact generated from workspace/STORYBOARD.md before keyframes are locked.',
@@ -448,10 +449,14 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
     '- Keyframe sidecar schema is exact: { keyframeId, shotId, frameType, model, prompt, status }.',
   )
   lines.push(
-    '- Use workspace/CONFIG.json.videoModel for SHOT-PROMPTS.json model fields and shot-motion prompting style.',
+    '- SHOT-PROMPTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, keyframeIds }.',
   )
   lines.push(
-    '- Do not auto-run paid image generation. When sidecar JSON is ready but PNGs are missing, tell the user which script to run and continue after review.',
+    '- Use workspace/CONFIG.json.videoModel for workspace/SHOTS/*.json model fields and shot-motion prompting style.',
+  )
+  lines.push('- Shot sidecar schema is exact: { shotId, model, prompt, status }.')
+  lines.push(
+    '- Do not auto-run paid image or video generation. When sidecar JSON is ready but PNGs or MP4s are missing, tell the user which script to run and continue after review.',
   )
   lines.push('Raw workspace/STATUS.json:')
   lines.push(rawStatusContent.trim())
@@ -731,7 +736,6 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             return containsPlaceholderValue(entries) ? 'incomplete' : 'ready'
           }
           case 'SHOT-PROMPTS.json': {
-            await loadConfig(rootDir)
             const entries = await loadShotPrompts(rootDir)
             if (entries.length === 0) {
               return 'incomplete'
@@ -857,6 +861,78 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
     }
   }
 
+  const inspectShotsPlanning = async (): Promise<ArtifactReadiness> => {
+    if (!(await workspacePathExists(WORKFLOW_FILES.shotPrompts, rootDir))) {
+      return 'missing'
+    }
+
+    try {
+      const entries = await loadShotPrompts(rootDir)
+      if (entries.length === 0) {
+        return 'incomplete'
+      }
+
+      return containsPlaceholderValue(entries) ? 'incomplete' : 'ready'
+    } catch {
+      return 'incomplete'
+    }
+  }
+
+  const inspectShotsPreparation = async (): Promise<ArtifactReadiness> => {
+    const planningState = await inspectShotsPlanning()
+
+    if (planningState === 'missing') {
+      return 'missing'
+    }
+
+    if (!(await workspacePathExists(WORKFLOW_FOLDERS.shots, rootDir))) {
+      return 'incomplete'
+    }
+
+    try {
+      const [shots, artifacts] = await Promise.all([
+        loadShotPrompts(rootDir),
+        loadShotArtifacts(rootDir),
+      ])
+
+      if (shots.length === 0 || containsPlaceholderValue(shots)) {
+        return 'incomplete'
+      }
+
+      const artifactById = new Map(artifacts.map((entry) => [entry.shotId, entry]))
+      const allShotsPrepared = shots.every((entry) => {
+        const artifact = artifactById.get(entry.shotId)
+
+        return artifact !== undefined && !containsPlaceholderValue(artifact)
+      })
+
+      return allShotsPrepared ? 'ready' : 'incomplete'
+    } catch {
+      return 'incomplete'
+    }
+  }
+
+  const inspectShotsReview = async (): Promise<ArtifactReadiness> => {
+    const preparationState = await inspectShotsPreparation()
+
+    if (preparationState === 'missing') {
+      return 'missing'
+    }
+
+    try {
+      const shots = await loadShotPrompts(rootDir)
+      const videoStates = await Promise.all(
+        shots.map((entry) =>
+          workspacePathExists(entry.videoPath.replace(/^workspace\//, ''), rootDir),
+        ),
+      )
+
+      return videoStates.length > 0 && videoStates.every(Boolean) ? 'ready' : 'incomplete'
+    } catch {
+      return 'incomplete'
+    }
+  }
+
   const inspectMilestoneArtifacts = async (
     item: StatusData[number],
   ): Promise<ArtifactReadiness> => {
@@ -876,6 +952,18 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
 
     if (normalizedTitle === 'review keyframes') {
       return inspectKeyframesReview()
+    }
+
+    if (normalizedTitle === 'plan shots') {
+      return inspectShotsPlanning()
+    }
+
+    if (normalizedTitle === 'prepare shots') {
+      return inspectShotsPreparation()
+    }
+
+    if (normalizedTitle === 'review shots') {
+      return inspectShotsReview()
     }
 
     const artifactStates = await Promise.all(
@@ -968,27 +1056,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
   }
 
   const applyWorkspaceFileWriteRules = async (fileName: string, content: string) => {
-    if (fileName !== WORKFLOW_FILES.shotPrompts) {
-      return content
-    }
-
-    const config = await loadConfig(rootDir)
-    const parsed = JSON.parse(content)
-
-    if (!Array.isArray(parsed)) {
-      return content
-    }
-
-    const nextEntries = parsed.map((entry) =>
-      typeof entry === 'object' && entry !== null
-        ? {
-            ...entry,
-            model: config.videoModel,
-          }
-        : entry,
-    )
-
-    return JSON.stringify(nextEntries, null, 2)
+    return content
   }
 
   const validateWorkspaceArtifact = async (artifactPath: string, content: string) => {
@@ -1002,6 +1070,11 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
 
     if (normalizedPath.startsWith(WORKFLOW_FOLDERS.keyframes)) {
       parseKeyframeArtifactEntry(parsed, normalizedPath)
+      return
+    }
+
+    if (normalizedPath.startsWith(WORKFLOW_FOLDERS.shots)) {
+      parseShotArtifactEntry(parsed, normalizedPath)
     }
   }
 
@@ -1022,6 +1095,17 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         {
           ...parsed,
           model: config.imageModel,
+        },
+        null,
+        2,
+      )
+    }
+
+    if (normalizedPath.startsWith(WORKFLOW_FOLDERS.shots)) {
+      return JSON.stringify(
+        {
+          ...parsed,
+          model: config.videoModel,
         },
         null,
         2,
@@ -1350,12 +1434,12 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         readWorkspaceArtifact: tool({
           description:
-            'Read one JSON sidecar artifact or list one canonical workspace folder such as CHARACTERS/ or KEYFRAMES/. Character sidecars use { characterId, displayName, model, prompt, status }. Keyframe sidecars use { keyframeId, shotId, frameType, model, prompt, status }.',
+            'Read one JSON sidecar artifact or list one canonical workspace folder such as CHARACTERS/, KEYFRAMES/, or SHOTS/. Character sidecars use { characterId, displayName, model, prompt, status }. Keyframe sidecars use { keyframeId, shotId, frameType, model, prompt, status }. Shot sidecars use { shotId, model, prompt, status }.',
           inputSchema: z.object({
             artifactPath: z
               .string()
               .describe(
-                'Folder path like CHARACTERS/ or JSON sidecar path like CHARACTERS/the-dog.json or KEYFRAMES/SHOT-01/SHOT-01-START.json',
+                'Folder path like CHARACTERS/, KEYFRAMES/, or SHOTS/, or a JSON sidecar path like CHARACTERS/the-dog.json, KEYFRAMES/SHOT-01/SHOT-01-START.json, or SHOTS/SHOT-01.json',
               ),
           }),
           execute: async ({ artifactPath }) => {
@@ -1398,12 +1482,12 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         writeWorkspaceArtifact: tool({
           description:
-            'Write one JSON sidecar artifact in CHARACTERS/ or KEYFRAMES/ while keeping model fields aligned to workspace/CONFIG.json.imageModel. CHARACTERS/<id>.json must contain exactly characterId, displayName, model, prompt, status, and its prompt should target a clean single-subject reference image for downstream video consistency rather than a stylized hero scene. KEYFRAMES/<shot-id>/<keyframe-id>.json must contain exactly keyframeId, shotId, frameType, model, prompt, status.',
+            'Write one JSON sidecar artifact in CHARACTERS/, KEYFRAMES/, or SHOTS/ while keeping model fields aligned to workspace/CONFIG.json. CHARACTERS/<id>.json must contain exactly characterId, displayName, model, prompt, status, and its prompt should target a clean single-subject reference image for downstream video consistency rather than a stylized hero scene. KEYFRAMES/<shot-id>/<keyframe-id>.json must contain exactly keyframeId, shotId, frameType, model, prompt, status. SHOTS/<shot-id>.json must contain exactly shotId, model, prompt, status.',
           inputSchema: z.object({
             artifactPath: z
               .string()
               .describe(
-                'JSON sidecar path like CHARACTERS/the-dog.json or KEYFRAMES/SHOT-01/SHOT-01-START.json',
+                'JSON sidecar path like CHARACTERS/the-dog.json, KEYFRAMES/SHOT-01/SHOT-01-START.json, or SHOTS/SHOT-01.json',
               ),
             content: z.string().describe('The complete new JSON file contents.'),
           }),
@@ -1412,9 +1496,13 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         createWorkspaceFolder: tool({
           description:
-            'Create or confirm one canonical workspace folder such as CHARACTERS/ or KEYFRAMES/ when the creative workflow needs it.',
+            'Create or confirm one canonical workspace folder such as CHARACTERS/, KEYFRAMES/, or SHOTS/ when the creative workflow needs it.',
           inputSchema: z.object({
-            folderName: z.string().describe('Canonical workspace folder name such as CHARACTERS/'),
+            folderName: z
+              .string()
+              .describe(
+                'Canonical workspace folder name such as CHARACTERS/, KEYFRAMES/, or SHOTS/',
+              ),
           }),
           execute: async ({ folderName }) =>
             ensureWorkspaceFolderInternal(folderName, { emitToolEvents: true }),

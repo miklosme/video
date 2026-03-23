@@ -8,6 +8,7 @@
     "generate:characters": "bun generate-character-sheets.ts",
     "generate:storyboard": "bun generate-storyboard.ts",
     "generate:keyframes": "bun generate-keyframes.ts",
+    "generate:shots": "bun generate-shots.ts",
     "status:checklist": "bun render-status-checklist.ts",
     "validate:data": "bun validate-workflow-data.ts",
     "typecheck": "tsc --noEmit --pretty",

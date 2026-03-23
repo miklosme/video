@@ -413,6 +413,39 @@ test('writeWorkspaceArtifact aligns image sidecar models to config', async () =>
   }
 })
 
+test('writeWorkspaceArtifact aligns shot sidecar models to config', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/CONFIG.json', createValidConfig())
+    await writeRepoFile(repo.rootDir, 'workspace/STATUS.json', createWorkflowStatus([]))
+
+    const runtime = createVideoAgentRuntime({ rootDir: repo.rootDir, creativePrompt: 'test' })
+
+    await runtime.writeWorkspaceArtifact(
+      'SHOTS/SHOT-01.json',
+      JSON.stringify(
+        {
+          shotId: 'SHOT-01',
+          model: 'wrong-model',
+          prompt: 'Shot prompt.',
+          status: 'planned',
+        },
+        null,
+        2,
+      ),
+    )
+
+    const savedArtifact = JSON.parse(
+      await readFile(path.resolve(repo.rootDir, 'workspace/SHOTS/SHOT-01.json'), 'utf8'),
+    ) as { model: string }
+
+    expect(savedArtifact.model).toBe('video-test')
+  } finally {
+    await repo.cleanup()
+  }
+})
+
 test('artifact generation planning uses sidecars and canonical output paths', () => {
   const keyframeGenerations = selectPendingKeyframeGenerations(
     [
@@ -507,6 +540,83 @@ test('loadKeyframes parses required characterIds', async () => {
     const keyframes = await loadKeyframes(repo.rootDir)
 
     expect(keyframes[0]?.characterIds).toEqual(['test-dog'])
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('loadWorkflowSummary distinguishes shot planning from shot preparation and review', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/CONFIG.json', createValidConfig())
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/STATUS.json',
+      createWorkflowStatus([
+        {
+          title: 'Plan shots',
+          instruction: 'Plan the shots.',
+          checked: false,
+          relatedFiles: ['SHOT-PROMPTS.json'],
+        },
+        {
+          title: 'Prepare shots',
+          instruction: 'Write the shot sidecars.',
+          checked: false,
+          relatedFiles: ['SHOT-PROMPTS.json', 'SHOTS/'],
+        },
+        {
+          title: 'Review shots',
+          instruction: 'Review the rendered videos.',
+          checked: false,
+          relatedFiles: ['SHOT-PROMPTS.json', 'SHOTS/'],
+        },
+      ]),
+    )
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/SHOT-PROMPTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/SHOTS/SHOT-01.json',
+      `${JSON.stringify(
+        {
+          shotId: 'SHOT-01',
+          model: 'video-test',
+          prompt: 'A clean shot prompt.',
+          status: 'planned',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const runtime = createVideoAgentRuntime({ rootDir: repo.rootDir, creativePrompt: 'test' })
+    const workflowBeforeVideo = await runtime.loadWorkflowSummary()
+
+    expect(workflowBeforeVideo.status[0]).toMatchObject({ checked: true, state: 'approved' })
+    expect(workflowBeforeVideo.status[1]).toMatchObject({ checked: true, state: 'ready' })
+    expect(workflowBeforeVideo.status[2]).toMatchObject({ checked: false, state: 'incomplete' })
+
+    await writeRepoFile(repo.rootDir, 'workspace/SHOTS/SHOT-01.mp4', 'video-bytes')
+
+    const workflowAfterVideo = await runtime.loadWorkflowSummary()
+
+    expect(workflowAfterVideo.status[2]).toMatchObject({ checked: true, state: 'ready' })
   } finally {
     await repo.cleanup()
   }

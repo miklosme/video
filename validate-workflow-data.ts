@@ -8,6 +8,7 @@ import {
   loadKeyframeArtifacts,
   loadKeyframes,
   loadModelOptions,
+  loadShotArtifacts,
   loadShotPrompts,
   loadStatus,
   MODEL_OPTIONS_FILE,
@@ -20,7 +21,8 @@ import {
   type FrameType,
   type KeyframeArtifactEntry,
   type KeyframeEntry,
-  type ShotPromptEntry,
+  type ShotArtifactEntry,
+  type ShotEntry,
 } from './workflow-data'
 
 async function requireWorkspacePath(fileName: string, label: string) {
@@ -156,38 +158,61 @@ function validateCharacterSheets(characterSheets: CharacterSheetEntry[]) {
   }
 }
 
-function validateShotPrompts(keyframes: KeyframeEntry[], shotPrompts: ShotPromptEntry[]) {
-  const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
-  const shotPromptIds = new Set<string>()
+function validateShotArtifacts(shots: ShotEntry[], artifacts: ShotArtifactEntry[]) {
+  const shotById = new Map(shots.map((entry) => [entry.shotId, entry]))
+  const artifactIds = new Set<string>()
 
-  for (const shotPrompt of shotPrompts) {
-    if (shotPromptIds.has(shotPrompt.promptId)) {
-      throw new Error(`Duplicate promptId "${shotPrompt.promptId}" in workspace/SHOT-PROMPTS.json.`)
+  for (const artifact of artifacts) {
+    if (artifactIds.has(artifact.shotId)) {
+      throw new Error(`Duplicate shot artifact "${artifact.shotId}" in workspace/SHOTS/.`)
     }
 
-    shotPromptIds.add(shotPrompt.promptId)
+    artifactIds.add(artifact.shotId)
 
-    if (shotPrompt.keyframeIds.length === 0 || shotPrompt.keyframeIds.length > 2) {
+    const shot = shotById.get(artifact.shotId)
+
+    if (!shot) {
+      continue
+    }
+
+    if (artifact.shotId !== shot.shotId) {
       throw new Error(
-        `Shot prompt "${shotPrompt.promptId}" must reference either one single keyframe or a start/end pair.`,
+        `Shot artifact "${artifact.shotId}" has shotId "${artifact.shotId}" but shot "${shot.shotId}" uses a different ID.`,
+      )
+    }
+  }
+}
+
+function validateShots(keyframes: KeyframeEntry[], shots: ShotEntry[]) {
+  const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
+  const shotIds = new Set<string>()
+
+  for (const shot of shots) {
+    if (shotIds.has(shot.shotId)) {
+      throw new Error(`Duplicate shotId "${shot.shotId}" in workspace/SHOT-PROMPTS.json.`)
+    }
+
+    shotIds.add(shot.shotId)
+
+    if (shot.keyframeIds.length === 0 || shot.keyframeIds.length > 2) {
+      throw new Error(
+        `Shot "${shot.shotId}" must reference either one single keyframe or a start/end pair.`,
       )
     }
 
-    const anchors = shotPrompt.keyframeIds.map((keyframeId) => {
+    const anchors = shot.keyframeIds.map((keyframeId) => {
       const anchor = keyframeById.get(keyframeId)
 
       if (!anchor) {
-        throw new Error(
-          `Shot prompt "${shotPrompt.promptId}" references missing keyframe "${keyframeId}".`,
-        )
+        throw new Error(`Shot "${shot.shotId}" references missing keyframe "${keyframeId}".`)
       }
 
       return anchor
     })
 
-    if (anchors.some((anchor) => anchor.shotId !== shotPrompt.shotId)) {
+    if (anchors.some((anchor) => anchor.shotId !== shot.shotId)) {
       throw new Error(
-        `Shot prompt "${shotPrompt.promptId}" must only reference keyframes from shot "${shotPrompt.shotId}".`,
+        `Shot "${shot.shotId}" must only reference keyframes from shot "${shot.shotId}".`,
       )
     }
 
@@ -196,7 +221,7 @@ function validateShotPrompts(keyframes: KeyframeEntry[], shotPrompts: ShotPrompt
     if (anchors.length === 1) {
       if (!frameTypes.has('single')) {
         throw new Error(
-          `Shot prompt "${shotPrompt.promptId}" references one keyframe, so it must use frameType "single".`,
+          `Shot "${shot.shotId}" references one keyframe, so it must use frameType "single".`,
         )
       }
 
@@ -205,7 +230,7 @@ function validateShotPrompts(keyframes: KeyframeEntry[], shotPrompts: ShotPrompt
 
     if (!frameTypes.has('start') || !frameTypes.has('end') || frameTypes.has('single')) {
       throw new Error(
-        `Shot prompt "${shotPrompt.promptId}" must reference one "start" and one "end" keyframe when using two anchors. Found frame types: ${summarizeFrameTypes(anchors)}.`,
+        `Shot "${shot.shotId}" must reference one "start" and one "end" keyframe when using two anchors. Found frame types: ${summarizeFrameTypes(anchors)}.`,
       )
     }
   }
@@ -225,9 +250,10 @@ async function main() {
   const shotPromptsExists = await workspacePathExists(WORKFLOW_FILES.shotPrompts)
   const characterSheets = await loadCharacterSheets()
   const keyframeArtifacts = await loadKeyframeArtifacts()
+  const shotArtifacts = await loadShotArtifacts()
 
   const keyframes = keyframesExists ? await loadKeyframes() : []
-  const shotPrompts = shotPromptsExists ? await loadShotPrompts() : []
+  const shots = shotPromptsExists ? await loadShotPrompts() : []
 
   const storyboardReviewChecked = status.some(
     (item) => item.title.trim().toLowerCase() === 'review storyboard' && item.checked,
@@ -250,7 +276,8 @@ async function main() {
   validateCharacterSheets(characterSheets)
   await validateKeyframes(keyframes, characterSheets)
   validateKeyframeArtifacts(keyframes, keyframeArtifacts)
-  validateShotPrompts(keyframes, shotPrompts)
+  validateShots(keyframes, shots)
+  validateShotArtifacts(shots, shotArtifacts)
 
   console.log(
     JSON.stringify(
@@ -265,7 +292,8 @@ async function main() {
         keyframesCount: keyframes.length,
         keyframeArtifactsCount: keyframeArtifacts.length,
         shotPromptsPresent: shotPromptsExists,
-        shotPromptsCount: shotPrompts.length,
+        shotPromptsCount: shots.length,
+        shotArtifactsCount: shotArtifacts.length,
       },
       null,
       2,

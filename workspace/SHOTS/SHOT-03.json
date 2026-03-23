@@ -1,0 +1,6 @@
+{
+  "shotId": "SHOT-03",
+  "model": "google/veo-3.1-fast-generate-001",
+  "prompt": "Polished commercial close motion. The white Hero Dog lowers its head toward the bowl and completes the first satisfying bite, moving naturally from anticipation into contact with the food. Keep the action intimate but clear, preserve the same dog identity exactly, and maintain the bright premium minimal environment. The motion should feel smooth, appetizing, and controlled, with no extra objects or dramatic camera tricks.",
+  "status": "planned"
+}

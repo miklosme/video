@@ -23,6 +23,7 @@ When a technical task depends on creative context, treat these as the source of 
   - `workspace/KEYFRAMES.json`
   - `workspace/KEYFRAMES/`
   - `workspace/SHOT-PROMPTS.json`
+  - `workspace/SHOTS/`
 - `templates/` as the scaffold library that mirrors the canonical workspace file shapes for new project setup
 
 Legacy workflow files may still exist in `workspace/`, but they are not part of the simplified creative agent flow unless the user explicitly asks to work with them.
