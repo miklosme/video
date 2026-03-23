@@ -60,6 +60,62 @@ test('artifact review server renders an empty keyframes placeholder when KEYFRAM
   }
 })
 
+test('artifact review server renders the shots tab with prompt metadata and a missing-video placeholder', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOT-PROMPTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+            durationSeconds: 4,
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS/SHOT-01.json',
+      `${JSON.stringify(
+        {
+          shotId: 'SHOT-01',
+          model: 'video-test',
+          prompt: 'The camera glides from the start frame into the end frame.',
+          status: 'ready',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/shots', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('Shots')
+      expect(html).toContain('SHOT-01')
+      expect(html).toContain('The camera glides from the start frame into the end frame.')
+      expect(html).toContain('SHOT-01-START -&gt; SHOT-01-END')
+      expect(html).toContain('No video yet')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('artifact review server serves the canonical storyboard image', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
@@ -74,6 +130,45 @@ test('artifact review server serves the canonical storyboard image', async () =>
 
       expect(response.status).toBe(200)
       expect([...bytes]).toEqual([1, 2, 3, 4])
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server serves the canonical shot video', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOT-PROMPTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+            durationSeconds: 4,
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'workspace/SHOTS/SHOT-01.mp4', new Uint8Array([9, 8, 7, 6]))
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/workspace/SHOTS/SHOT-01.mp4', server.url))
+      const bytes = new Uint8Array(await response.arrayBuffer())
+
+      expect(response.status).toBe(200)
+      expect([...bytes]).toEqual([9, 8, 7, 6])
     } finally {
       await server.stop()
     }

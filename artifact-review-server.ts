@@ -3,15 +3,20 @@ import process from 'node:process'
 
 import {
   getCharacterSheetImagePath,
+  getShotVideoPath,
   getStoryboardImagePath,
   loadCharacterSheets,
   loadKeyframes,
+  loadShotArtifacts,
+  loadShotPrompts,
   resolveRepoPath,
   resolveWorkflowPath,
   WORKFLOW_FILES,
   type CharacterSheetEntry,
   type FrameType,
   type KeyframeEntry,
+  type ShotArtifactEntry,
+  type ShotEntry,
 } from './workflow-data'
 
 const FRAME_ORDER: Record<FrameType, number> = {
@@ -45,6 +50,17 @@ interface StoryboardReviewState {
   imageUrl: string
   imageExists: boolean
   markdown: string | null
+}
+
+interface ShotReviewCard {
+  shotId: string
+  status: string
+  durationSeconds: number
+  keyframeIds: string[]
+  prompt: string | null
+  model: string | null
+  videoUrl: string
+  videoExists: boolean
 }
 
 export interface ArtifactReviewServer {
@@ -81,6 +97,30 @@ async function fileExists(filePath: string) {
 async function loadKeyframesOrEmpty(cwd: string) {
   try {
     return await loadKeyframes(cwd)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      return []
+    }
+
+    throw error
+  }
+}
+
+async function loadShotPromptsOrEmpty(cwd: string) {
+  try {
+    return await loadShotPrompts(cwd)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      return []
+    }
+
+    throw error
+  }
+}
+
+async function loadShotArtifactsOrEmpty(cwd: string) {
+  try {
+    return await loadShotArtifacts(cwd)
   } catch (error) {
     if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
       return []
@@ -213,6 +253,39 @@ async function buildStoryboardReviewState(cwd: string): Promise<StoryboardReview
   }
 }
 
+async function buildShotReviewCards(cwd: string): Promise<ShotReviewCard[]> {
+  const [shots, artifacts] = await Promise.all([
+    loadShotPromptsOrEmpty(cwd),
+    loadShotArtifactsOrEmpty(cwd),
+  ])
+  const artifactsByShotId = new Map(artifacts.map((entry) => [entry.shotId, entry]))
+
+  return Promise.all(
+    shots.map(async (entry) =>
+      buildShotReviewCard(entry, artifactsByShotId.get(entry.shotId), cwd),
+    ),
+  )
+}
+
+async function buildShotReviewCard(
+  entry: ShotEntry,
+  artifact: ShotArtifactEntry | undefined,
+  cwd: string,
+): Promise<ShotReviewCard> {
+  const absoluteVideoPath = resolveRepoPath(entry.videoPath, cwd)
+
+  return {
+    shotId: entry.shotId,
+    status: artifact?.status ?? entry.status,
+    durationSeconds: entry.durationSeconds,
+    keyframeIds: entry.keyframeIds,
+    prompt: artifact?.prompt ?? null,
+    model: artifact?.model ?? null,
+    videoUrl: `/${encodeImageUrl(entry.videoPath)}`,
+    videoExists: await fileExists(absoluteVideoPath),
+  }
+}
+
 function renderCharacterCard(card: CharacterReviewCard) {
   const visual = card.imageExists
     ? `<img src="${card.imageUrl}" alt="${escapeHtml(card.displayName)}" loading="lazy">`
@@ -295,13 +368,69 @@ function renderKeyframes(shots: KeyframeReviewShot[]) {
   return shots.map(renderShot).join('')
 }
 
-type Tab = 'characters' | 'storyboard' | 'keyframes'
+function formatDurationSeconds(durationSeconds: number) {
+  return Number.isInteger(durationSeconds)
+    ? `${durationSeconds}s`
+    : `${durationSeconds.toFixed(1)}s`
+}
+
+function renderShotMeta(label: string, value: string) {
+  return `
+    <div class="shot-meta-item">
+      <span class="shot-meta-label">${escapeHtml(label)}</span>
+      <span class="shot-meta-value">${escapeHtml(value)}</span>
+    </div>
+  `
+}
+
+function renderShotCard(card: ShotReviewCard) {
+  const visual = card.videoExists
+    ? `<video src="${card.videoUrl}" controls preload="metadata" playsinline></video>`
+    : '<div class="placeholder">No video yet</div>'
+  const promptHtml = card.prompt
+    ? `<p class="shot-review-prompt">${escapeHtml(card.prompt)}</p>`
+    : '<p class="shot-review-empty">No shot sidecar prompt yet.</p>'
+
+  return `
+    <section class="shot-review-card">
+      <div class="shot-review-header">
+        <p class="shot-review-id">${escapeHtml(card.shotId)}</p>
+        <span class="shot-review-status">${escapeHtml(card.status)}</span>
+      </div>
+      <div class="shot-review-layout">
+        <div class="shot-review-visual">${visual}</div>
+        <div class="shot-review-copy">
+          <div class="shot-review-meta">
+            ${renderShotMeta('Duration', formatDurationSeconds(card.durationSeconds))}
+            ${renderShotMeta('Anchors', card.keyframeIds.join(' -> '))}
+            ${renderShotMeta('Model', card.model ?? 'No sidecar yet')}
+          </div>
+          <div class="shot-review-prompt-block">
+            <p class="shot-review-heading">Motion Prompt</p>
+            ${promptHtml}
+          </div>
+        </div>
+      </div>
+    </section>
+  `
+}
+
+function renderShots(cards: ShotReviewCard[]) {
+  if (cards.length === 0) {
+    return '<p style="color:#555;text-align:center;padding:48px 0;">No shots yet.</p>'
+  }
+
+  return `<div class="shot-review-grid">${cards.map(renderShotCard).join('')}</div>`
+}
+
+type Tab = 'characters' | 'storyboard' | 'keyframes' | 'shots'
 
 function renderTabs(activeTab: Tab) {
   const tabs: { id: Tab; label: string; href: string }[] = [
     { id: 'characters', label: 'Characters', href: '/' },
     { id: 'storyboard', label: 'Storyboard', href: '/storyboard' },
     { id: 'keyframes', label: 'Keyframes', href: '/keyframes' },
+    { id: 'shots', label: 'Shots', href: '/shots' },
   ]
 
   return `
@@ -552,6 +681,140 @@ function renderPage(activeTab: Tab, content: string) {
         line-height: 1.4;
       }
 
+      /* Shots */
+
+      .shot-review-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .shot-review-card {
+        border: 1px solid #222;
+        border-radius: 10px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0)),
+          #111;
+        overflow: hidden;
+      }
+
+      .shot-review-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-bottom: 1px solid #1d1d1d;
+      }
+
+      .shot-review-id {
+        font-size: 13px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        color: #ddd;
+        text-transform: uppercase;
+      }
+
+      .shot-review-status {
+        border: 1px solid #2f2f2f;
+        border-radius: 999px;
+        padding: 4px 10px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        color: #8f8f8f;
+        text-transform: uppercase;
+      }
+
+      .shot-review-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(320px, 1fr);
+        gap: 18px;
+        padding: 16px;
+      }
+
+      .shot-review-visual {
+        aspect-ratio: 16 / 9;
+        border-radius: 8px;
+        overflow: hidden;
+        border: 1px solid #222;
+        background: #181818;
+      }
+
+      .shot-review-visual video {
+        display: block;
+        width: 100%;
+        height: 100%;
+        background: #0b0b0b;
+      }
+
+      .shot-review-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .shot-review-meta {
+        display: grid;
+        gap: 8px;
+      }
+
+      .shot-meta-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid #1f1f1f;
+      }
+
+      .shot-meta-label {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        color: #666;
+        text-transform: uppercase;
+      }
+
+      .shot-meta-value {
+        font-size: 12px;
+        color: #bbb;
+        text-align: right;
+      }
+
+      .shot-review-prompt-block {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-height: 100%;
+      }
+
+      .shot-review-heading {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        color: #777;
+        text-transform: uppercase;
+      }
+
+      .shot-review-prompt,
+      .shot-review-empty {
+        border-radius: 8px;
+        border: 1px solid #222;
+        background: #141414;
+        padding: 14px;
+        font-size: 12px;
+        line-height: 1.55;
+      }
+
+      .shot-review-prompt {
+        color: #bbb;
+        white-space: pre-wrap;
+      }
+
+      .shot-review-empty {
+        color: #555;
+      }
+
       @media (max-width: 700px) {
         .board { padding: 16px; }
 
@@ -574,6 +837,20 @@ function renderPage(activeTab: Tab, content: string) {
 
         .character-grid {
           grid-template-columns: 1fr 1fr;
+        }
+
+        .shot-review-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .shot-review-header,
+        .shot-meta-item {
+          align-items: flex-start;
+          flex-direction: column;
+        }
+
+        .shot-meta-value {
+          text-align: left;
         }
       }
     </style>
@@ -642,6 +919,24 @@ async function serveStoryboardImage(requestPath: string, cwd: string) {
   return new Response(Bun.file(absolutePath))
 }
 
+async function serveShotVideo(requestPath: string, cwd: string) {
+  const decodedPath = decodeURIComponent(requestPath.slice(1))
+  const shots = await loadShotPromptsOrEmpty(cwd)
+  const matchingEntry = shots.find((entry) => entry.videoPath === decodedPath)
+
+  if (!matchingEntry) {
+    return new Response('Not Found', { status: 404 })
+  }
+
+  const absolutePath = resolveRepoPath(getShotVideoPath(matchingEntry), cwd)
+
+  if (!(await fileExists(absolutePath))) {
+    return new Response('Not Found', { status: 404 })
+  }
+
+  return new Response(Bun.file(absolutePath))
+}
+
 async function serveCharactersPage(cwd: string) {
   const cards = await buildCharacterCards(cwd)
 
@@ -662,6 +957,14 @@ async function serveStoryboardPage(cwd: string) {
   const review = await buildStoryboardReviewState(cwd)
 
   return new Response(renderPage('storyboard', renderStoryboard(review)), {
+    headers: HTML_HEADERS,
+  })
+}
+
+async function serveShotsPage(cwd: string) {
+  const cards = await buildShotReviewCards(cwd)
+
+  return new Response(renderPage('shots', renderShots(cards)), {
     headers: HTML_HEADERS,
   })
 }
@@ -696,6 +999,10 @@ export function startArtifactReviewServer(options: { cwd?: string; preferredPort
           return serveStoryboardPage(cwd)
         }
 
+        if (url.pathname === '/shots') {
+          return serveShotsPage(cwd)
+        }
+
         if (url.pathname.startsWith('/workspace/CHARACTERS/')) {
           return serveCharacterImage(url.pathname, cwd)
         }
@@ -706,6 +1013,10 @@ export function startArtifactReviewServer(options: { cwd?: string; preferredPort
 
         if (url.pathname.startsWith('/workspace/KEYFRAMES/')) {
           return serveKeyframeImage(url.pathname, cwd)
+        }
+
+        if (url.pathname.startsWith('/workspace/SHOTS/')) {
+          return serveShotVideo(url.pathname, cwd)
         }
 
         return new Response('Not Found', { status: 404 })
