@@ -14,7 +14,7 @@ import { createRoot, useKeyboard, useRenderer } from '@opentui/react'
 import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
-import { startKeyframeReviewServer, type KeyframeReviewServer } from './keyframe-review-server'
+import { startArtifactReviewServer, type ArtifactReviewServer } from './artifact-review-server'
 import {
   createVideoAgentRuntime,
   type TranscriptEntry,
@@ -37,7 +37,7 @@ const COPY_NOTIFICATION_DURATION_MS = 2200
 interface AppProps {
   initialWorkflow: WorkflowSummary
   initialSession: PersistedAgentState
-  keyframeReviewUrl: string
+  artifactReviewUrl: string
   runtime: VideoAgentRuntime
   statePersistence: AgentStatePersistence
 }
@@ -444,7 +444,7 @@ function insertTranscriptEntryBefore(
 function App({
   initialWorkflow,
   initialSession,
-  keyframeReviewUrl,
+  artifactReviewUrl,
   runtime,
   statePersistence,
 }: AppProps) {
@@ -891,7 +891,7 @@ function App({
       </box>
       <box width={42} flexShrink={0} flexDirection="column" gap={1} marginBottom={2}>
         <box border title="Review" padding={1} flexShrink={0}>
-          <text content={`Keyframe review: ${keyframeReviewUrl}`} wrapMode="word" />
+          <text content={`Artifact review: ${artifactReviewUrl}`} wrapMode="word" />
         </box>
         <box
           border
@@ -1104,7 +1104,7 @@ async function main() {
     throw new Error('AI_GATEWAY_API_KEY is required to run app.tsx with the Vercel AI Gateway.')
   }
 
-  const keyframeReviewServer = startKeyframeReviewServer()
+  const artifactReviewServer = startArtifactReviewServer()
   const runtime = createVideoAgentRuntime()
   let initialWorkflow = await runtime.loadWorkflowSummary()
   const bootstrappedFiles = await runtime.bootstrapNextMilestoneScaffold(initialWorkflow)
@@ -1115,7 +1115,7 @@ async function main() {
 
   const initialSession = await loadPersistedAgentState(initialWorkflow)
   const statePersistence = createAgentStatePersistence()
-  const stopKeyframeReviewServer = createStopServer(keyframeReviewServer)
+  const stopArtifactReviewServer = createStopServer(artifactReviewServer)
   let renderer: Awaited<ReturnType<typeof createCliRenderer>> | null = null
   let shuttingDown = false
 
@@ -1127,7 +1127,7 @@ async function main() {
     shuttingDown = true
 
     void (async () => {
-      await stopKeyframeReviewServer()
+      await stopArtifactReviewServer()
       await statePersistence.flush()
       renderer?.destroy()
       process.exit(exitCode)
@@ -1148,7 +1148,7 @@ async function main() {
       },
     ],
     onDestroy: () => {
-      void stopKeyframeReviewServer()
+      void stopArtifactReviewServer()
       void statePersistence.flush()
     },
   })
@@ -1167,14 +1167,14 @@ async function main() {
     <App
       initialWorkflow={initialWorkflow}
       initialSession={initialSession}
-      keyframeReviewUrl={keyframeReviewServer.url}
+      artifactReviewUrl={artifactReviewServer.url}
       runtime={runtime}
       statePersistence={statePersistence}
     />,
   )
 }
 
-function createStopServer(server: KeyframeReviewServer) {
+function createStopServer(server: ArtifactReviewServer) {
   let stopPromise: Promise<void> | null = null
 
   return () => {

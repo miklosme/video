@@ -28,7 +28,7 @@ interface KeyframeReviewShot {
   slots: KeyframeReviewSlot[]
 }
 
-export interface KeyframeReviewServer {
+export interface ArtifactReviewServer {
   port: number
   url: string
   stop: () => Promise<void>
@@ -420,7 +420,7 @@ async function servePage(cwd: string) {
   })
 }
 
-export function startKeyframeReviewServer(options: { cwd?: string; preferredPort?: number } = {}) {
+export function startArtifactReviewServer(options: { cwd?: string; preferredPort?: number } = {}) {
   const { cwd = process.cwd(), preferredPort = 3000 } = options
 
   const createServer = (port: number) =>
@@ -482,5 +482,5 @@ export function startKeyframeReviewServer(options: { cwd?: string; preferredPort
       stopped = true
       await server.stop(true)
     },
-  } satisfies KeyframeReviewServer
+  } satisfies ArtifactReviewServer
 }
