@@ -1,6 +1,7 @@
 import { access } from 'node:fs/promises'
 import path from 'node:path'
 
+import { resolveFinalCutProps } from './final-cut'
 import {
   getCharacterSheetImagePath,
   loadCharacterSheets,
@@ -248,6 +249,7 @@ async function main() {
   const status = await loadStatus()
   const keyframesExists = await workspacePathExists(WORKFLOW_FILES.keyframes)
   const shotPromptsExists = await workspacePathExists(WORKFLOW_FILES.shotPrompts)
+  const finalCutExists = await workspacePathExists(WORKFLOW_FILES.finalCut)
   const characterSheets = await loadCharacterSheets()
   const keyframeArtifacts = await loadKeyframeArtifacts()
   const shotArtifacts = await loadShotArtifacts()
@@ -278,6 +280,10 @@ async function main() {
   validateKeyframeArtifacts(keyframes, keyframeArtifacts)
   validateShots(keyframes, shots)
   validateShotArtifacts(shots, shotArtifacts)
+
+  if (finalCutExists) {
+    await resolveFinalCutProps(process.cwd(), { assetBaseUrl: 'http://127.0.0.1:1' })
+  }
 
   console.log(
     JSON.stringify(

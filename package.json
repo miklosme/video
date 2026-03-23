@@ -9,6 +9,8 @@
     "generate:storyboard": "bun generate-storyboard.ts",
     "generate:keyframes": "bun generate-keyframes.ts",
     "generate:shots": "bun generate-shots.ts",
+    "remotion:studio": "bun remotion-workflow.ts studio",
+    "remotion:render": "bun remotion-workflow.ts render",
     "status:checklist": "bun render-status-checklist.ts",
     "validate:data": "bun validate-workflow-data.ts",
     "typecheck": "tsc --noEmit --pretty",
@@ -30,10 +32,13 @@
   "dependencies": {
     "@opentui/core": "^0.1.87",
     "@opentui/react": "^0.1.87",
-    "arg": "^5.0.2",
+    "@remotion/cli": "^4.0.438",
+    "@remotion/media-parser": "^4.0.438",
     "ai": "^6.0.116",
+    "arg": "^5.0.2",
     "openai": "^6.27.0",
     "react": "^19.2.0",
+    "remotion": "^4.0.438",
     "ws": "^8.18.3",
     "zod": "^4.3.6"
   },

@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
 import { startArtifactReviewServer, type ArtifactReviewServer } from './artifact-review-server'
+import { startManagedRemotionStudio, type ManagedRemotionStudio } from './remotion-workflow'
 import {
   createVideoAgentRuntime,
   type TranscriptEntry,
@@ -38,6 +39,8 @@ interface AppProps {
   initialWorkflow: WorkflowSummary
   initialSession: PersistedAgentState
   artifactReviewUrl: string
+  remotionStudioUrl: string | null
+  remotionStudioStatus: string
   runtime: VideoAgentRuntime
   statePersistence: AgentStatePersistence
 }
@@ -445,6 +448,8 @@ function App({
   initialWorkflow,
   initialSession,
   artifactReviewUrl,
+  remotionStudioUrl,
+  remotionStudioStatus,
   runtime,
   statePersistence,
 }: AppProps) {
@@ -940,6 +945,12 @@ function App({
           >
             <text content={`UI: ${artifactReviewUrl}`} wrapMode="word" />
           </box>
+          <box marginTop={1}>
+            <text
+              content={`Editor: ${remotionStudioUrl ?? remotionStudioStatus}`}
+              wrapMode="word"
+            />
+          </box>
         </box>
         <box flexDirection="column" gap={0}>
           {renderConfigCard(
@@ -1119,6 +1130,16 @@ async function main() {
   }
 
   const artifactReviewServer = startArtifactReviewServer()
+  let remotionStudio: ManagedRemotionStudio | null = null
+  let remotionStudioStatus =
+    'Unavailable. It starts automatically once FINAL-CUT.json and compatible shot videos are ready.'
+
+  try {
+    remotionStudio = await startManagedRemotionStudio()
+    remotionStudioStatus = 'Running from workspace/FINAL-CUT.json without auto-opening a browser.'
+  } catch (error) {
+    remotionStudioStatus = `Unavailable: ${error instanceof Error ? error.message : String(error)}`
+  }
   const runtime = createVideoAgentRuntime()
   let initialWorkflow = await runtime.loadWorkflowSummary()
   const bootstrappedFiles = await runtime.bootstrapNextMilestoneScaffold(initialWorkflow)
@@ -1130,6 +1151,7 @@ async function main() {
   const initialSession = await loadPersistedAgentState(initialWorkflow)
   const statePersistence = createAgentStatePersistence()
   const stopArtifactReviewServer = createStopServer(artifactReviewServer)
+  const stopRemotionStudio = remotionStudio ? createStopServer(remotionStudio) : async () => {}
   let renderer: Awaited<ReturnType<typeof createCliRenderer>> | null = null
   let shuttingDown = false
 
@@ -1142,6 +1164,7 @@ async function main() {
 
     void (async () => {
       await stopArtifactReviewServer()
+      await stopRemotionStudio()
       await statePersistence.flush()
       renderer?.destroy()
       process.exit(exitCode)
@@ -1163,6 +1186,7 @@ async function main() {
     ],
     onDestroy: () => {
       void stopArtifactReviewServer()
+      void stopRemotionStudio()
       void statePersistence.flush()
     },
   })
@@ -1182,13 +1206,15 @@ async function main() {
       initialWorkflow={initialWorkflow}
       initialSession={initialSession}
       artifactReviewUrl={artifactReviewServer.url}
+      remotionStudioUrl={remotionStudio?.url ?? null}
+      remotionStudioStatus={remotionStudioStatus}
       runtime={runtime}
       statePersistence={statePersistence}
     />,
   )
 }
 
-function createStopServer(server: ArtifactReviewServer) {
+function createStopServer(server: ArtifactReviewServer | ManagedRemotionStudio) {
   let stopPromise: Promise<void> | null = null
 
   return () => {

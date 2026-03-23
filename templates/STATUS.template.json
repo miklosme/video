@@ -76,5 +76,11 @@
     "instruction": "Generate and review one canonical MP4 per planned shot before treating the motion sequence as locked.",
     "checked": false,
     "relatedFiles": ["SHOT-PROMPTS.json", "SHOTS/"]
+  },
+  {
+    "title": "Prepare final cut",
+    "instruction": "Bootstrap the Remotion final-cut manifest so the approved shot videos can be assembled, trimmed, and rendered in Remotion Studio.",
+    "checked": false,
+    "relatedFiles": ["FINAL-CUT.json"]
   }
 ]

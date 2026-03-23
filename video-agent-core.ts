@@ -5,10 +5,12 @@ import process from 'node:process'
 import { stepCountIs, tool, ToolLoopAgent, type ModelMessage } from 'ai'
 import { z } from 'zod'
 
+import { ensureFinalCutManifest, resolveFinalCutProps } from './final-cut'
 import {
   DEFAULT_VIDEO_DURATION_SECONDS,
   loadCharacterSheets,
   loadConfig,
+  loadFinalCut,
   loadKeyframeArtifacts,
   loadKeyframes,
   loadModelOptions,
@@ -37,6 +39,7 @@ const ALLOWED_WORKSPACE_FILES = new Set([
   'STORYBOARD.md',
   'KEYFRAMES.json',
   'SHOT-PROMPTS.json',
+  'FINAL-CUT.json',
   'STATUS.json',
 ])
 
@@ -456,6 +459,9 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
     `- Each SHOT-PROMPTS.json entry should include durationSeconds for the target clip length; default to ${DEFAULT_VIDEO_DURATION_SECONDS} when the user has not specified one.`,
   )
   lines.push(
+    '- FINAL-CUT.json stores the saved Remotion edit manifest and should use the exact shape: { version, shots, soundtrack }, where each shot entry is { shotId, enabled, trimStartFrames, trimEndFrames, transition: { type, durationFrames } }.',
+  )
+  lines.push(
     '- Use workspace/CONFIG.json.videoModel for workspace/SHOTS/*.json model fields and shot-motion prompting style.',
   )
   lines.push('- Shot sidecar schema is exact: { shotId, model, prompt, status }.')
@@ -619,6 +625,9 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
       case 'SHOT-PROMPTS.json':
         await loadShotPrompts(rootDir)
         return
+      case 'FINAL-CUT.json':
+        await resolveFinalCutProps(rootDir, { assetBaseUrl: 'http://127.0.0.1:1' })
+        return
       case 'STATUS.json':
         await loadStatus(rootDir)
         return
@@ -635,6 +644,21 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
     const workspacePath = resolveWorkspacePath(rootDir, fileName)
     if (await workspacePathExists(fileName, rootDir)) {
       return null
+    }
+
+    if (fileName === WORKFLOW_FILES.finalCut) {
+      const bootstrapped = await ensureFinalCutManifest(rootDir)
+
+      if (!bootstrapped) {
+        return null
+      }
+
+      await validateWorkspaceFile(fileName)
+
+      return {
+        fileName,
+        workspacePath,
+      }
     }
 
     const templatePath = resolveTemplatePath(rootDir, fileName)
@@ -746,6 +770,14 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             }
 
             return containsPlaceholderValue(entries) ? 'incomplete' : 'ready'
+          }
+          case 'FINAL-CUT.json': {
+            const finalCut = await loadFinalCut(rootDir)
+            if (finalCut.shots.length === 0) {
+              return 'incomplete'
+            }
+
+            return containsPlaceholderValue(finalCut) ? 'incomplete' : 'ready'
           }
           default:
             return 'ready'
@@ -1426,7 +1458,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             fileName: z
               .string()
               .describe(
-                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, KEYFRAMES.json, or SHOT-PROMPTS.json',
+                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, KEYFRAMES.json, SHOT-PROMPTS.json, or FINAL-CUT.json',
               ),
           }),
           execute: async ({ fileName }) => {
@@ -1477,7 +1509,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             fileName: z
               .string()
               .describe(
-                'Canonical workspace filename such as CONFIG.json, STORY.md, KEYFRAMES.json, or SHOT-PROMPTS.json',
+                'Canonical workspace filename such as CONFIG.json, STORY.md, KEYFRAMES.json, SHOT-PROMPTS.json, or FINAL-CUT.json',
               ),
             content: z.string().describe('The complete new file contents.'),
           }),

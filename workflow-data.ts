@@ -3,8 +3,11 @@ import path from 'node:path'
 
 export const FRAME_TYPES = ['start', 'end', 'single'] as const
 export const DEFAULT_VIDEO_DURATION_SECONDS = 4
+export const FINAL_CUT_VERSION = 1
+export const FINAL_CUT_TRANSITION_TYPES = ['cut', 'fade'] as const
 
 export type FrameType = (typeof FRAME_TYPES)[number]
+export type FinalCutTransitionType = (typeof FINAL_CUT_TRANSITION_TYPES)[number]
 
 type JsonObject = Record<string, unknown>
 
@@ -70,6 +73,30 @@ export interface ShotArtifactEntry {
 
 export type ShotArtifactsData = ShotArtifactEntry[]
 
+export interface FinalCutTransitionEntry {
+  type: FinalCutTransitionType
+  durationFrames: number
+}
+
+export interface FinalCutShotEntry {
+  shotId: string
+  enabled: boolean
+  trimStartFrames: number
+  trimEndFrames: number
+  transition: FinalCutTransitionEntry
+}
+
+export interface FinalCutSoundtrackEntry {
+  path: string
+  volume: number
+}
+
+export interface FinalCutData {
+  version: typeof FINAL_CUT_VERSION
+  shots: FinalCutShotEntry[]
+  soundtrack: FinalCutSoundtrackEntry | null
+}
+
 export interface ConfigData {
   agentModel: string
   imageModel: string
@@ -128,6 +155,7 @@ export const WORKFLOW_FILES = {
   storyboardImage: 'STORYBOARD.png',
   keyframes: 'KEYFRAMES.json',
   shotPrompts: 'SHOT-PROMPTS.json',
+  finalCut: 'FINAL-CUT.json',
 } as const
 
 export const WORKFLOW_FOLDERS = {
@@ -249,6 +277,27 @@ function expectPositiveNumber(value: unknown, context: string): number {
   return value
 }
 
+function expectNumberInRange(value: unknown, min: number, max: number, context: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
+    throw new Error(`${context} must be a number between ${min} and ${max}.`)
+  }
+
+  return value
+}
+
+function expectNonNegativeInteger(value: unknown, context: string): number {
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 0
+  ) {
+    throw new Error(`${context} must be a non-negative integer.`)
+  }
+
+  return value
+}
+
 function expectArray(value: unknown, context: string): unknown[] {
   if (!Array.isArray(value)) {
     throw new Error(`${context} must be an array.`)
@@ -283,6 +332,16 @@ function expectFrameType(value: unknown, context: string): FrameType {
   }
 
   return frameType as FrameType
+}
+
+function expectFinalCutTransitionType(value: unknown, context: string): FinalCutTransitionType {
+  const transitionType = expectString(value, context)
+
+  if (!FINAL_CUT_TRANSITION_TYPES.includes(transitionType as FinalCutTransitionType)) {
+    throw new Error(`${context} must be one of: ${FINAL_CUT_TRANSITION_TYPES.join(', ')}.`)
+  }
+
+  return transitionType as FinalCutTransitionType
 }
 
 function parseStatusItem(value: unknown, context: string): StatusItem {
@@ -394,6 +453,73 @@ function parseShotsData(value: unknown): ShotsData {
   return expectArray(value, 'SHOT-PROMPTS.json').map((entry, index) =>
     parseShotEntry(entry, `SHOT-PROMPTS.json[${index}]`),
   )
+}
+
+function parseFinalCutTransitionEntry(value: unknown, context: string): FinalCutTransitionEntry {
+  const object = expectObject(value, context)
+  const type = expectFinalCutTransitionType(object.type, `${context}.type`)
+  const durationFrames = expectNonNegativeInteger(
+    object.durationFrames,
+    `${context}.durationFrames`,
+  )
+
+  if (type === 'cut' && durationFrames !== 0) {
+    throw new Error(`${context}.durationFrames must be 0 when transition.type is "cut".`)
+  }
+
+  if (type === 'fade' && durationFrames === 0) {
+    throw new Error(`${context}.durationFrames must be greater than 0 for a fade transition.`)
+  }
+
+  return {
+    type,
+    durationFrames,
+  }
+}
+
+function parseFinalCutShotEntry(value: unknown, context: string): FinalCutShotEntry {
+  const object = expectObject(value, context)
+
+  return {
+    shotId: expectString(object.shotId, `${context}.shotId`),
+    enabled: expectBoolean(object.enabled, `${context}.enabled`),
+    trimStartFrames: expectNonNegativeInteger(object.trimStartFrames, `${context}.trimStartFrames`),
+    trimEndFrames: expectNonNegativeInteger(object.trimEndFrames, `${context}.trimEndFrames`),
+    transition: parseFinalCutTransitionEntry(object.transition, `${context}.transition`),
+  }
+}
+
+function parseFinalCutSoundtrackEntry(
+  value: unknown,
+  context: string,
+): FinalCutSoundtrackEntry | null {
+  if (value === null) {
+    return null
+  }
+
+  const object = expectObject(value, context)
+
+  return {
+    path: expectString(object.path, `${context}.path`),
+    volume: expectNumberInRange(object.volume, 0, 1, `${context}.volume`),
+  }
+}
+
+function parseFinalCutData(value: unknown): FinalCutData {
+  const object = expectObject(value, 'FINAL-CUT.json')
+  const version = expectNonNegativeInteger(object.version, 'FINAL-CUT.json.version')
+
+  if (version !== FINAL_CUT_VERSION) {
+    throw new Error(`FINAL-CUT.json.version must be ${FINAL_CUT_VERSION}.`)
+  }
+
+  return {
+    version: FINAL_CUT_VERSION,
+    shots: expectArray(object.shots, 'FINAL-CUT.json.shots').map((entry, index) =>
+      parseFinalCutShotEntry(entry, `FINAL-CUT.json.shots[${index}]`),
+    ),
+    soundtrack: parseFinalCutSoundtrackEntry(object.soundtrack, 'FINAL-CUT.json.soundtrack'),
+  }
 }
 
 function parseConfigData(value: unknown): ConfigData {
@@ -527,6 +653,10 @@ export async function loadCharacterSheets(cwd = process.cwd()) {
 
 export async function loadShotPrompts(cwd = process.cwd()) {
   return readJsonFile(WORKFLOW_FILES.shotPrompts, parseShotsData, cwd)
+}
+
+export async function loadFinalCut(cwd = process.cwd()) {
+  return readJsonFile(WORKFLOW_FILES.finalCut, parseFinalCutData, cwd)
 }
 
 export async function loadShotArtifacts(cwd = process.cwd()) {
