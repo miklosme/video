@@ -39,6 +39,27 @@ test('artifact review server renders the storyboard tab with a placeholder and r
   }
 })
 
+test('artifact review server renders an empty keyframes placeholder when KEYFRAMES.json is missing', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/keyframes', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('No keyframes yet.')
+      expect(html).toContain('Keyframes')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('artifact review server serves the canonical storyboard image', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 

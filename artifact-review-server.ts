@@ -78,8 +78,20 @@ async function fileExists(filePath: string) {
   }
 }
 
+async function loadKeyframesOrEmpty(cwd: string) {
+  try {
+    return await loadKeyframes(cwd)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      return []
+    }
+
+    throw error
+  }
+}
+
 async function buildReviewShots(cwd: string): Promise<KeyframeReviewShot[]> {
-  const keyframes = await loadKeyframes(cwd)
+  const keyframes = await loadKeyframesOrEmpty(cwd)
   const shots = new Map<string, KeyframeEntry[]>()
 
   for (const entry of keyframes) {
@@ -577,7 +589,7 @@ function renderPage(activeTab: Tab, content: string) {
 
 async function serveKeyframeImage(requestPath: string, cwd: string) {
   const decodedPath = decodeURIComponent(requestPath.slice(1))
-  const keyframes = await loadKeyframes(cwd)
+  const keyframes = await loadKeyframesOrEmpty(cwd)
   const matchingEntry = keyframes.find((entry) => entry.imagePath === decodedPath)
 
   if (!matchingEntry) {
