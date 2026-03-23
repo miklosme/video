@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-const historyPath = path.resolve(process.cwd(), '.history.json')
+const historyPath = path.resolve(process.cwd(), 'HISTORY.json')
 
 type TranscriptRole = 'assistant' | 'user' | 'tool'
 

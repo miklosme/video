@@ -872,7 +872,6 @@
       "text": "Done — the character document is back in place, and both character reference prompts are written.\n\nI kept them deliberately minimal and matched:\n- **White Dog** = generic friendly dog, white coat\n- **Black Dog** = same exact dog, black coat\n\nBoth are set up as clean single-subject reference assets for consistency downstream.\n\nThe next practical step is generating the two character sheets and then reviewing the PNGs."
     }
   ],
-  "composerValue": "",
   "recentChanges": [
     "STATUS.json",
     "KEYFRAMES/",

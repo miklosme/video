@@ -12,8 +12,8 @@
     "typecheck": "tsc --noEmit --pretty",
     "format": "prettier --write .",
     "reset": "bun reset-history.ts",
-    "reset:all": "rm -f .history.json",
-    "reset:hard": "rm -rf workspace/ .history.json && mkdir workspace/ && echo '' > workspace/.gitkeep"
+    "reset:all": "rm -f HISTORY.json",
+    "reset:hard": "rm -rf workspace/ HISTORY.json && mkdir workspace/ && echo '' > workspace/.gitkeep"
   },
   "devDependencies": {
     "@types/react": "^19.2.2",

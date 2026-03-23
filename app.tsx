@@ -6,9 +6,9 @@ import {
   createCliRenderer,
   createTextAttributes,
   type CliRenderer,
-  type InputRenderable,
   type Selection,
   type SelectOption,
+  type TextareaRenderable,
 } from '@opentui/core'
 import { createRoot, useKeyboard, useRenderer } from '@opentui/react'
 import { useEffect, useRef, useState } from 'react'
@@ -28,7 +28,7 @@ import {
   type ModelOptionsData,
 } from './workflow-data'
 
-const AGENT_STATE_PATH = '.history.json'
+const AGENT_STATE_PATH = 'HISTORY.json'
 // Bump this when agent/runtime behavior changes enough that old transcript context
 // should not be replayed into new turns.
 const PERSISTED_AGENT_STATE_VERSION = 2
@@ -45,7 +45,6 @@ interface AppProps {
 interface PersistedAgentState {
   version: typeof PERSISTED_AGENT_STATE_VERSION
   transcript: TranscriptEntry[]
-  composerValue: string
   recentChanges: string[]
   runtimeError: string | null
 }
@@ -90,7 +89,6 @@ const transcriptEntrySchema = z.object({
 const persistedAgentStateSchema = z.object({
   version: z.literal(PERSISTED_AGENT_STATE_VERSION),
   transcript: z.array(transcriptEntrySchema),
-  composerValue: z.string(),
   recentChanges: z.array(z.string()),
   runtimeError: z.string().nullable(),
 })
@@ -102,6 +100,10 @@ const SELECTION_HIGHLIGHT_FG = '#ffffff'
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function getComposerLineCount(value: string) {
+  return Math.min(4, Math.max(1, value.split('\n').length))
 }
 
 function runClipboardCommand(command: string, args: string[], text: string) {
@@ -332,7 +334,6 @@ function createDefaultPersistedAgentState(workflow: WorkflowSummary): PersistedA
         text: formatInitialAssistantMessage(workflow),
       },
     ],
-    composerValue: '',
     recentChanges: bootstrappedChanges,
     runtimeError: null,
   }
@@ -342,7 +343,6 @@ function clonePersistedAgentState(state: PersistedAgentState): PersistedAgentSta
   return {
     version: state.version,
     transcript: state.transcript.map((entry) => ({ ...entry })),
-    composerValue: state.composerValue,
     recentChanges: [...state.recentChanges],
     runtimeError: state.runtimeError,
   }
@@ -450,7 +450,7 @@ function App({
 }: AppProps) {
   const renderer = useRenderer()
   const [transcript, setTranscript] = useState<TranscriptEntry[]>(initialSession.transcript)
-  const [composerValue, setComposerValue] = useState(initialSession.composerValue)
+  const [composerValue, setComposerValue] = useState('')
   const [workflow, setWorkflow] = useState(initialWorkflow)
   const [recentChanges, setRecentChanges] = useState<string[]>(initialSession.recentChanges)
   const [isBusy, setIsBusy] = useState(false)
@@ -465,12 +465,12 @@ function App({
   const [copyNotification, setCopyNotification] = useState<string | null>(null)
 
   const transcriptRef = useRef<TranscriptEntry[]>(initialSession.transcript)
-  const composerValueRef = useRef(initialSession.composerValue)
+  const composerValueRef = useRef('')
   const recentChangesRef = useRef<string[]>(initialSession.recentChanges)
   const runtimeErrorRef = useRef<string | null>(initialSession.runtimeError)
   const activeAssistantEntryIdRef = useRef<string | null>(null)
   const assistantHasStartedRef = useRef(false)
-  const composerInputRef = useRef<InputRenderable | null>(null)
+  const composerInputRef = useRef<TextareaRenderable | null>(null)
   const copyNotificationTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const focusComposerInput = () => {
@@ -483,7 +483,6 @@ function App({
     statePersistence.saveSession({
       version: PERSISTED_AGENT_STATE_VERSION,
       transcript: transcriptRef.current,
-      composerValue: composerValueRef.current,
       recentChanges: recentChangesRef.current,
       runtimeError: runtimeErrorRef.current,
     })
@@ -741,6 +740,7 @@ function App({
     description: option === activeConfigValue ? 'Current selection' : 'Available option',
     value: option,
   }))
+  const composerLineCount = getComposerLineCount(composerValue)
 
   async function submitPrompt(input: string) {
     const trimmedInput = input.trim()
@@ -751,6 +751,7 @@ function App({
 
     setRuntimeErrorState(null)
     setComposerValueState('')
+    composerInputRef.current?.setText('')
     setIsBusy(true)
 
     const assistantEntryId = createId('assistant')
@@ -856,7 +857,7 @@ function App({
         <box
           border
           title={isBusy ? 'Thinking...' : 'Input'}
-          height={3}
+          height={composerLineCount + 2}
           flexShrink={0}
           paddingLeft={1}
           paddingRight={1}
@@ -864,22 +865,30 @@ function App({
           paddingBottom={0}
           marginTop={1}
         >
-          <input
+          <textarea
             ref={composerInputRef}
             focused={!isBusy && pendingResetIndex === null && openConfigField === null}
-            value={composerValue}
+            initialValue={composerValue}
+            width="100%"
+            height="100%"
             placeholder={
               isBusy
                 ? 'Wait for the current turn to finish.'
-                : 'Talk through the concept, story, shots, or prompts.'
+                : 'Talk through the concept, story, shots, or prompts. Enter sends; Shift+Enter adds a new line.'
             }
-            onInput={(value: string) => {
-              setComposerValueState(value)
+            keyBindings={[
+              { name: 'return', action: 'submit' },
+              { name: 'linefeed', action: 'submit' },
+              { name: 'return', shift: true, action: 'newline' },
+              { name: 'linefeed', shift: true, action: 'newline' },
+            ]}
+            onContentChange={() => {
+              const nextValue = composerInputRef.current?.plainText ?? ''
+              setComposerValueState(nextValue)
             }}
-            onSubmit={(valueOrEvent: unknown) => {
-              void submitPrompt(
-                typeof valueOrEvent === 'string' ? valueOrEvent : composerValueRef.current,
-              )
+            onSubmit={() => {
+              const nextValue = composerInputRef.current?.plainText ?? composerValueRef.current
+              void submitPrompt(nextValue)
             }}
           />
         </box>
