@@ -1,0 +1,7 @@
+{
+  "characterId": "hero-dog",
+  "displayName": "Hero Dog",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A clean studio reference photo of a medium-sized friendly dog, single subject, full body visible in a neutral standing pose with a slight three-quarter view, readable face, floppy ears, expressive eyes, clear silhouette, healthy well-groomed coat, proportionate build, no clothing, no collar, plain seamless light neutral background, soft even lighting, sharp detail. The dog should read as the same advert protagonist in a stable reference image, with pure white fur as the current coat color.",
+  "status": "pending"
+}

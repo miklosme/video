@@ -1,0 +1,7 @@
+{
+  "characterId": "dog-food-pack",
+  "displayName": "Dog Food Pack",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A clean commercial reference photo of a single premium dog food pack, single subject, front-facing to slight three-quarter angle, full pack clearly visible with a readable silhouette, modern simple packaging design, tidy generic label area, contemporary trustworthy look, plain seamless light neutral background, soft even studio lighting, sharp detail, no extra props, no clutter, no dense text.",
+  "status": "pending"
+}

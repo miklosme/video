@@ -3,66 +3,92 @@
     "title": "Define concept",
     "instruction": "Establish the core premise, subject, and transformation clearly enough that the project has a specific creative identity and can move into story development.",
     "checked": true,
-    "relatedFiles": ["IDEA.md"]
+    "relatedFiles": [
+      "IDEA.md"
+    ]
   },
   {
     "title": "Shape story",
     "instruction": "Turn the concept into a coherent narrative or ad arc with clear progression, emotional logic, and enough structure to guide shot planning.",
-    "checked": false,
-    "relatedFiles": ["STORY.md"]
+    "checked": true,
+    "relatedFiles": [
+      "STORY.md"
+    ]
   },
   {
     "title": "Define characters",
     "instruction": "Establish stable visual and behavioral anchors for recurring subjects so they can stay consistent across story, storyboard, and prompts.",
-    "checked": false,
-    "relatedFiles": ["CHARACTERS.md"]
+    "checked": true,
+    "relatedFiles": [
+      "CHARACTERS.md"
+    ]
   },
   {
     "title": "Prepare character sheets",
     "instruction": "Write one sidecar JSON file per character so character-sheet generation produces a clean single-subject reference image for downstream Veo consistency, with stable prompts, IDs, and model metadata.",
-    "checked": false,
-    "relatedFiles": ["CHARACTERS.md", "CHARACTERS/"]
+    "checked": true,
+    "relatedFiles": [
+      "CHARACTERS.md",
+      "CHARACTERS/"
+    ]
   },
   {
     "title": "Review character sheets",
     "instruction": "Generate and review one canonical PNG per character as a clean single-subject reference image for downstream video, not a grid, collage, or stylized hero shot.",
     "checked": false,
-    "relatedFiles": ["CHARACTERS/"]
+    "relatedFiles": [
+      "CHARACTERS/"
+    ]
   },
   {
     "title": "Build storyboard",
     "instruction": "Create a shot-by-shot plan with stable shot IDs and clear visual intent so the sequence can guide keyframes and prompts.",
-    "checked": false,
-    "relatedFiles": ["STORYBOARD.md"]
+    "checked": true,
+    "relatedFiles": [
+      "STORYBOARD.md"
+    ]
   },
   {
     "title": "Review storyboard",
     "instruction": "Generate and review one full-project storyboard board from STORYBOARD.md before committing to keyframes.",
     "checked": false,
-    "relatedFiles": ["STORYBOARD.md", "STORYBOARD.png"]
+    "relatedFiles": [
+      "STORYBOARD.md",
+      "STORYBOARD.png"
+    ]
   },
   {
     "title": "Plan keyframes",
     "instruction": "Plan distinct keyframes for each storyboard shot, defaulting to one start and one end frame per shot unless a deliberate single-frame exception is justified.",
     "checked": false,
-    "relatedFiles": ["KEYFRAMES.json"]
+    "relatedFiles": [
+      "KEYFRAMES.json"
+    ]
   },
   {
     "title": "Prepare keyframes",
     "instruction": "Write one sidecar JSON file per keyframe so still-image generation has stable prompts, IDs, and model metadata.",
     "checked": false,
-    "relatedFiles": ["KEYFRAMES.json", "KEYFRAMES/"]
+    "relatedFiles": [
+      "KEYFRAMES.json",
+      "KEYFRAMES/"
+    ]
   },
   {
     "title": "Review keyframes",
     "instruction": "Generate and review one canonical PNG per planned keyframe before treating the shot anchors as locked.",
     "checked": false,
-    "relatedFiles": ["KEYFRAMES.json", "KEYFRAMES/"]
+    "relatedFiles": [
+      "KEYFRAMES.json",
+      "KEYFRAMES/"
+    ]
   },
   {
     "title": "Write video prompts",
     "instruction": "Write motion prompts that are executable, consistent with the storyboard and keyframes, and clear about camera, action, and continuity.",
     "checked": false,
-    "relatedFiles": ["VIDEO-PROMPTS.json"]
+    "relatedFiles": [
+      "VIDEO-PROMPTS.json"
+    ]
   }
 ]
