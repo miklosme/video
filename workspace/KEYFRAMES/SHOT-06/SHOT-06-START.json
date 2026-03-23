@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-06-START",
-  "shotId": "SHOT-06",
-  "frameType": "start",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A clean premium commercial product photo in a bright minimal studio-like setting, the transformed black Hero Dog posed beside the Dog Food Pack and the bowl in a tidy end-frame arrangement, medium-wide framing, both dog and pack clearly readable, soft even studio lighting, polished surfaces, simple uncluttered background with room for branding. Follow the storyboard board panel labeled SHOT-06 as the upstream visual reference for composition and staging. Keep the dog consistent as the same medium-sized friendly dog with floppy ears, expressive eyes, solid black fur, no collar. Keep the pack consistent with the reference sheet: a single premium dog food pack with a simple modern design and clean silhouette.",
-  "status": "pending"
-}

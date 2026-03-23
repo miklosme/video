@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-04-END",
-  "shotId": "SHOT-04",
-  "frameType": "end",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A clean commercial photo of the Hero Dog at the bowl with the transformation complete in a bright minimal premium ad interior, close medium framing, the same dog now fully black-coated while remaining identical in size, face, ears, and expression, head still near the bowl, elegant polished reveal, soft even lighting, simple uncluttered background. Follow the storyboard board panel labeled SHOT-04 as the upstream visual reference for composition and staging. Make the transformation result unmistakable: the dog is now solid black fur, same medium-sized friendly dog, floppy ears, expressive eyes, no collar.",
-  "status": "pending"
-}

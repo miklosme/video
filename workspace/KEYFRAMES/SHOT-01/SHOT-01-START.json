@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-01-START",
-  "shotId": "SHOT-01",
-  "frameType": "start",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A clean commercial photo of the Hero Dog in a bright minimal interior with a premium ad feel, medium-wide framing, the white dog standing still and just noticing a neat bowl of dog food nearby, readable face, full clear body silhouette, soft even lighting, polished surfaces, simple uncluttered background. Follow the storyboard board panel labeled SHOT-01 as the upstream visual reference for composition and staging. Keep the dog clearly identifiable as the same medium-sized friendly dog with floppy ears and expressive eyes from the reference sheet, with pure white fur, no collar, and a fresh premium commercial look.",
-  "status": "pending"
-}

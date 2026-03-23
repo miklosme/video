@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-05-START",
-  "shotId": "SHOT-05",
-  "frameType": "start",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A clean commercial photo of the transformed Hero Dog lifting its head from the bowl in a bright minimal premium ad interior, medium framing, the same dog now with solid black fur looking healthy and alert, beginning a satisfied reaction after eating, bowl still visible, soft even lighting, polished uncluttered background. Follow the storyboard board panel labeled SHOT-05 as the upstream visual reference for composition and staging. Keep the dog consistent with prior shots except for the coat color change: medium-sized, floppy ears, expressive eyes, no collar, black fur.",
-  "status": "pending"
-}

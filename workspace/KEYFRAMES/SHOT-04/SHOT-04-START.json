@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-04-START",
-  "shotId": "SHOT-04",
-  "frameType": "start",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A clean commercial photo of the Hero Dog at the bowl as a magical coat-color transformation begins in a bright minimal premium ad interior, close medium framing, the dog remains in the eating position while the white fur starts shifting to black across parts of the coat, the same dog identity clearly preserved, elegant subtle transformation effect, bowl visible, soft even lighting, uncluttered background. Follow the storyboard board panel labeled SHOT-04 as the upstream visual reference for composition and staging. Keep the transformation readable and tasteful, with only coat color changing from white toward black, no chaotic visual effects, same floppy ears, expressive eyes, no collar.",
-  "status": "pending"
-}
