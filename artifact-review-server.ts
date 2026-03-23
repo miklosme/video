@@ -18,6 +18,8 @@ interface KeyframeReviewSlot {
   keyframeId: string
   frameType: FrameType
   title: string
+  goal: string
+  status: string
   imageUrl: string
   imageExists: boolean
   missingLabel: string | null
@@ -114,6 +116,8 @@ async function buildReviewSlot(entry: KeyframeEntry, cwd: string): Promise<Keyfr
     keyframeId: entry.keyframeId,
     frameType: entry.frameType,
     title: entry.title,
+    goal: entry.goal,
+    status: entry.status,
     imageUrl: `/${encodeImageUrl(entry.imagePath)}`,
     imageExists: await fileExists(absoluteImagePath),
     missingLabel: null,
@@ -128,268 +132,191 @@ function buildMissingSlot(
     keyframeId: `${shotId}-${frameType.toUpperCase()}`,
     frameType,
     title: `${frameType === 'start' ? 'Start' : 'End'} keyframe missing`,
+    goal: '',
+    status: 'missing',
     imageUrl: '',
     imageExists: false,
-    missingLabel: `Missing ${frameType} keyframe`,
+    missingLabel: `Missing ${frameType} frame`,
   }
 }
 
 function renderSlot(slot: KeyframeReviewSlot) {
-  const content = slot.imageExists
+  const visual = slot.imageExists
     ? `<img src="${slot.imageUrl}" alt="${escapeHtml(slot.keyframeId)}" loading="lazy">`
-    : `<div class="placeholder">${escapeHtml(slot.missingLabel ?? 'Missing keyframe')}</div>`
+    : `<div class="placeholder">${escapeHtml(slot.missingLabel ?? 'No image')}</div>`
+
+  const goalHtml = slot.goal ? `<p class="slot-goal">${escapeHtml(slot.goal)}</p>` : ''
 
   return `
-    <article class="frame-card ${slot.imageExists ? 'is-image' : 'is-missing'}">
-      <div class="frame-meta">
-        <div class="frame-type">${escapeHtml(slot.frameType.toUpperCase())}</div>
-        <div class="frame-id">${escapeHtml(slot.keyframeId)}</div>
-        <div class="frame-title">${escapeHtml(slot.title)}</div>
+    <div class="slot">
+      <div class="slot-visual">${visual}</div>
+      <p class="slot-title">${escapeHtml(slot.title)}</p>
+      ${goalHtml}
+    </div>
+  `
+}
+
+function renderShot(shot: KeyframeReviewShot) {
+  return `
+    <section class="shot">
+      <div class="shot-id">${escapeHtml(shot.shotId)}</div>
+      <div class="shot-frames">
+        ${shot.slots.map(renderSlot).join('')}
       </div>
-      <div class="frame-visual">
-        ${content}
-      </div>
-    </article>
+    </section>
   `
 }
 
 function renderPage(shots: KeyframeReviewShot[]) {
-  const totalFrames = shots.reduce((sum, shot) => sum + shot.slots.length, 0)
-  const missingFrames = shots.reduce(
-    (sum, shot) => sum + shot.slots.filter((slot) => !slot.imageExists).length,
-    0,
-  )
-  const shotMarkup = shots
-    .map(
-      (shot) => `
-        <section class="shot-row">
-          <header class="shot-header">
-            <div class="shot-label">${escapeHtml(shot.shotId)}</div>
-            <div class="shot-count">${shot.slots.length} frame${shot.slots.length === 1 ? '' : 's'}</div>
-          </header>
-          <div class="shot-grid">
-            ${shot.slots.map(renderSlot).join('')}
-          </div>
-        </section>
-      `,
-    )
-    .join('')
-
   return `<!doctype html>
 <html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Keyframe Review</title>
+    <title>Storyboard</title>
     <style>
-      :root {
-        color-scheme: light;
-        --bg: #f3efe6;
-        --panel: #fffaf0;
-        --panel-strong: #fffdf8;
-        --ink: #1f1c17;
-        --muted: #6b6256;
-        --line: #d8cab2;
-        --accent: #b55d38;
-        --placeholder-bg: repeating-linear-gradient(
-          -45deg,
-          #f2dfc7,
-          #f2dfc7 16px,
-          #ead0b2 16px,
-          #ead0b2 32px
-        );
-      }
-
-      * {
-        box-sizing: border-box;
-      }
+      * { box-sizing: border-box; margin: 0; padding: 0; }
 
       body {
-        margin: 0;
-        font-family: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", serif;
-        background:
-          radial-gradient(circle at top, rgba(255, 255, 255, 0.9), transparent 42%),
-          linear-gradient(180deg, #efe4d1 0%, var(--bg) 45%, #ebe1cf 100%);
-        color: var(--ink);
+        background: #0e0e0e;
+        color: #bbb;
+        font-family: -apple-system, "Helvetica Neue", Helvetica, sans-serif;
+        -webkit-font-smoothing: antialiased;
       }
 
-      .page {
-        min-height: 100vh;
-        padding: 24px;
-      }
-
-      .page-header {
-        position: sticky;
-        top: 0;
-        z-index: 10;
-        display: flex;
-        flex-wrap: wrap;
-        justify-content: space-between;
-        gap: 12px;
-        margin: -24px -24px 24px;
-        padding: 20px 24px 16px;
-        background: rgba(243, 239, 230, 0.92);
-        backdrop-filter: blur(10px);
-        border-bottom: 1px solid rgba(216, 202, 178, 0.9);
-      }
-
-      .page-title {
-        margin: 0;
-        font-size: 28px;
-        line-height: 1.1;
-      }
-
-      .page-subtitle {
-        margin: 4px 0 0;
-        color: var(--muted);
-      }
-
-      .page-stats {
-        display: flex;
-        gap: 10px;
-        align-items: flex-start;
-        flex-wrap: wrap;
-      }
-
-      .stat-pill {
-        border: 1px solid var(--line);
-        border-radius: 999px;
-        padding: 8px 12px;
-        background: rgba(255, 253, 248, 0.95);
-        font-size: 14px;
-      }
-
-      .shots {
+      .board {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 32px 24px;
         display: flex;
         flex-direction: column;
-        gap: 18px;
+        gap: 24px;
       }
 
-      .shot-row {
-        border: 1px solid var(--line);
-        background: rgba(255, 250, 240, 0.92);
-        border-radius: 18px;
-        padding: 16px;
-        box-shadow: 0 10px 24px rgba(77, 52, 28, 0.07);
-      }
-
-      .shot-header {
-        display: flex;
-        justify-content: space-between;
-        gap: 12px;
-        align-items: baseline;
-        margin-bottom: 12px;
-      }
-
-      .shot-label {
-        font-size: 20px;
-        font-weight: 700;
-      }
-
-      .shot-count {
-        color: var(--muted);
-        font-size: 14px;
-      }
-
-      .shot-grid {
+      .shot {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 14px;
+        grid-template-columns: 80px 1fr;
+        gap: 16px;
+        align-items: start;
       }
 
-      .frame-card {
+      .shot-id {
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        color: #555;
+        padding-top: 6px;
+        text-align: right;
+        white-space: nowrap;
+      }
+
+      .shot-frames {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+      }
+
+      .slot {
         display: flex;
         flex-direction: column;
-        gap: 10px;
-        min-width: 0;
+        gap: 6px;
       }
 
-      .frame-meta {
-        display: grid;
-        gap: 2px;
-      }
-
-      .frame-type {
-        font-size: 12px;
-        font-weight: 700;
-        letter-spacing: 0.12em;
-        color: var(--accent);
-      }
-
-      .frame-id {
-        font-size: 16px;
-        font-weight: 700;
-      }
-
-      .frame-title {
-        color: var(--muted);
-        font-size: 14px;
-      }
-
-      .frame-visual {
+      .slot-visual {
         aspect-ratio: 16 / 9;
-        border-radius: 14px;
+        border-radius: 6px;
         overflow: hidden;
-        border: 1px solid rgba(216, 202, 178, 0.95);
-        background: var(--panel-strong);
+        background: #181818;
+        border: 1px solid #222;
       }
 
-      .frame-visual img,
-      .placeholder {
+      .slot-visual img {
         display: block;
         width: 100%;
         height: 100%;
-      }
-
-      .frame-visual img {
         object-fit: cover;
-        background: #f8f1e3;
       }
 
       .placeholder {
+        width: 100%;
+        height: 100%;
         display: grid;
         place-items: center;
-        padding: 16px;
-        background: var(--placeholder-bg);
-        color: #6e4b2d;
-        font-size: 18px;
-        font-weight: 700;
-        text-align: center;
+        background: repeating-linear-gradient(
+          -45deg,
+          #151515,
+          #151515 6px,
+          #1a1a1a 6px,
+          #1a1a1a 12px
+        );
+        color: #444;
+        font-size: 12px;
+        font-weight: 500;
       }
 
-      @media (max-width: 900px) {
-        .page {
-          padding: 16px;
-        }
+      .slot-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
 
-        .page-header {
-          margin: -16px -16px 16px;
-          padding: 16px;
-        }
+      .slot-label {
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        color: #666;
+      }
 
-        .shot-grid {
+      .slot-status {
+        font-size: 10px;
+        font-weight: 500;
+        color: #555;
+      }
+
+      .slot-status[data-status="done"],
+      .slot-status[data-status="approved"] {
+        color: #4a7;
+      }
+
+      .slot-status[data-status="in-progress"] {
+        color: #c90;
+      }
+
+      .slot-title {
+        font-size: 13px;
+        font-weight: 500;
+        color: #ddd;
+        line-height: 1.3;
+      }
+
+      .slot-goal {
+        font-size: 12px;
+        color: #666;
+        line-height: 1.4;
+      }
+
+      @media (max-width: 700px) {
+        .board { padding: 16px; }
+
+        .shot {
           grid-template-columns: 1fr;
+          gap: 8px;
+        }
+
+        .shot-id {
+          text-align: left;
+        }
+
+        .shot-frames {
+          grid-template-columns: 1fr 1fr;
         }
       }
     </style>
   </head>
   <body>
-    <main class="page">
-      <header class="page-header">
-        <div>
-          <h1 class="page-title">Keyframe Review</h1>
-          <p class="page-subtitle">Compare each shot’s anchor frames side by side.</p>
-        </div>
-        <div class="page-stats">
-          <div class="stat-pill">${shots.length} shot${shots.length === 1 ? '' : 's'}</div>
-          <div class="stat-pill">${totalFrames} keyframe${totalFrames === 1 ? '' : 's'}</div>
-          <div class="stat-pill">${missingFrames} missing</div>
-        </div>
-      </header>
-      <div class="shots">
-        ${shotMarkup}
-      </div>
-    </main>
+    <div class="board">
+      ${shots.map(renderShot).join('')}
+    </div>
   </body>
 </html>`
 }

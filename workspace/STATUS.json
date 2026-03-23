@@ -35,7 +35,7 @@
   {
     "title": "Review character sheets",
     "instruction": "Generate and review one canonical PNG character sheet per character before moving downstream.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": [
       "CHARACTERS/"
     ]
@@ -68,7 +68,7 @@
   {
     "title": "Review keyframes",
     "instruction": "Generate and review one canonical PNG per planned keyframe before treating the shot anchors as locked.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": [
       "KEYFRAMES.json",
       "KEYFRAMES/"
