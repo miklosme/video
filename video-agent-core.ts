@@ -421,6 +421,12 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
     '- Use workspace/CONFIG.json.imageModel for workspace/KEYFRAMES/*.json and workspace/CHARACTERS/*.json model fields and still-image prompting style.',
   )
   lines.push(
+    '- Character-sheet prompts are for downstream Veo reference assets, not hero shots: prefer one clean single-subject reference image with readable face, clear silhouette, stable wardrobe/markings, plain background, and soft even lighting.',
+  )
+  lines.push(
+    '- Avoid grid or collage layouts, split panels, extra subjects, scene clutter, dramatic lighting, text overlays, and non-canonical props in character-sheet prompts unless they are part of identity.',
+  )
+  lines.push(
     '- Every KEYFRAMES.json entry must include characterIds listing only the characters visible in that frame, in reference priority order.',
   )
   lines.push(
@@ -1374,7 +1380,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         writeWorkspaceArtifact: tool({
           description:
-            'Write one JSON sidecar artifact in CHARACTERS/ or KEYFRAMES/ while keeping model fields aligned to workspace/CONFIG.json.imageModel. CHARACTERS/<id>.json must contain exactly characterId, displayName, model, prompt, status. KEYFRAMES/<shot-id>/<keyframe-id>.json must contain exactly keyframeId, shotId, frameType, model, prompt, status.',
+            'Write one JSON sidecar artifact in CHARACTERS/ or KEYFRAMES/ while keeping model fields aligned to workspace/CONFIG.json.imageModel. CHARACTERS/<id>.json must contain exactly characterId, displayName, model, prompt, status, and its prompt should target a clean single-subject reference image for downstream video consistency rather than a stylized hero scene. KEYFRAMES/<shot-id>/<keyframe-id>.json must contain exactly keyframeId, shotId, frameType, model, prompt, status.',
           inputSchema: z.object({
             artifactPath: z
               .string()

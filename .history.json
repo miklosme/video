@@ -745,18 +745,143 @@
       "id": "assistant-1774218094260-lc8snl",
       "role": "assistant",
       "text": "The keyframes are planned.\n\nI set up a clean six-anchor structure:\n- **SHOT-01**: white dog setup and hold\n- **SHOT-02**: eating beat with the nearly invisible color shift\n- **SHOT-03**: black dog reveal and hold\n\nA small note: the main keyframe list is now in place, but the image anchors themselves still need the per-frame prompt files before generation can be run cleanly. That’s the next practical pass.\n\nThe visual logic is now exactly where it should be:\n- same dog design\n- same simple environment\n- transformation reads like a subtle continuity change, not a spectacle\n\nIf you want, I can write the keyframe prompts next in a very tight, generation-ready form."
+    },
+    {
+      "id": "user-1774280523382-01jzxg",
+      "role": "user",
+      "text": "i did a reset on the characters. the idea is pretty simple and straigforward, so you have everything. please write the character document and also their prompt artifact too"
+    },
+    {
+      "id": "tool-1774280525435-ddkyb0",
+      "role": "tool",
+      "text": "Running getCreativeContext"
+    },
+    {
+      "id": "tool-1774280525437-3khlqr",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774280525438-u9ul30",
+      "role": "tool",
+      "text": "Running readPromptingGuide"
+    },
+    {
+      "id": "tool-1774280525439-7p9ufb",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774280525440-z9afjx",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774280525441-f0lodk",
+      "role": "tool",
+      "text": "Read MODEL_PROMPTING_GUIDE.md"
+    },
+    {
+      "id": "tool-1774280525441-ae0907",
+      "role": "tool",
+      "text": "Completed readPromptingGuide"
+    },
+    {
+      "id": "tool-1774280525444-jw09eg",
+      "role": "tool",
+      "text": "Read CHARACTERS.md"
+    },
+    {
+      "id": "tool-1774280525444-tw9bag",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774280525444-46ml0c",
+      "role": "tool",
+      "text": "Read CONFIG.json"
+    },
+    {
+      "id": "tool-1774280525444-jz0t4o",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774280525444-mvoud4",
+      "role": "tool",
+      "text": "Created CHARACTERS/"
+    },
+    {
+      "id": "tool-1774280525445-ibq9i4",
+      "role": "tool",
+      "text": "Completed getCreativeContext"
+    },
+    {
+      "id": "tool-1774280525446-50zn16",
+      "role": "tool",
+      "text": "Completed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774280529563-pg84nv",
+      "role": "tool",
+      "text": "Running writeWorkspaceFile"
+    },
+    {
+      "id": "tool-1774280529566-b8b8r4",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774280529567-q18r97",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774280529574-kziy50",
+      "role": "tool",
+      "text": "Updated CHARACTERS/black-dog.json"
+    },
+    {
+      "id": "tool-1774280529575-nsu0ns",
+      "role": "tool",
+      "text": "Updated CHARACTERS/white-dog.json"
+    },
+    {
+      "id": "tool-1774280529577-08y20z",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774280529578-c82xkv",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774280529578-30584y",
+      "role": "tool",
+      "text": "Updated CHARACTERS.md (+41 -20)"
+    },
+    {
+      "id": "tool-1774280529578-99ibjm",
+      "role": "tool",
+      "text": "Completed writeWorkspaceFile"
+    },
+    {
+      "id": "assistant-1774280523382-9tzfa7",
+      "role": "assistant",
+      "text": "Done — the character document is back in place, and both character reference prompts are written.\n\nI kept them deliberately minimal and matched:\n- **White Dog** = generic friendly dog, white coat\n- **Black Dog** = same exact dog, black coat\n\nBoth are set up as clean single-subject reference assets for consistency downstream.\n\nThe next practical step is generating the two character sheets and then reviewing the PNGs."
     }
   ],
   "composerValue": "",
   "recentChanges": [
+    "CHARACTERS.md",
+    "CHARACTERS/white-dog.json",
+    "CHARACTERS/black-dog.json",
+    "CHARACTERS/",
+    "STATUS.json",
     "KEYFRAMES/",
     "KEYFRAMES.json",
-    "KEYFRAMES/SHOT-02/SHOT-02-END.json",
-    "KEYFRAMES/SHOT-03/SHOT-03-END.json",
-    "KEYFRAMES/SHOT-03/SHOT-03-START.json",
-    "KEYFRAMES/SHOT-02/SHOT-02-START.json",
-    "KEYFRAMES/SHOT-01/SHOT-01-START.json",
-    "KEYFRAMES/SHOT-01/SHOT-01-END.json"
+    "KEYFRAMES/SHOT-02/SHOT-02-END.json"
   ],
   "runtimeError": null
 }

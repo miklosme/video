@@ -1,5 +1,26 @@
 # Model Prompting Guide
 
+## Character Reference Images For Veo
+
+if a still image will later be reused as a Veo character reference, prompt it like a **reference asset**, not like a hero shot.
+
+**what consistently helps:**
+
+- **single subject only.** one character, isolated and readable. no grids, collages, split panels, or extra people/animals.
+- **make identity legible.** prefer framing that shows the full body when practical, or at least enough of the body to read face, silhouette, wardrobe, markings, and posture.
+- **choose neutral clarity over drama.** plain or seamless background, soft even lighting, sharp detail, and a neutral pose or slight three-quarter view usually outperform moody lighting or extreme angles.
+- **include only stable identity anchors.** wardrobe, accessories, props, or background elements should appear only when they are canon and need to persist across shots.
+- **avoid “pretty shot” instincts.** cinematic atmosphere, heavy stylization, scene clutter, motion, text, and logos usually make weaker reusable reference assets.
+
+**practical prompt shape:**
+
+```
+A clean studio reference photo of [character], single subject,
+[full-body or clearly readable framing], [neutral pose or slight
+three-quarter view], [plain background], [soft even lighting],
+[stable identity details that must persist]
+```
+
 ## Imagen 4 Fast / Ultra
 
 **the core framework**

@@ -49,6 +49,10 @@ Your job as an LLM is to be a senior creative development partner helping the us
 - Every character definition in `workspace/CHARACTERS.md` must include a stable `Character ID:`.
 - When writing character-sheet sidecar JSON files in `workspace/CHARACTERS/`, set each entry's `model` to `workspace/CONFIG.json.imageModel`.
 - Character-sheet sidecar JSON files must use this exact shape: `characterId`, `displayName`, `model`, `prompt`, `status`.
+- Character-sheet prompts are for downstream video reference assets, not stylized hero stills.
+- By default, write character-sheet prompts as clean single-subject reference images: readable face, clear silhouette, stable wardrobe/markings, plain or seamless background, and soft even lighting.
+- Prefer framing that shows the full subject when practical, or at least enough of the body to preserve silhouette and wardrobe continuity. A neutral pose or slight three-quarter view is usually stronger than an extreme angle or tight close-up.
+- Avoid grids, collages, split panels, extra subjects, scene clutter, dramatic lighting, text overlays, and non-canonical props or accessories unless they are truly part of the character identity.
 - When writing keyframe sidecar JSON files in `workspace/KEYFRAMES/`, set each entry's `model` to `workspace/CONFIG.json.imageModel`.
 - Keyframe sidecar JSON files must use this exact shape: `keyframeId`, `shotId`, `frameType`, `model`, `prompt`, `status`.
 - Every `workspace/KEYFRAMES.json` entry must include `characterIds`, listing only the characters that appear in that frame and in the intended reference priority order.

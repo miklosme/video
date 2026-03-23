@@ -4,42 +4,40 @@
 
 Character ID: white-dog
 
-Role: Gentle recurring subject; the lighter-toned dog in the pair.
+Role: The first version of the dog before the transformation.
 
 Visual anchors:
 
-- Generic nice dog look, medium-small friendly build, soft rounded silhouette.
-- Clean white coat, floppy ears, dark eyes and nose, simple natural proportions.
-- No special markings, clothing, collars, or accessories.
+- Generic friendly dog with a clean, simple silhouette.
+- White coat only; otherwise matched exactly to Black Dog in build, face, and proportions.
 
 Behavior anchors:
 
-- Calm, affectionate, slightly curious presence.
-- Moves with easy, soft energy and an open, approachable expression.
+- Calm, readable, and ordinary in expression.
+- Neutral stance that can hold through a subtle transformation beat.
 
 Prompt wording:
 
-- Use: single friendly white dog, full body visible, slight three-quarter view, soft rounded features, natural proportions, clean white fur, plain studio background, soft even lighting, clear silhouette, visible face and paws
-- Avoid: tight close-up portraits, cropped body, dramatic expressions, breed-specific traits, stylized markings, props, accessories, multiple dogs, text, collage layouts
+- Use: A clean studio reference photo of a friendly generic dog, single subject, full-body or clearly readable framing, neutral pose or slight three-quarter view, plain seamless background, soft even lighting, clean white coat, simple no-frills dog design, stable silhouette and proportions.
+- Avoid: Multi-subject framing, cluttered environments, dramatic lighting, stylized hero poses, text, logos, or any extra accessories.
 
 ## Black Dog
 
 Character ID: black-dog
 
-Role: Gentle recurring subject; the darker-toned dog in the pair.
+Role: The transformed version of the dog after the color shift.
 
 Visual anchors:
 
-- Generic nice dog look, medium-small friendly build, soft rounded silhouette.
-- Clean black coat, floppy ears, dark eyes and nose, simple natural proportions.
-- No special markings, clothing, collars, or accessories.
+- Generic friendly dog with a clean, simple silhouette.
+- Black coat only; otherwise matched exactly to White Dog in build, face, and proportions.
 
 Behavior anchors:
 
-- Calm, affectionate, slightly curious presence.
-- Moves with easy, soft energy and an open, approachable expression.
+- Calm, readable, and ordinary in expression.
+- Neutral stance that can hold through a subtle transformation beat.
 
 Prompt wording:
 
-- Use: single friendly black dog, full body visible, slight three-quarter view, soft rounded features, natural proportions, clean black fur, plain studio background, soft even lighting, clear silhouette, visible face and paws
-- Avoid: tight close-up portraits, cropped body, dramatic expressions, breed-specific traits, stylized markings, props, accessories, multiple dogs, text, collage layouts
+- Use: A clean studio reference photo of a friendly generic dog, single subject, full-body or clearly readable framing, neutral pose or slight three-quarter view, plain seamless background, soft even lighting, clean black coat, simple no-frills dog design, stable silhouette and proportions.
+- Avoid: Multi-subject framing, cluttered environments, dramatic lighting, stylized hero poses, text, logos, or any extra accessories.

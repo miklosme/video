@@ -18,5 +18,5 @@ Behavior anchors:
 
 Prompt wording:
 
-- Use: [Prompt-safe phrasing.]
-- Avoid: [Phrasing that would cause drift.]
+- Use: [Single-subject reference phrasing that keeps the face, silhouette, wardrobe, and markings stable.]
+- Avoid: [Grid/collage phrasing, extra subjects, scene clutter, or wording that would cause drift.]
