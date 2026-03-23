@@ -945,7 +945,14 @@ function App({
           >
             <text content={`UI: ${artifactReviewUrl}`} wrapMode="word" />
           </box>
-          <box marginTop={1}>
+          <box
+            marginTop={1}
+            onMouseDown={() => {
+              if (remotionStudioUrl) {
+                spawn('open', [remotionStudioUrl], { stdio: 'ignore', detached: true }).unref()
+              }
+            }}
+          >
             <text
               content={`Editor: ${remotionStudioUrl ?? remotionStudioStatus}`}
               wrapMode="word"
@@ -1131,8 +1138,7 @@ async function main() {
 
   const artifactReviewServer = startArtifactReviewServer()
   let remotionStudio: ManagedRemotionStudio | null = null
-  let remotionStudioStatus =
-    'Unavailable. It starts automatically once FINAL-CUT.json and compatible shot videos are ready.'
+  let remotionStudioStatus = 'Not ready.'
 
   try {
     remotionStudio = await startManagedRemotionStudio()
