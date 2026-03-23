@@ -20,7 +20,6 @@ import {
 } from './workflow-data'
 
 const DEFAULT_VIDEO_ASPECT_RATIO = '16:9'
-const DEFAULT_VIDEO_DURATION_SECONDS = 8
 
 interface GenerateShotsArgs {
   shotId?: string
@@ -33,6 +32,7 @@ export interface PendingShotGeneration {
   prompt: string
   outputPath: string
   keyframeIds: string[]
+  durationSeconds: number
 }
 
 export interface PlannedShotGenerationAssets {
@@ -50,6 +50,7 @@ export interface GenerateShotVideoInput {
   inputImagePath: string
   lastFramePath: string | null
   characterReferencePaths: string[]
+  durationSeconds: number
 }
 
 export interface GenerateShotVideoResult {
@@ -200,6 +201,7 @@ export function selectPendingShotGenerations(
         prompt: artifact.prompt,
         outputPath: entry.videoPath,
         keyframeIds: entry.keyframeIds,
+        durationSeconds: entry.durationSeconds,
       }
     })
 }
@@ -329,7 +331,7 @@ export async function generateShotVideoWithGateway(
       image: inputImage,
     },
     aspectRatio: DEFAULT_VIDEO_ASPECT_RATIO,
-    duration: DEFAULT_VIDEO_DURATION_SECONDS,
+    duration: input.durationSeconds,
     ...(providerOptions ? { providerOptions } : {}),
   })
 
@@ -389,6 +391,7 @@ export async function syncShotGenerations(
         inputImagePath: assets.inputImagePath,
         lastFramePath: assets.lastFramePath,
         characterReferencePaths: assets.characterReferencePaths,
+        durationSeconds: generation.durationSeconds,
       })
 
       await mkdir(path.dirname(absoluteOutputPath), { recursive: true })
@@ -414,7 +417,7 @@ export async function syncShotGenerations(
         settings: {
           videoCount: 1,
           aspectRatio: DEFAULT_VIDEO_ASPECT_RATIO,
-          durationSeconds: DEFAULT_VIDEO_DURATION_SECONDS,
+          durationSeconds: generation.durationSeconds,
           referenceImageCount: assets.characterReferencePaths.length,
         },
         outputDir: path.dirname(absoluteOutputPath),

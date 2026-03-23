@@ -42,6 +42,7 @@ test('loadShotPrompts parses planning-only shot entries', async () => {
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+            durationSeconds: 4,
           },
         ],
         null,
@@ -57,8 +58,38 @@ test('loadShotPrompts parses planning-only shot entries', async () => {
         status: 'planned',
         videoPath: 'workspace/SHOTS/SHOT-01.mp4',
         keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+        durationSeconds: 4,
       },
     ])
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('loadShotPrompts defaults durationSeconds when omitted', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/SHOT-PROMPTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    const shots = await loadShotPrompts(repo.rootDir)
+
+    expect(shots[0]?.durationSeconds).toBe(8)
   } finally {
     await repo.cleanup()
   }
@@ -107,6 +138,7 @@ test('selectPendingShotGenerations uses shot sidecars and canonical output paths
           status: 'planned',
           videoPath: 'workspace/SHOTS/SHOT-01.mp4',
           keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+          durationSeconds: 3.5,
         },
       ],
       [
@@ -131,6 +163,7 @@ test('selectPendingShotGenerations uses shot sidecars and canonical output paths
       prompt: 'A concise motion prompt.',
       outputPath: 'workspace/SHOTS/SHOT-01.mp4',
       keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+      durationSeconds: 3.5,
     },
   ])
 })
@@ -142,6 +175,7 @@ test('planShotGenerationAssets uses start and end anchors and caps deduped chara
     prompt: 'A concise motion prompt.',
     outputPath: 'workspace/SHOTS/SHOT-01.mp4',
     keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+    durationSeconds: 4,
   }
   const keyframes: KeyframeEntry[] = [
     {
@@ -263,6 +297,7 @@ test('syncShotGenerations honors firstOnly after skipping existing outputs', asy
           prompt: 'First shot.',
           outputPath: 'workspace/SHOTS/SHOT-01.mp4',
           keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+          durationSeconds: 5,
         },
         {
           shotId: 'SHOT-02',
@@ -270,6 +305,7 @@ test('syncShotGenerations honors firstOnly after skipping existing outputs', asy
           prompt: 'Second shot.',
           outputPath: 'workspace/SHOTS/SHOT-02.mp4',
           keyframeIds: ['SHOT-02-START', 'SHOT-02-END'],
+          durationSeconds: 2.5,
         },
       ],
       keyframes,
@@ -287,6 +323,7 @@ test('syncShotGenerations honors firstOnly after skipping existing outputs', asy
         cwd: repo.rootDir,
         logFile: 'workspace/test-log.jsonl',
         generator: async (input) => {
+          expect(input.durationSeconds).toBe(2.5)
           calls.push(input.shotId)
           return {
             data: new TextEncoder().encode(`video:${input.shotId}`),
@@ -346,6 +383,7 @@ test('syncShotGenerations fails fast and logs provider errors', async () => {
             prompt: 'First shot.',
             outputPath: 'workspace/SHOTS/SHOT-01.mp4',
             keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+            durationSeconds: 6,
           },
         ],
         keyframes,

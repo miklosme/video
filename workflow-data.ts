@@ -2,6 +2,7 @@ import { access, readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 
 export const FRAME_TYPES = ['start', 'end', 'single'] as const
+export const DEFAULT_VIDEO_DURATION_SECONDS = 3
 
 export type FrameType = (typeof FRAME_TYPES)[number]
 
@@ -55,6 +56,7 @@ export interface ShotEntry {
   status: string
   videoPath: string
   keyframeIds: string[]
+  durationSeconds: number
 }
 
 export type ShotsData = ShotEntry[]
@@ -239,6 +241,14 @@ function expectBoolean(value: unknown, context: string): boolean {
   return value
 }
 
+function expectPositiveNumber(value: unknown, context: string): number {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    throw new Error(`${context} must be a positive number.`)
+  }
+
+  return value
+}
+
 function expectArray(value: unknown, context: string): unknown[] {
   if (!Array.isArray(value)) {
     throw new Error(`${context} must be an array.`)
@@ -351,6 +361,10 @@ function parseShotEntry(value: unknown, context: string): ShotEntry {
   const shotId = expectString(object.shotId, `${context}.shotId`)
   const videoPath = expectString(object.videoPath, `${context}.videoPath`)
   const expectedVideoPath = getShotVideoPath({ shotId })
+  const durationSeconds =
+    object.durationSeconds === undefined
+      ? DEFAULT_VIDEO_DURATION_SECONDS
+      : expectPositiveNumber(object.durationSeconds, `${context}.durationSeconds`)
 
   if (videoPath !== expectedVideoPath) {
     throw new Error(`${context}.videoPath must be "${expectedVideoPath}".`)
@@ -361,6 +375,7 @@ function parseShotEntry(value: unknown, context: string): ShotEntry {
     status: expectString(object.status, `${context}.status`),
     videoPath,
     keyframeIds: expectStringArray(object.keyframeIds, `${context}.keyframeIds`),
+    durationSeconds,
   }
 }
 

@@ -6,6 +6,7 @@ import { stepCountIs, tool, ToolLoopAgent, type ModelMessage } from 'ai'
 import { z } from 'zod'
 
 import {
+  DEFAULT_VIDEO_DURATION_SECONDS,
   loadCharacterSheets,
   loadConfig,
   loadKeyframeArtifacts,
@@ -449,7 +450,10 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
     '- Keyframe sidecar schema is exact: { keyframeId, shotId, frameType, model, prompt, status }.',
   )
   lines.push(
-    '- SHOT-PROMPTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, keyframeIds }.',
+    '- SHOT-PROMPTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, keyframeIds, durationSeconds }.',
+  )
+  lines.push(
+    `- Each SHOT-PROMPTS.json entry should include durationSeconds for the target clip length; default to ${DEFAULT_VIDEO_DURATION_SECONDS} when the user has not specified one.`,
   )
   lines.push(
     '- Use workspace/CONFIG.json.videoModel for workspace/SHOTS/*.json model fields and shot-motion prompting style.',
