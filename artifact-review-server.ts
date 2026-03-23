@@ -1,7 +1,15 @@
 import { access } from 'node:fs/promises'
 import process from 'node:process'
 
-import { loadKeyframes, resolveRepoPath, type FrameType, type KeyframeEntry } from './workflow-data'
+import {
+  getCharacterSheetImagePath,
+  loadCharacterSheets,
+  loadKeyframes,
+  resolveRepoPath,
+  type CharacterSheetEntry,
+  type FrameType,
+  type KeyframeEntry,
+} from './workflow-data'
 
 const FRAME_ORDER: Record<FrameType, number> = {
   start: 0,
@@ -140,6 +148,61 @@ function buildMissingSlot(
   }
 }
 
+interface CharacterReviewCard {
+  characterId: string
+  displayName: string
+  prompt: string
+  status: string
+  imageUrl: string
+  imageExists: boolean
+}
+
+async function buildCharacterCards(cwd: string): Promise<CharacterReviewCard[]> {
+  const characters = await loadCharacterSheets(cwd)
+
+  return Promise.all(
+    characters.map(async (entry) => {
+      const imagePath = getCharacterSheetImagePath(entry.characterId)
+      const absolutePath = resolveRepoPath(imagePath, cwd)
+
+      return {
+        characterId: entry.characterId,
+        displayName: entry.displayName,
+        prompt: entry.prompt,
+        status: entry.status,
+        imageUrl: `/${encodeImageUrl(imagePath)}`,
+        imageExists: await fileExists(absolutePath),
+      }
+    }),
+  )
+}
+
+function renderCharacterCard(card: CharacterReviewCard) {
+  const visual = card.imageExists
+    ? `<img src="${card.imageUrl}" alt="${escapeHtml(card.displayName)}" loading="lazy">`
+    : `<div class="placeholder">No image</div>`
+
+  return `
+    <div class="character-card">
+      <div class="character-visual">${visual}</div>
+      <p class="character-name">${escapeHtml(card.displayName)}</p>
+      <p class="character-prompt">${escapeHtml(card.prompt)}</p>
+    </div>
+  `
+}
+
+function renderCharacterSheet(cards: CharacterReviewCard[]) {
+  if (cards.length === 0) {
+    return '<p style="color:#555;text-align:center;padding:48px 0;">No characters yet.</p>'
+  }
+
+  return `
+    <div class="character-grid">
+      ${cards.map(renderCharacterCard).join('')}
+    </div>
+  `
+}
+
 function renderSlot(slot: KeyframeReviewSlot) {
   const visual = slot.imageExists
     ? `<img src="${slot.imageUrl}" alt="${escapeHtml(slot.keyframeId)}" loading="lazy">`
@@ -167,7 +230,35 @@ function renderShot(shot: KeyframeReviewShot) {
   `
 }
 
-function renderPage(shots: KeyframeReviewShot[]) {
+function renderKeyframes(shots: KeyframeReviewShot[]) {
+  if (shots.length === 0) {
+    return '<p style="color:#555;text-align:center;padding:48px 0;">No keyframes yet.</p>'
+  }
+
+  return shots.map(renderShot).join('')
+}
+
+type Tab = 'characters' | 'keyframes'
+
+function renderTabs(activeTab: Tab) {
+  const tabs: { id: Tab; label: string; href: string }[] = [
+    { id: 'characters', label: 'Characters', href: '/' },
+    { id: 'keyframes', label: 'Keyframes', href: '/keyframes' },
+  ]
+
+  return `
+    <nav class="tabs">
+      ${tabs
+        .map(
+          (tab) =>
+            `<a class="tab${tab.id === activeTab ? ' tab-active' : ''}" href="${tab.href}">${escapeHtml(tab.label)}</a>`,
+        )
+        .join('')}
+    </nav>
+  `
+}
+
+function renderPage(activeTab: Tab, content: string) {
   return `<!doctype html>
 <html lang="en">
   <head>
@@ -192,6 +283,80 @@ function renderPage(shots: KeyframeReviewShot[]) {
         flex-direction: column;
         gap: 24px;
       }
+
+      /* Tabs */
+
+      .tabs {
+        display: flex;
+        gap: 0;
+        border-bottom: 1px solid #222;
+      }
+
+      .tab {
+        padding: 10px 20px;
+        font-size: 13px;
+        font-weight: 500;
+        color: #666;
+        text-decoration: none;
+        border-bottom: 2px solid transparent;
+        transition: color 0.15s, border-color 0.15s;
+      }
+
+      .tab:hover {
+        color: #aaa;
+      }
+
+      .tab-active {
+        color: #ddd;
+        border-bottom-color: #ddd;
+      }
+
+      /* Characters */
+
+      .character-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 20px;
+      }
+
+      .character-card {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .character-visual {
+        aspect-ratio: 1;
+        border-radius: 6px;
+        overflow: hidden;
+        background: #181818;
+        border: 1px solid #222;
+      }
+
+      .character-visual img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      .character-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #ddd;
+      }
+
+      .character-prompt {
+        font-size: 12px;
+        color: #666;
+        line-height: 1.4;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      /* Keyframes */
 
       .shot {
         display: grid;
@@ -254,34 +419,6 @@ function renderPage(shots: KeyframeReviewShot[]) {
         font-weight: 500;
       }
 
-      .slot-info {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
-      .slot-label {
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        color: #666;
-      }
-
-      .slot-status {
-        font-size: 10px;
-        font-weight: 500;
-        color: #555;
-      }
-
-      .slot-status[data-status="done"],
-      .slot-status[data-status="approved"] {
-        color: #4a7;
-      }
-
-      .slot-status[data-status="in-progress"] {
-        color: #c90;
-      }
-
       .slot-title {
         font-size: 13px;
         font-weight: 500;
@@ -310,18 +447,23 @@ function renderPage(shots: KeyframeReviewShot[]) {
         .shot-frames {
           grid-template-columns: 1fr 1fr;
         }
+
+        .character-grid {
+          grid-template-columns: 1fr 1fr;
+        }
       }
     </style>
   </head>
   <body>
     <div class="board">
-      ${shots.map(renderShot).join('')}
+      ${renderTabs(activeTab)}
+      ${content}
     </div>
   </body>
 </html>`
 }
 
-async function serveImage(requestPath: string, cwd: string) {
+async function serveKeyframeImage(requestPath: string, cwd: string) {
   const decodedPath = decodeURIComponent(requestPath.slice(1))
   const keyframes = await loadKeyframes(cwd)
   const matchingEntry = keyframes.find((entry) => entry.imagePath === decodedPath)
@@ -339,10 +481,41 @@ async function serveImage(requestPath: string, cwd: string) {
   return new Response(Bun.file(absolutePath))
 }
 
-async function servePage(cwd: string) {
+async function serveCharacterImage(requestPath: string, cwd: string) {
+  const decodedPath = decodeURIComponent(requestPath.slice(1))
+  const characters = await loadCharacterSheets(cwd)
+  const matchingEntry = characters.find(
+    (entry) => getCharacterSheetImagePath(entry.characterId) === decodedPath,
+  )
+
+  if (!matchingEntry) {
+    return new Response('Not Found', { status: 404 })
+  }
+
+  const absolutePath = resolveRepoPath(
+    getCharacterSheetImagePath(matchingEntry.characterId),
+    cwd,
+  )
+
+  if (!(await fileExists(absolutePath))) {
+    return new Response('Not Found', { status: 404 })
+  }
+
+  return new Response(Bun.file(absolutePath))
+}
+
+async function serveCharactersPage(cwd: string) {
+  const cards = await buildCharacterCards(cwd)
+
+  return new Response(renderPage('characters', renderCharacterSheet(cards)), {
+    headers: HTML_HEADERS,
+  })
+}
+
+async function serveKeyframesPage(cwd: string) {
   const shots = await buildReviewShots(cwd)
 
-  return new Response(renderPage(shots), {
+  return new Response(renderPage('keyframes', renderKeyframes(shots)), {
     headers: HTML_HEADERS,
   })
 }
@@ -366,11 +539,19 @@ export function startArtifactReviewServer(options: { cwd?: string; preferredPort
         }
 
         if (url.pathname === '/') {
-          return servePage(cwd)
+          return serveCharactersPage(cwd)
+        }
+
+        if (url.pathname === '/keyframes') {
+          return serveKeyframesPage(cwd)
+        }
+
+        if (url.pathname.startsWith('/workspace/CHARACTERS/')) {
+          return serveCharacterImage(url.pathname, cwd)
         }
 
         if (url.pathname.startsWith('/workspace/KEYFRAMES/')) {
-          return serveImage(url.pathname, cwd)
+          return serveKeyframeImage(url.pathname, cwd)
         }
 
         return new Response('Not Found', { status: 404 })
