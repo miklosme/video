@@ -4,6 +4,6 @@
     "status": "planned",
     "videoPath": "workspace/SHOTS/SHOT-01.mp4",
     "keyframeIds": ["SHOT-01-START", "SHOT-01-END"],
-    "durationSeconds": 3
+    "durationSeconds": 4
   }
 ]

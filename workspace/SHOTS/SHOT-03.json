@@ -1,0 +1,6 @@
+{
+  "shotId": "SHOT-03",
+  "model": "google/veo-3.1-fast-generate-001",
+  "prompt": "Medium close shot, camera steady so the transformation reads clearly. The dog remains in the same feeding position near the bowl as the yellow Labrador smoothly transforms into a brown Labrador, with the same size, posture, eye line, and overall presence carrying through the change. The coat color shift is the main event, so keep the environment identical, the framing simple, and the visual effect clean and unambiguous rather than flashy. Match the approved keyframe anchors SHOT-03-START and SHOT-03-END and treat this as one continuous dog changing color from yellow Lab to brown Lab. SFX: soft magical shimmer layered under natural dog movement and bowl contact. Ambient: quiet interior room tone.",
+  "status": "planned"
+}

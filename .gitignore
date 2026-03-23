@@ -38,3 +38,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 # HISTORY.json
 
 TODO.md
+
+# let's not pollute github with big binary files
+workspace/**/*.mp4

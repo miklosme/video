@@ -1,0 +1,6 @@
+{
+  "shotId": "SHOT-02",
+  "model": "google/veo-3.1-fast-generate-001",
+  "prompt": "Medium shot, slight push-in or gentle locked-off framing focused on the dog and bowl. The yellow Labrador lowers its head and begins eating from the bowl, moving naturally and believably so the product interaction is unmistakable. Keep the setting minimal and uncluttered, with soft commercial lighting, clear body readability, and the bowl always visible as the source of the action. Match the approved keyframe anchors SHOT-02-START and SHOT-02-END and maintain the same yellow Lab identity with no ambiguity. SFX: soft eating sounds, light collar or fur movement, faint bowl contact. Ambient: quiet interior room tone.",
+  "status": "planned"
+}

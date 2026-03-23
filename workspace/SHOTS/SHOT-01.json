@@ -1,0 +1,6 @@
+{
+  "shotId": "SHOT-01",
+  "model": "google/veo-3.1-fast-generate-001",
+  "prompt": "Wide medium shot, static camera with a gentle natural hold. A yellow Labrador stands in a clean minimal interior beside a neat bowl of dog food, then subtly shifts its weight and looks toward the bowl, establishing the everyday feeding setup before any magic begins. Keep the composition simple and easy to read, with soft natural light, calm advert polish, and the dog and bowl clearly separated from the background. Match the approved keyframe anchors SHOT-01-START and SHOT-01-END and preserve the same yellow Lab identity throughout. Ambient: quiet interior room tone, light dog movement, soft bowl clink.",
+  "status": "planned"
+}

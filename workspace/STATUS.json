@@ -94,7 +94,7 @@
   {
     "title": "Prepare shots",
     "instruction": "Write one sidecar JSON file per shot so video generation has stable prompts, IDs, and model metadata.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": [
       "SHOT-PROMPTS.json",
       "SHOTS/"
