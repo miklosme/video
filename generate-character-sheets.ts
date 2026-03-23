@@ -77,13 +77,15 @@ async function main() {
 
     if (await fileExists(absoluteOutputPath)) {
       console.log(
-        `Skipping ${generation.characterId}; image already exists at ${generation.outputPath}`,
+        `Skipping ${generation.characterId} with model ${generation.model}; image already exists at ${generation.outputPath}`,
       )
       skippedCount += 1
       continue
     }
 
-    console.log(`Generating ${generation.characterId} -> ${generation.outputPath}`)
+    console.log(
+      `Generating ${generation.characterId} with model ${generation.model} -> ${generation.outputPath}`,
+    )
 
     await generateImagenOptions({
       prompt: generation.prompt,

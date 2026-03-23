@@ -163,13 +163,15 @@ async function main() {
 
     if (await fileExists(absoluteOutputPath)) {
       console.log(
-        `Skipping ${generation.keyframeId}; image already exists at ${generation.outputPath}`,
+        `Skipping ${generation.keyframeId} with model ${generation.model}; image already exists at ${generation.outputPath}`,
       )
       skippedCount += 1
       continue
     }
 
-    console.log(`Generating ${generation.keyframeId} -> ${generation.outputPath}`)
+    console.log(
+      `Generating ${generation.keyframeId} with model ${generation.model} -> ${generation.outputPath}`,
+    )
 
     const references = planKeyframeGenerationReferences(generation, keyframes)
     await assertReferenceFilesExist(references, generation.keyframeId)

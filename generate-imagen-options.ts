@@ -46,6 +46,7 @@ export interface GenerateImagenOptionsInput {
 
 export interface GenerateImagenOptionsResult {
   generationId: string
+  model: string
   outputPaths: string[]
 }
 
@@ -271,6 +272,7 @@ export async function generateImagenOptions(
     completedAt = new Date().toISOString()
     return {
       generationId,
+      model,
       outputPaths,
     }
   } catch (error) {
@@ -358,7 +360,11 @@ async function main() {
   const result = await generateImagenOptions(parseArgs())
 
   if (result.outputPaths.length > 0) {
-    console.log(result.outputPaths.join('\n'))
+    console.log(
+      result.outputPaths
+        .map((outputPath) => `Generated ${outputPath} with model ${result.model}`)
+        .join('\n'),
+    )
   }
 }
 
