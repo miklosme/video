@@ -45,7 +45,8 @@
     "zod": "^4.3.6"
   },
   "simple-git-hooks": {
-    "pre-commit": "bunx pretty-quick --staged"
+    "pre-commit": "bunx pretty-quick --staged",
+    "prepare-commit-msg": "bun prepare-commit-message.ts \"$1\" \"$2\" \"$3\""
   },
   "prettier": {
     "printWidth": 100,

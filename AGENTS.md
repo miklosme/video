@@ -48,6 +48,7 @@ Do not silently rewrite story canon, storyboard content, prompt content, or stru
 - If you change a canonical `workspace/` file's expected structure, update the matching template in the same change.
 - If a requested technical change conflicts with established creative content, stop and surface the conflict instead of guessing.
 - After finishing technical work, run the relevant QA scripts to validate correctness before handing off: `bun run validate:data` and `bun run typecheck`.
+- After both validation commands succeed, put a commit message about this change to `.current-commit-message`. Just override the file, only write one line. Keep it terse and sharp, do not include a semantic prefix, and do not end with a period.
 
 ## Script Notes
 

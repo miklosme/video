@@ -35,6 +35,7 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # local agent session state
 .video-agent-state.json
+.current-commit-message
 # HISTORY.json
 
 TODO.md

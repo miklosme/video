@@ -53,3 +53,10 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `bun run remotion:studio` bootstraps `workspace/FINAL-CUT.json` when needed, serves repo media to Remotion Studio, and opens the stock Studio against the saved final-cut manifest.
 - `bun run remotion:render` uses the same `workspace/FINAL-CUT.json` manifest to render the `final-cut` composition to `outputs/final.mp4` by default.
 - `generate-imagen-options.ts` preserves the direct CLI contract, uses the Vercel AI Gateway through the AI SDK, supports `AI_GATEWAY_API_KEY`, and appends generation records to `workspace/GENERATION-LOG.jsonl`.
+
+## Commit Workflow
+
+- `.current-commit-message` is a local scratch file that the coding agent updates after successful validation with a terse commit subject suffix.
+- `git commit -m fix` and similar short type-only subjects are expanded by the hook into `fix: <agent summary>`.
+- Longer manual subjects such as `git commit -m "refactor auth flow"` are left untouched.
+- If the commit starts with an empty subject, the hook falls back to `wip: <agent summary>` or `wip: update project files` when no scratch message is available.
