@@ -10,6 +10,36 @@
       "source": "anthropics/skills",
       "sourceType": "github",
       "computedHash": "063a0e6448123cd359ad0044cc46b0e490cc7964d45ef4bb9fd842bd2ffbca67"
+    },
+    "hogli": {
+      "source": "posthog/posthog",
+      "sourceType": "github",
+      "computedHash": "8b22b0961c78b66ecc3181e1333836237a5c72467fa81742fa8505a87a1b1067"
+    },
+    "implementing-agent-modes": {
+      "source": "posthog/posthog",
+      "sourceType": "github",
+      "computedHash": "5375c3b7e9b0408b5c579ca3270e63cc1c655244ae65c59d8bdff750e56cb656"
+    },
+    "implementing-mcp-tools": {
+      "source": "posthog/posthog",
+      "sourceType": "github",
+      "computedHash": "6bb85a46caeb5865e1491e0a3ad56572b4a0cdb2d50853e8794909d1e51db19a"
+    },
+    "implementing-warehouse-sources": {
+      "source": "posthog/posthog",
+      "sourceType": "github",
+      "computedHash": "4a32b3767f03fda0c577dead8f2bb810c8071f4e38cbee66165710beb6a406b8"
+    },
+    "improving-drf-endpoints": {
+      "source": "posthog/posthog",
+      "sourceType": "github",
+      "computedHash": "aad6a3de6607736f3f9f6e885a1daa0fffb3bb852bef34380b1da481598e8d53"
+    },
+    "ingestion-pipeline-doctor-nodejs": {
+      "source": "posthog/posthog",
+      "sourceType": "github",
+      "computedHash": "f52d8a9ef8a386ec7f3f7de509950230cab9730370d31713e922b9de0903a82b"
     }
   }
 }
