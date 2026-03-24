@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(bun build:*)",
-      "Bash(bun:*)",
-      "Bash(xxd /Users/miklosme/github/video/artifact-review-server.ts)"
-    ]
-  }
-}
