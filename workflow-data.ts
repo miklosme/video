@@ -154,7 +154,7 @@ export const WORKFLOW_FILES = {
   storyboard: 'STORYBOARD.md',
   storyboardImage: 'STORYBOARD.png',
   keyframes: 'KEYFRAMES.json',
-  shotPrompts: 'SHOT-PROMPTS.json',
+  shotPrompts: 'SHOTS.json',
   finalCut: 'FINAL-CUT.json',
 } as const
 
@@ -450,8 +450,8 @@ export function parseShotArtifactEntry(value: unknown, context: string): ShotArt
 }
 
 function parseShotsData(value: unknown): ShotsData {
-  return expectArray(value, 'SHOT-PROMPTS.json').map((entry, index) =>
-    parseShotEntry(entry, `SHOT-PROMPTS.json[${index}]`),
+  return expectArray(value, 'SHOTS.json').map((entry, index) =>
+    parseShotEntry(entry, `SHOTS.json[${index}]`),
   )
 }
 

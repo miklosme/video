@@ -34,7 +34,7 @@ test('loadShotPrompts parses planning-only shot entries', async () => {
   try {
     await writeRepoFile(
       repo.rootDir,
-      'workspace/SHOT-PROMPTS.json',
+      'workspace/SHOTS.json',
       `${JSON.stringify(
         [
           {
@@ -72,7 +72,7 @@ test('loadShotPrompts defaults durationSeconds when omitted', async () => {
   try {
     await writeRepoFile(
       repo.rootDir,
-      'workspace/SHOT-PROMPTS.json',
+      'workspace/SHOTS.json',
       `${JSON.stringify(
         [
           {

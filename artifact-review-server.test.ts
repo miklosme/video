@@ -66,7 +66,7 @@ test('artifact review server renders the shots tab with prompt metadata and a mi
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/SHOT-PROMPTS.json',
+      'workspace/SHOTS.json',
       `${JSON.stringify(
         [
           {
@@ -144,7 +144,7 @@ test('artifact review server serves the canonical shot video', async () => {
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/SHOT-PROMPTS.json',
+      'workspace/SHOTS.json',
       `${JSON.stringify(
         [
           {

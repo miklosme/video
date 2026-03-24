@@ -558,25 +558,25 @@ test('loadWorkflowSummary distinguishes shot planning from shot preparation and 
           title: 'Plan shots',
           instruction: 'Plan the shots.',
           checked: false,
-          relatedFiles: ['SHOT-PROMPTS.json'],
+          relatedFiles: ['SHOTS.json'],
         },
         {
           title: 'Prepare shots',
           instruction: 'Write the shot sidecars.',
           checked: false,
-          relatedFiles: ['SHOT-PROMPTS.json', 'SHOTS/'],
+          relatedFiles: ['SHOTS.json', 'SHOTS/'],
         },
         {
           title: 'Review shots',
           instruction: 'Review the rendered videos.',
           checked: false,
-          relatedFiles: ['SHOT-PROMPTS.json', 'SHOTS/'],
+          relatedFiles: ['SHOTS.json', 'SHOTS/'],
         },
       ]),
     )
     await writeRepoFile(
       repo.rootDir,
-      'workspace/SHOT-PROMPTS.json',
+      'workspace/SHOTS.json',
       `${JSON.stringify(
         [
           {

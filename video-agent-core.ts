@@ -38,7 +38,7 @@ const ALLOWED_WORKSPACE_FILES = new Set([
   'CHARACTERS.md',
   'STORYBOARD.md',
   'KEYFRAMES.json',
-  'SHOT-PROMPTS.json',
+  'SHOTS.json',
   'FINAL-CUT.json',
   'STATUS.json',
 ])
@@ -426,7 +426,7 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
   lines.push('- Reserve "if you want, I can" for optional branches, not the default workflow path.')
   lines.push('Prompt-writing rules:')
   lines.push(
-    '- Before writing or revising keyframe sidecars, character-sheet sidecars, shot sidecars, or SHOT-PROMPTS.json, read workspace/CONFIG.json and MODEL_PROMPTING_GUIDE.md.',
+    '- Before writing or revising keyframe sidecars, character-sheet sidecars, shot sidecars, or SHOTS.json, read workspace/CONFIG.json and MODEL_PROMPTING_GUIDE.md.',
   )
   lines.push(
     '- STORYBOARD.png is the cheap full-project storyboard review artifact generated from workspace/STORYBOARD.md before keyframes are locked.',
@@ -453,10 +453,10 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
     '- Keyframe sidecar schema is exact: { keyframeId, shotId, frameType, model, prompt, status }.',
   )
   lines.push(
-    '- SHOT-PROMPTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, keyframeIds, durationSeconds }.',
+    '- SHOTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, keyframeIds, durationSeconds }.',
   )
   lines.push(
-    `- Each SHOT-PROMPTS.json entry should include durationSeconds for the target clip length; default to ${DEFAULT_VIDEO_DURATION_SECONDS} when the user has not specified one.`,
+    `- Each SHOTS.json entry should include durationSeconds for the target clip length; default to ${DEFAULT_VIDEO_DURATION_SECONDS} when the user has not specified one.`,
   )
   lines.push(
     '- FINAL-CUT.json stores the saved Remotion edit manifest and should use the exact shape: { version, shots, soundtrack }, where each shot entry is { shotId, enabled, trimStartFrames, trimEndFrames, transition: { type, durationFrames } }.',
@@ -622,7 +622,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
       case 'KEYFRAMES.json':
         await loadKeyframes(rootDir)
         return
-      case 'SHOT-PROMPTS.json':
+      case 'SHOTS.json':
         await loadShotPrompts(rootDir)
         return
       case 'FINAL-CUT.json':
@@ -763,7 +763,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
 
             return containsPlaceholderValue(entries) ? 'incomplete' : 'ready'
           }
-          case 'SHOT-PROMPTS.json': {
+          case 'SHOTS.json': {
             const entries = await loadShotPrompts(rootDir)
             if (entries.length === 0) {
               return 'incomplete'
@@ -1458,7 +1458,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             fileName: z
               .string()
               .describe(
-                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, KEYFRAMES.json, SHOT-PROMPTS.json, or FINAL-CUT.json',
+                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, KEYFRAMES.json, SHOTS.json, or FINAL-CUT.json',
               ),
           }),
           execute: async ({ fileName }) => {
@@ -1509,7 +1509,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             fileName: z
               .string()
               .describe(
-                'Canonical workspace filename such as CONFIG.json, STORY.md, KEYFRAMES.json, SHOT-PROMPTS.json, or FINAL-CUT.json',
+                'Canonical workspace filename such as CONFIG.json, STORY.md, KEYFRAMES.json, SHOTS.json, or FINAL-CUT.json',
               ),
             content: z.string().describe('The complete new file contents.'),
           }),

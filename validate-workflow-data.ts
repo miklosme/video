@@ -190,7 +190,7 @@ function validateShots(keyframes: KeyframeEntry[], shots: ShotEntry[]) {
 
   for (const shot of shots) {
     if (shotIds.has(shot.shotId)) {
-      throw new Error(`Duplicate shotId "${shot.shotId}" in workspace/SHOT-PROMPTS.json.`)
+      throw new Error(`Duplicate shotId "${shot.shotId}" in workspace/SHOTS.json.`)
     }
 
     shotIds.add(shot.shotId)

@@ -97,7 +97,7 @@ async function createFinalCutTestRepo() {
   })
   await writeRepoFile(
     rootDir,
-    'workspace/SHOT-PROMPTS.json',
+    'workspace/SHOTS.json',
     `${JSON.stringify(
       [
         {

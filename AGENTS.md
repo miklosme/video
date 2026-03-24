@@ -22,7 +22,7 @@ When a technical task depends on creative context, treat these as the source of 
   - `workspace/STORYBOARD.md`
   - `workspace/KEYFRAMES.json`
   - `workspace/KEYFRAMES/`
-  - `workspace/SHOT-PROMPTS.json`
+  - `workspace/SHOTS.json`
   - `workspace/SHOTS/`
   - `workspace/FINAL-CUT.json`
 - `templates/` as the scaffold library that mirrors the canonical workspace file shapes for new project setup

@@ -20,7 +20,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `workspace/STORYBOARD.png`
 - `workspace/KEYFRAMES.json`
 - `workspace/KEYFRAMES/`
-- `workspace/SHOT-PROMPTS.json`
+- `workspace/SHOTS.json`
 - `workspace/SHOTS/`
 - `workspace/FINAL-CUT.json`
 
@@ -38,7 +38,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `workspace/KEYFRAMES.json` should use distinct keyframe IDs such as `SHOT-01-START` and `SHOT-01-END`, each linked back to a parent `shotId`, and each keyframe entry must list the relevant `characterIds` for that frame.
 - `workspace/KEYFRAMES/` stores one sidecar JSON and one generated `.png` per keyframe, grouped under each `shotId`.
 - By default, plan one `start` and one `end` keyframe per storyboard shot. Use `single` only for a deliberate one-anchor exception.
-- `workspace/SHOT-PROMPTS.json` is the planning manifest for shots and should use the exact shape `{ shotId, status, videoPath, keyframeIds, durationSeconds }`.
+- `workspace/SHOTS.json` is the planning manifest for shots and should use the exact shape `{ shotId, status, videoPath, keyframeIds, durationSeconds }`.
 - `workspace/SHOTS/` stores one sidecar JSON and one generated `.mp4` per shot, sharing the same `shotId` basename.
 - `workspace/FINAL-CUT.json` stores the saved Remotion edit manifest for the final assembly step and should use the exact shape `{ version, shots, soundtrack }`.
 - Use `TBD` for unresolved creative information and `TODO` for coding work.
@@ -49,7 +49,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `bun generate-character-sheets.ts` syncs missing `workspace/CHARACTERS/*.png` files from their sidecar JSON files.
 - `bun generate-storyboard.ts` syncs the missing `workspace/STORYBOARD.png` review board from the raw contents of `workspace/STORYBOARD.md`.
 - `bun generate-keyframes.ts` syncs missing `workspace/KEYFRAMES/**/*.png` files from their sidecar JSON files and `workspace/KEYFRAMES.json`, attaching the storyboard review board for all keyframes, the relevant character sheets, and the same-shot start frame first for end-frame generation.
-- `bun generate-shots.ts` syncs missing `workspace/SHOTS/*.mp4` files from `workspace/SHOT-PROMPTS.json` and `workspace/SHOTS/*.json`, using the start frame as the image-to-video input, the end frame as the last-frame control when present, up to three character-sheet references in priority order, and each shot's `durationSeconds` value for the requested clip length.
+- `bun generate-shots.ts` syncs missing `workspace/SHOTS/*.mp4` files from `workspace/SHOTS.json` and `workspace/SHOTS/*.json`, using the start frame as the image-to-video input, the end frame as the last-frame control when present, up to three character-sheet references in priority order, and each shot's `durationSeconds` value for the requested clip length.
 - `bun run remotion:studio` bootstraps `workspace/FINAL-CUT.json` when needed, serves repo media to Remotion Studio, and opens the stock Studio against the saved final-cut manifest.
 - `bun run remotion:render` uses the same `workspace/FINAL-CUT.json` manifest to render the `final-cut` composition to `outputs/final.mp4` by default.
 - `generate-imagen-options.ts` preserves the direct CLI contract, uses the Vercel AI Gateway through the AI SDK, supports `AI_GATEWAY_API_KEY`, and appends generation records to `workspace/GENERATION-LOG.jsonl`.
