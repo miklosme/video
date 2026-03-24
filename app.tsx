@@ -15,6 +15,15 @@ import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
 import { startArtifactReviewServer, type ArtifactReviewServer } from './artifact-review-server'
+import {
+  clearBufferedNextStepSuggestions,
+  createEmptyBufferedNextStepSuggestions,
+  getNextStepSuggestionShortcutIndex,
+  promotePendingBufferedNextStepSuggestions,
+  setPendingBufferedNextStepSuggestions,
+  type BufferedNextStepSuggestions,
+  type SuggestedNextStep,
+} from './next-step-suggestions'
 import { captureWorkflowEvent, createTraceId, shutdownPostHog } from './posthog'
 import { startManagedRemotionStudio, type ManagedRemotionStudio } from './remotion-workflow'
 import {
@@ -101,6 +110,8 @@ const DIM_TEXT_ATTRIBUTES = createTextAttributes({ dim: true })
 
 const SELECTION_HIGHLIGHT_BG = '#315b83'
 const SELECTION_HIGHLIGHT_FG = '#ffffff'
+const NEXT_STEP_HIGHLIGHT_BG = '#2f6a45'
+const NEXT_STEP_HIGHLIGHT_FG = '#ffffff'
 
 function createId(prefix: string) {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
@@ -469,11 +480,16 @@ function App({
   )
   const [isSavingConfig, setIsSavingConfig] = useState(false)
   const [copyNotification, setCopyNotification] = useState<string | null>(null)
+  const [bufferedNextStepSuggestions, setBufferedNextStepSuggestions] =
+    useState<BufferedNextStepSuggestions>(createEmptyBufferedNextStepSuggestions)
 
   const transcriptRef = useRef<TranscriptEntry[]>(initialSession.transcript)
   const composerValueRef = useRef('')
   const recentChangesRef = useRef<string[]>(initialSession.recentChanges)
   const runtimeErrorRef = useRef<string | null>(initialSession.runtimeError)
+  const bufferedNextStepSuggestionsRef = useRef<BufferedNextStepSuggestions>(
+    createEmptyBufferedNextStepSuggestions(),
+  )
   const activeAssistantEntryIdRef = useRef<string | null>(null)
   const assistantHasStartedRef = useRef(false)
   const composerInputRef = useRef<TextareaRenderable | null>(null)
@@ -531,6 +547,34 @@ function App({
     runtimeErrorRef.current = nextRuntimeError
     setRuntimeError(nextRuntimeError)
     persistSession()
+  }
+
+  const setBufferedNextStepSuggestionsState = (
+    nextBufferedNextStepSuggestions:
+      | BufferedNextStepSuggestions
+      | ((current: BufferedNextStepSuggestions) => BufferedNextStepSuggestions),
+  ) => {
+    const resolvedNextBufferedNextStepSuggestions =
+      typeof nextBufferedNextStepSuggestions === 'function'
+        ? nextBufferedNextStepSuggestions(bufferedNextStepSuggestionsRef.current)
+        : nextBufferedNextStepSuggestions
+
+    bufferedNextStepSuggestionsRef.current = {
+      pending:
+        resolvedNextBufferedNextStepSuggestions.pending?.map((suggestion) => ({
+          ...suggestion,
+        })) ?? null,
+      displayed: resolvedNextBufferedNextStepSuggestions.displayed.map((suggestion) => ({
+        ...suggestion,
+      })),
+    }
+    setBufferedNextStepSuggestions(bufferedNextStepSuggestionsRef.current)
+  }
+
+  const applySuggestedNextStep = (suggestion: SuggestedNextStep) => {
+    setComposerValueState(suggestion.prompt)
+    composerInputRef.current?.setText(suggestion.prompt)
+    focusComposerInput()
   }
 
   useEffect(() => {
@@ -611,6 +655,11 @@ function App({
       },
       onWorkflowChange: (nextWorkflow) => {
         setWorkflow(nextWorkflow)
+      },
+      onNextStepSuggestions: (suggestions) => {
+        setBufferedNextStepSuggestionsState((current) =>
+          setPendingBufferedNextStepSuggestions(current, suggestions),
+        )
       },
     })
 
@@ -716,6 +765,20 @@ function App({
     }
 
     if (pendingResetIndex === null) {
+      const suggestionShortcutIndex = getNextStepSuggestionShortcutIndex(event.name, event.sequence)
+      const displayedSuggestions = bufferedNextStepSuggestionsRef.current.displayed
+      const canUseSuggestionShortcut =
+        !isBusy &&
+        suggestionShortcutIndex !== null &&
+        suggestionShortcutIndex < displayedSuggestions.length &&
+        openConfigField === null
+
+      if (canUseSuggestionShortcut) {
+        event.preventDefault()
+        event.stopPropagation()
+        applySuggestedNextStep(displayedSuggestions[suggestionShortcutIndex]!)
+      }
+
       return
     }
 
@@ -748,6 +811,7 @@ function App({
     description: option === activeConfigValue ? 'Current selection' : 'Available option',
     value: option,
   }))
+  const displayedNextStepSuggestions = bufferedNextStepSuggestions.displayed
   const composerLineCount = getComposerLineCount(composerValue)
 
   async function submitPrompt(input: string) {
@@ -760,6 +824,7 @@ function App({
     setRuntimeErrorState(null)
     setComposerValueState('')
     composerInputRef.current?.setText('')
+    setBufferedNextStepSuggestionsState(clearBufferedNextStepSuggestions())
     setIsBusy(true)
 
     const assistantEntryId = createId('assistant')
@@ -829,6 +894,9 @@ function App({
             : `[error] ${message}`,
       }))
     } finally {
+      setBufferedNextStepSuggestionsState((current) =>
+        promotePendingBufferedNextStepSuggestions(current),
+      )
       activeAssistantEntryIdRef.current = null
       assistantHasStartedRef.current = false
       setIsBusy(false)
@@ -878,6 +946,40 @@ function App({
             )
           })}
         </scrollbox>
+        {!isBusy &&
+        pendingResetIndex === null &&
+        openConfigField === null &&
+        displayedNextStepSuggestions.length > 0 ? (
+          <box marginTop={1} flexDirection="column" gap={1} flexShrink={0}>
+            <box>
+              <text content="Suggested next steps" fg="brightBlack" />
+            </box>
+            <box flexDirection="row" gap={1}>
+              {displayedNextStepSuggestions.map((suggestion, index) => (
+                <box
+                  key={`next-step-suggestion-${index}`}
+                  flexGrow={1}
+                  width="33%"
+                  border
+                  paddingLeft={1}
+                  paddingRight={1}
+                  paddingTop={0}
+                  paddingBottom={0}
+                  backgroundColor={NEXT_STEP_HIGHLIGHT_BG}
+                  onMouseDown={() => {
+                    applySuggestedNextStep(suggestion)
+                  }}
+                >
+                  <text
+                    content={`${index + 1}. ${suggestion.label}`}
+                    fg={NEXT_STEP_HIGHLIGHT_FG}
+                    wrapMode="word"
+                  />
+                </box>
+              ))}
+            </box>
+          </box>
+        ) : null}
         <box
           border
           title={isBusy ? 'Thinking...' : 'Input'}

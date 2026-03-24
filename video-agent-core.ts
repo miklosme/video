@@ -6,6 +6,11 @@ import { stepCountIs, tool, ToolLoopAgent, type ModelMessage } from 'ai'
 import { z } from 'zod'
 
 import { ensureFinalCutManifest, resolveFinalCutProps } from './final-cut'
+import {
+  normalizeSuggestedNextSteps,
+  suggestedNextStepsSchema,
+  type SuggestedNextStep,
+} from './next-step-suggestions'
 import { posthogTelemetry, type PostHogTelemetry } from './posthog'
 import {
   DEFAULT_VIDEO_DURATION_SECONDS,
@@ -154,6 +159,7 @@ export interface VideoAgentRuntimeEvents {
   onToolEvent?: (message: string) => void
   onFileChange?: (fileName: string) => void
   onWorkflowChange?: (workflow: WorkflowSummary) => void
+  onNextStepSuggestions?: (suggestions: SuggestedNextStep[]) => void
 }
 
 export interface VideoAgentRunner {
@@ -414,6 +420,19 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
     '- Ask a follow-up only when a real creative ambiguity would materially change the output.',
   )
   lines.push('- Reserve "if you want, I can" for optional branches, not the default workflow path.')
+  lines.push('Hidden next-step suggestion tool:')
+  lines.push(
+    '- After you have finished the substantive user-facing work for this turn, call publishNextStepSuggestions exactly once when the next three user prompts are obvious.',
+  )
+  lines.push(
+    '- publishNextStepSuggestions entries must be concrete, immediately actionable, and phrased as prompts the user could send directly.',
+  )
+  lines.push(
+    '- Skip publishNextStepSuggestions when the next steps are not obvious enough to suggest confidently.',
+  )
+  lines.push(
+    '- Never mention publishNextStepSuggestions or the hidden suggestion flow in the visible reply.',
+  )
   lines.push('Prompt-writing rules:')
   lines.push(
     '- Before writing or revising keyframe sidecars, character-sheet sidecars, shot sidecars, or SHOTS.json, read workspace/CONFIG.json and MODEL_PROMPTING_GUIDE.md.',
@@ -554,11 +573,16 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
     onToolEvent: options.onToolEvent,
     onFileChange: options.onFileChange,
     onWorkflowChange: options.onWorkflowChange,
+    onNextStepSuggestions: options.onNextStepSuggestions,
   }
   let cachedCreativePrompt: string | null = options.creativePrompt ?? null
 
   const emitToolEvent = (message: string) => {
     eventHandlers.onToolEvent?.(message)
+  }
+
+  const emitNextStepSuggestions = (suggestions: SuggestedNextStep[]) => {
+    eventHandlers.onNextStepSuggestions?.(suggestions.map((suggestion) => ({ ...suggestion })))
   }
 
   const emitFileChange = (fileName: string) => {
@@ -1562,6 +1586,20 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
           execute: async ({ folderName }) =>
             ensureWorkspaceFolderInternal(folderName, { emitToolEvents: true }),
         }),
+        publishNextStepSuggestions: tool({
+          description:
+            'Publish exactly three hidden follow-up prompts for the TUI composer after the main work of the turn is done. Keep them concrete, immediately actionable, and phrased exactly as the user could send them.',
+          inputSchema: z.object({
+            suggestions: suggestedNextStepsSchema.describe(
+              'Exactly three user-sendable next prompts, each with a short label and the full prompt text.',
+            ),
+          }),
+          execute: async ({ suggestions }) =>
+            suggestions.map((suggestion) => ({
+              label: suggestion.label,
+              prompt: suggestion.prompt,
+            })),
+        }),
       },
     })
   }
@@ -1583,6 +1621,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         onToolEvent: nextEvents.onToolEvent,
         onFileChange: nextEvents.onFileChange,
         onWorkflowChange: nextEvents.onWorkflowChange,
+        onNextStepSuggestions: nextEvents.onNextStepSuggestions,
       }
     },
     async loadWorkflowSummary() {
@@ -1667,6 +1706,9 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
       >()
 
       try {
+        const isHiddenSuggestionTool = (toolName: string | undefined) =>
+          toolName === 'publishNextStepSuggestions'
+
         const result = await agent.stream({
           messages,
           experimental_telemetry: {
@@ -1686,9 +1728,25 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             })
           },
           experimental_onToolCallStart: ({ toolCall }: any) => {
+            if (isHiddenSuggestionTool(toolCall.toolName)) {
+              return
+            }
+
             emitToolEvent(`Running ${toolCall.toolName}`)
           },
-          experimental_onToolCallFinish: ({ toolCall, success }: any) => {
+          experimental_onToolCallFinish: ({ toolCall, success, output }: any) => {
+            if (isHiddenSuggestionTool(toolCall.toolName)) {
+              if (success) {
+                const nextStepSuggestions = normalizeSuggestedNextSteps(output)
+
+                if (nextStepSuggestions) {
+                  emitNextStepSuggestions(nextStepSuggestions)
+                }
+              }
+
+              return
+            }
+
             emitToolEvent(`${success ? 'Completed' : 'Failed'} ${toolCall.toolName}`)
           },
           onStepFinish: (event: any) => {

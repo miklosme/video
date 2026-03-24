@@ -1225,3 +1225,142 @@ test('runTurn emits one AI generation event per completed step', async () => {
     await repo.cleanup()
   }
 })
+
+test('runTurn emits hidden next-step suggestions without visible tool noise', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/CONFIG.json', createValidConfig())
+    await writeRepoFile(repo.rootDir, 'workspace/STATUS.json', createWorkflowStatus([]))
+
+    const events: string[] = []
+    const emittedSuggestions: Array<
+      Array<{
+        label: string
+        prompt: string
+      }>
+    > = []
+
+    const runtime = createVideoAgentRuntime({
+      rootDir: repo.rootDir,
+      creativePrompt: 'test',
+      onToolEvent: (message) => {
+        events.push(message)
+      },
+      onNextStepSuggestions: (suggestions) => {
+        emittedSuggestions.push(suggestions)
+      },
+      createAgent: () => ({
+        stream: async ({
+          experimental_onToolCallStart,
+          experimental_onToolCallFinish,
+          messages,
+        }) => {
+          expect(String(messages[0]?.content)).toContain('publishNextStepSuggestions exactly once')
+
+          experimental_onToolCallStart?.({
+            toolCall: {
+              toolName: 'publishNextStepSuggestions',
+            },
+          })
+          experimental_onToolCallFinish?.({
+            toolCall: {
+              toolName: 'publishNextStepSuggestions',
+            },
+            success: true,
+            output: [
+              { label: 'Draft story', prompt: 'Draft STORY.md from the current idea.' },
+              { label: 'Three options', prompt: 'Give me 3 story directions.' },
+              { label: 'Review gaps', prompt: 'Review STORY.md and tell me what is weak.' },
+            ],
+          })
+          experimental_onToolCallStart?.({
+            toolCall: {
+              toolName: 'readWorkspaceFile',
+            },
+          })
+          experimental_onToolCallFinish?.({
+            toolCall: {
+              toolName: 'readWorkspaceFile',
+            },
+            success: true,
+            output: { fileName: 'IDEA.md' },
+          })
+
+          return {
+            textStream: (async function* () {
+              yield 'Done.'
+            })(),
+            text: Promise.resolve('Done.'),
+          }
+        },
+      }),
+    })
+
+    const result = await runtime.runTurn({
+      userInput: 'Take the next step.',
+      transcript: [],
+    })
+
+    expect(result.text).toBe('Done.')
+    expect(events).toEqual(['Running readWorkspaceFile', 'Completed readWorkspaceFile'])
+    expect(emittedSuggestions).toEqual([
+      [
+        { label: 'Draft story', prompt: 'Draft STORY.md from the current idea.' },
+        { label: 'Three options', prompt: 'Give me 3 story directions.' },
+        { label: 'Review gaps', prompt: 'Review STORY.md and tell me what is weak.' },
+      ],
+    ])
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('runTurn ignores invalid hidden next-step suggestion payloads', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/CONFIG.json', createValidConfig())
+    await writeRepoFile(repo.rootDir, 'workspace/STATUS.json', createWorkflowStatus([]))
+
+    const emittedSuggestions: Array<unknown> = []
+
+    const runtime = createVideoAgentRuntime({
+      rootDir: repo.rootDir,
+      creativePrompt: 'test',
+      onNextStepSuggestions: (suggestions) => {
+        emittedSuggestions.push(suggestions)
+      },
+      createAgent: () => ({
+        stream: async ({ experimental_onToolCallFinish }) => {
+          experimental_onToolCallFinish?.({
+            toolCall: {
+              toolName: 'publishNextStepSuggestions',
+            },
+            success: true,
+            output: [
+              { label: 'Only one', prompt: 'One suggestion is not enough.' },
+              { label: 'Second', prompt: 'Still invalid because there are only two.' },
+            ],
+          })
+
+          return {
+            textStream: (async function* () {
+              yield 'Done.'
+            })(),
+            text: Promise.resolve('Done.'),
+          }
+        },
+      }),
+    })
+
+    await runtime.runTurn({
+      userInput: 'Take the next step.',
+      transcript: [],
+    })
+
+    expect(emittedSuggestions).toEqual([])
+  } finally {
+    await repo.cleanup()
+  }
+})
