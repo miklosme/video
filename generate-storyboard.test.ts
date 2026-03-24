@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { buildStoryboardPrompt } from './generate-storyboard'
+import { buildStoryboardPrompt, selectPendingStoryboardGeneration } from './generate-storyboard'
 
 async function writeRepoFile(rootDir: string, relativePath: string, content: string) {
   const filePath = path.resolve(rootDir, relativePath)
@@ -27,8 +27,22 @@ test('buildStoryboardPrompt includes raw markdown and shot-label instructions', 
   const prompt = buildStoryboardPrompt(markdown)
 
   expect(prompt).toContain('single storyboard sheet')
+  expect(prompt).toContain('attached storyboard template image')
   expect(prompt).toContain('visible shot labels that exactly match the SHOT-XX IDs')
+  expect(prompt).toContain('template-style text labels and descriptive headers')
+  expect(prompt).not.toContain('Do not include any text beyond the visible shot labels.')
   expect(prompt).toContain(markdown.trim())
+})
+
+test('selectPendingStoryboardGeneration attaches the storyboard template reference', () => {
+  const generation = selectPendingStoryboardGeneration(
+    '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
+    'google/gemini-3.1-flash-image-preview',
+  )
+
+  expect(generation.references).toEqual([
+    { kind: 'storyboard-template', path: 'templates/STORYBOARD.template.png' },
+  ])
 })
 
 test('generate-storyboard skips when the canonical storyboard image already exists', async () => {

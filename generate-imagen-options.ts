@@ -126,6 +126,11 @@ export function buildPromptText(
             `Reference ${referenceNumber} is the full-project storyboard board. Focus on the panel labeled "${shotId ?? 'current shot'}" for the intended shot composition and visual intent.`,
           )
           break
+        case 'storyboard-template':
+          promptLines.push(
+            `Reference ${referenceNumber} is the storyboard template image. Follow its board layout, panel framing, header structure, and review-friendly presentation style, but derive the actual shot content from the provided storyboard markdown.`,
+          )
+          break
         case 'character-sheet':
           promptLines.push(
             `Reference ${referenceNumber} is a character identity sheet. Preserve the same subject identity, markings, and silhouette.`,

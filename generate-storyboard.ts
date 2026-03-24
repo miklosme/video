@@ -4,6 +4,7 @@ import path from 'node:path'
 import { generateImagenOptions } from './generate-imagen-options'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import {
+  type GenerationReferenceEntry,
   getStoryboardImagePath,
   loadConfig,
   resolveWorkflowPath,
@@ -14,7 +15,10 @@ export interface PendingStoryboardGeneration {
   model: string
   prompt: string
   outputPath: string
+  references: GenerationReferenceEntry[]
 }
+
+const STORYBOARD_TEMPLATE_PATH = 'templates/STORYBOARD.template.png'
 
 async function fileExists(filePath: string) {
   try {
@@ -35,12 +39,15 @@ export function buildStoryboardPrompt(storyboardMarkdown: string) {
   return [
     'Create a single storyboard sheet for the full project.',
     'Use the raw storyboard markdown below as the source of truth.',
+    'Use the attached storyboard template image as the structural and stylistic reference for the board.',
+    'Mirror the template’s panel grid, header treatment, and clean review-board presentation.',
     'Render one panel per shot described in the markdown, in order.',
     'Show visible shot labels that exactly match the SHOT-XX IDs from the markdown.',
     'This is a normal storyboard board for review, not start/end keyframe pairs.',
-    'Keep the board easy to review at a glance, with clear composition and readable panel separation.',
+    'Keep the board easy to review at a glance, with clear composition, readable panel separation, and template-like per-panel headers.',
+    'Include template-style text labels and descriptive headers on the board when they are derived from the storyboard markdown.',
     'Do not invent extra shots, extra panels, or duplicate any shot.',
-    'Do not include any text beyond the visible shot labels.',
+    'Do not copy the example puppy-specific wording from the template image; use the markdown as the only source for shot content.',
     '',
     'Storyboard markdown:',
     '```md',
@@ -57,6 +64,7 @@ export function selectPendingStoryboardGeneration(
     model,
     prompt: buildStoryboardPrompt(storyboardMarkdown),
     outputPath: getStoryboardImagePath(),
+    references: [{ kind: 'storyboard-template', path: STORYBOARD_TEMPLATE_PATH }],
   }
 }
 
@@ -81,7 +89,7 @@ async function main() {
     prompt: generation.prompt,
     model: generation.model,
     outputPath: generation.outputPath,
-    references: [],
+    references: generation.references,
   })
 
   captureWorkflowEvent('storyboard_generated', { model: generation.model })

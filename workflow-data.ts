@@ -152,6 +152,7 @@ export type GenerationReferenceKind =
   | 'end-frame'
   | 'previous-shot-end-frame'
   | 'storyboard'
+  | 'storyboard-template'
 
 export interface GenerationReferenceEntry {
   kind: GenerationReferenceKind
