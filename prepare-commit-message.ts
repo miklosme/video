@@ -58,6 +58,16 @@ function loadSuggestedSuffix(repoRoot: string): string {
   }
 }
 
+function clearSuggestedSuffix(repoRoot: string) {
+  const scratchPath = path.resolve(repoRoot, '.current-commit-message')
+
+  try {
+    writeFileSync(scratchPath, '', 'utf8')
+  } catch {
+    // Keep commit flow resilient if the scratch file is missing or unwritable.
+  }
+}
+
 export function applyPreparedCommitMessage(options: {
   messageFilePath: string
   source?: string
@@ -72,11 +82,13 @@ export function applyPreparedCommitMessage(options: {
   const subject = extractSubjectLine(currentMessage)
 
   if (subject && isManualSubject(subject)) {
+    clearSuggestedSuffix(repoRoot)
     return false
   }
 
   const nextSubject = buildCommitSubject(selectPrefix(subject), loadSuggestedSuffix(repoRoot))
   writeFileSync(options.messageFilePath, `${nextSubject}\n`, 'utf8')
+  clearSuggestedSuffix(repoRoot)
 
   return true
 }

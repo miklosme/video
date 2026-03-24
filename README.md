@@ -60,3 +60,4 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `git commit -m fix` and similar short type-only subjects are expanded by the hook into `fix: <agent summary>`.
 - Longer manual subjects such as `git commit -m "refactor auth flow"` are left untouched.
 - If the commit starts with an empty subject, the hook falls back to `wip: <agent summary>` or `wip: update project files` when no scratch message is available.
+- On normal commit attempts, the hook consumes and clears `.current-commit-message` so stale suggestions do not linger.

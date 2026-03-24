@@ -32,13 +32,11 @@ test('buildCommitSubject falls back to a default prefix and suffix', () => {
 
 test('expands a short type-only subject with the agent summary', async () => {
   const repo = await createScratchRepo()
+  const scratchPath = path.resolve(repo.rootDir, '.current-commit-message')
 
   try {
     const messageFilePath = path.resolve(repo.rootDir, 'COMMIT_EDITMSG')
-    await writeFile(
-      path.resolve(repo.rootDir, '.current-commit-message'),
-      'Ship hook-backed commit summaries\n',
-    )
+    await writeFile(scratchPath, 'Ship hook-backed commit summaries\n')
     await writeFile(messageFilePath, 'FIX\n', 'utf8')
 
     const changed = applyPreparedCommitMessage({
@@ -49,6 +47,7 @@ test('expands a short type-only subject with the agent summary', async () => {
 
     expect(changed).toBe(true)
     expect(await readFile(messageFilePath, 'utf8')).toBe('fix: Ship hook-backed commit summaries\n')
+    expect(await readFile(scratchPath, 'utf8')).toBe('')
   } finally {
     await repo.cleanup()
   }
@@ -56,10 +55,11 @@ test('expands a short type-only subject with the agent summary', async () => {
 
 test('leaves a longer manual commit subject untouched', async () => {
   const repo = await createScratchRepo()
+  const scratchPath = path.resolve(repo.rootDir, '.current-commit-message')
 
   try {
     const messageFilePath = path.resolve(repo.rootDir, 'COMMIT_EDITMSG')
-    await writeFile(path.resolve(repo.rootDir, '.current-commit-message'), 'Should not be used\n')
+    await writeFile(scratchPath, 'Should not be used\n')
     await writeFile(messageFilePath, 'refactor auth flow\n', 'utf8')
 
     const changed = applyPreparedCommitMessage({
@@ -70,6 +70,7 @@ test('leaves a longer manual commit subject untouched', async () => {
 
     expect(changed).toBe(false)
     expect(await readFile(messageFilePath, 'utf8')).toBe('refactor auth flow\n')
+    expect(await readFile(scratchPath, 'utf8')).toBe('')
   } finally {
     await repo.cleanup()
   }
@@ -77,13 +78,11 @@ test('leaves a longer manual commit subject untouched', async () => {
 
 test('uses wip when the commit subject starts empty', async () => {
   const repo = await createScratchRepo()
+  const scratchPath = path.resolve(repo.rootDir, '.current-commit-message')
 
   try {
     const messageFilePath = path.resolve(repo.rootDir, 'COMMIT_EDITMSG')
-    await writeFile(
-      path.resolve(repo.rootDir, '.current-commit-message'),
-      'Describe the validated tooling update\n',
-    )
+    await writeFile(scratchPath, 'Describe the validated tooling update\n')
     await writeFile(messageFilePath, '\n', 'utf8')
 
     applyPreparedCommitMessage({
@@ -94,6 +93,7 @@ test('uses wip when the commit subject starts empty', async () => {
     expect(await readFile(messageFilePath, 'utf8')).toBe(
       'wip: Describe the validated tooling update\n',
     )
+    expect(await readFile(scratchPath, 'utf8')).toBe('')
   } finally {
     await repo.cleanup()
   }
@@ -132,10 +132,11 @@ test('falls back when the scratch message is missing and truncates long subjects
 
 test('skips merge and squash commits', async () => {
   const repo = await createScratchRepo()
+  const scratchPath = path.resolve(repo.rootDir, '.current-commit-message')
 
   try {
     const messageFilePath = path.resolve(repo.rootDir, 'COMMIT_EDITMSG')
-    await writeFile(path.resolve(repo.rootDir, '.current-commit-message'), 'Should not be used\n')
+    await writeFile(scratchPath, 'Should not be used\n')
     await writeFile(messageFilePath, 'Merge branch feature\n', 'utf8')
 
     const skippedMerge = applyPreparedCommitMessage({
@@ -155,6 +156,7 @@ test('skips merge and squash commits', async () => {
 
     expect(skippedSquash).toBe(false)
     expect(await readFile(messageFilePath, 'utf8')).toBe('Merge branch feature\n')
+    expect(await readFile(scratchPath, 'utf8')).toBe('Should not be used\n')
   } finally {
     await repo.cleanup()
   }
