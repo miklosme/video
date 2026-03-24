@@ -6,11 +6,12 @@ import path from 'node:path'
 import { selectPendingCharacterSheetGenerations } from './generate-character-sheets'
 import {
   planKeyframeGenerationReferences,
+  resolveKeyframeGenerationPrompt,
   selectPendingKeyframeGenerations,
 } from './generate-keyframes'
 import type { AiGenerationEventInput, PostHogTelemetry, WorkflowEventProperties } from './posthog'
 import { createVideoAgentRuntime, type WorkflowSummary } from './video-agent-core'
-import { loadKeyframes, type KeyframeEntry } from './workflow-data'
+import { loadKeyframes, type KeyframeEntry, type ShotEntry } from './workflow-data'
 
 async function writeRepoFile(rootDir: string, relativePath: string, content: string) {
   const filePath = path.resolve(rootDir, relativePath)
@@ -460,6 +461,16 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
         imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
         characterIds: ['test-dog'],
       },
+      {
+        keyframeId: 'SHOT-01-END',
+        shotId: 'SHOT-01',
+        frameType: 'end',
+        title: 'Ending frame',
+        goal: 'Land the pose.',
+        status: 'planned',
+        imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
+        characterIds: ['test-dog'],
+      },
     ],
     [
       {
@@ -477,6 +488,19 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
         model: 'image-test',
         prompt: 'Unused.',
         status: 'planned',
+      },
+    ],
+    [
+      {
+        shotId: 'SHOT-01',
+        status: 'planned',
+        videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+        keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+        durationSeconds: 4,
+        incomingTransition: {
+          type: 'opening',
+          notes: 'Open the sequence.',
+        },
       },
     ],
   )
@@ -500,6 +524,10 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
       prompt: 'A calm opening frame.',
       outputPath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
       characterIds: ['test-dog'],
+      incomingTransition: {
+        type: 'opening',
+        notes: 'Open the sequence.',
+      },
     },
   ])
   expect(characterGenerations).toEqual([
@@ -585,6 +613,10 @@ test('loadWorkflowSummary distinguishes shot planning from shot preparation and 
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
           },
         ],
         null,
@@ -646,8 +678,30 @@ test('keyframe reference planning includes relevant character sheets and same-sh
       characterIds: ['dog-01'],
     },
   ]
+  const shots: ShotEntry[] = [
+    {
+      shotId: 'SHOT-01',
+      status: 'planned',
+      videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+      keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+      durationSeconds: 4,
+      incomingTransition: {
+        type: 'opening',
+        notes: 'Open the sequence.',
+      },
+    },
+  ]
 
-  expect(planKeyframeGenerationReferences(keyframes[0]!, [...keyframes])).toEqual([
+  expect(
+    planKeyframeGenerationReferences(
+      {
+        ...keyframes[0]!,
+        incomingTransition: shots[0]!.incomingTransition,
+      },
+      [...keyframes],
+      [...shots],
+    ),
+  ).toEqual([
     {
       kind: 'storyboard',
       path: 'workspace/STORYBOARD.png',
@@ -658,7 +712,16 @@ test('keyframe reference planning includes relevant character sheets and same-sh
     },
   ])
 
-  expect(planKeyframeGenerationReferences(keyframes[1]!, [...keyframes])).toEqual([
+  expect(
+    planKeyframeGenerationReferences(
+      {
+        ...keyframes[1]!,
+        incomingTransition: shots[0]!.incomingTransition,
+      },
+      [...keyframes],
+      [...shots],
+    ),
+  ).toEqual([
     {
       kind: 'start-frame',
       path: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
@@ -680,8 +743,26 @@ test('keyframe reference planning includes relevant character sheets and same-sh
         shotId: 'SHOT-02',
         frameType: 'single',
         characterIds: ['dog-01'],
+        incomingTransition: {
+          type: 'scene-change',
+          notes: 'Reset to a fresh setup.',
+        },
       },
       [...keyframes],
+      [
+        ...shots,
+        {
+          shotId: 'SHOT-02',
+          status: 'planned',
+          videoPath: 'workspace/SHOTS/SHOT-02.mp4',
+          keyframeIds: ['SHOT-02-SINGLE'],
+          durationSeconds: 4,
+          incomingTransition: {
+            type: 'scene-change',
+            notes: 'Reset to a fresh setup.',
+          },
+        },
+      ],
     ),
   ).toEqual([
     {
@@ -693,6 +774,30 @@ test('keyframe reference planning includes relevant character sheets and same-sh
       path: 'workspace/CHARACTERS/dog-01.png',
     },
   ])
+})
+
+test('resolveKeyframeGenerationPrompt appends continuity handoff notes only for continuity starts', () => {
+  expect(
+    resolveKeyframeGenerationPrompt({
+      frameType: 'start',
+      prompt: 'Base prompt.',
+      incomingTransition: {
+        type: 'continuity',
+        notes: 'Match the previous shot geography.',
+      },
+    }),
+  ).toContain('Continuity handoff: Match the previous shot geography.')
+
+  expect(
+    resolveKeyframeGenerationPrompt({
+      frameType: 'end',
+      prompt: 'Base prompt.',
+      incomingTransition: {
+        type: 'continuity',
+        notes: 'Unused here.',
+      },
+    }),
+  ).toBe('Base prompt.')
 })
 
 test('loadWorkflowSummary normalizes removed image models to the first supported option', async () => {

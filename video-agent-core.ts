@@ -443,10 +443,16 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
     '- Keyframe sidecar schema is exact: { keyframeId, shotId, frameType, model, prompt, status }.',
   )
   lines.push(
-    '- SHOTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, keyframeIds, durationSeconds }.',
+    '- SHOTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, keyframeIds, durationSeconds, incomingTransition: { type, notes } }.',
   )
   lines.push(
     `- Each SHOTS.json entry should include durationSeconds for the target clip length; default to ${DEFAULT_VIDEO_DURATION_SECONDS} when the user has not specified one.`,
+  )
+  lines.push(
+    '- Every SHOTS.json entry must include incomingTransition. Use "opening" only for the first shot, use "continuity" when the next start frame should inherit from the previous shot end frame, and use "scene-change" when the shot should reset to a fresh setup.',
+  )
+  lines.push(
+    '- Every incomingTransition.notes value must be a short explicit handoff instruction describing what should carry forward or what should reset across the cut.',
   )
   lines.push(
     '- FINAL-CUT.json stores the saved Remotion edit manifest and should use the exact shape: { version, shots, soundtrack }, where each shot entry is { shotId, enabled, trimStartFrames, trimEndFrames, transition: { type, durationFrames } }.',

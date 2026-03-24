@@ -116,6 +116,11 @@ export function buildPromptText(
             `Reference ${referenceNumber} is the same-shot end frame. Use it as the target continuity reference for the destination beat and final composition.`,
           )
           break
+        case 'previous-shot-end-frame':
+          promptLines.push(
+            `Reference ${referenceNumber} is the previous shot end frame. Use it to preserve cross-shot continuity for screen direction, scene geography, and subject placement while still following the current shot brief.`,
+          )
+          break
         case 'storyboard':
           promptLines.push(
             `Reference ${referenceNumber} is the full-project storyboard board. Focus on the panel labeled "${shotId ?? 'current shot'}" for the intended shot composition and visual intent.`,

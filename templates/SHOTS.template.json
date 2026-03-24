@@ -4,6 +4,10 @@
     "status": "planned",
     "videoPath": "workspace/SHOTS/SHOT-01.mp4",
     "keyframeIds": ["SHOT-01-START", "SHOT-01-END"],
-    "durationSeconds": 4
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "opening",
+      "notes": "TBD"
+    }
   }
 ]

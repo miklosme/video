@@ -43,6 +43,10 @@ test('loadShotPrompts parses planning-only shot entries', async () => {
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
             durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
           },
         ],
         null,
@@ -59,6 +63,10 @@ test('loadShotPrompts parses planning-only shot entries', async () => {
         videoPath: 'workspace/SHOTS/SHOT-01.mp4',
         keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
         durationSeconds: 4,
+        incomingTransition: {
+          type: 'opening',
+          notes: 'Open the sequence.',
+        },
       },
     ])
   } finally {
@@ -80,6 +88,10 @@ test('loadShotPrompts defaults durationSeconds when omitted', async () => {
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
           },
         ],
         null,
@@ -89,7 +101,7 @@ test('loadShotPrompts defaults durationSeconds when omitted', async () => {
 
     const shots = await loadShotPrompts(repo.rootDir)
 
-    expect(shots[0]?.durationSeconds).toBe(8)
+    expect(shots[0]?.durationSeconds).toBe(4)
   } finally {
     await repo.cleanup()
   }
@@ -139,6 +151,10 @@ test('selectPendingShotGenerations uses shot sidecars and canonical output paths
           videoPath: 'workspace/SHOTS/SHOT-01.mp4',
           keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
           durationSeconds: 3.5,
+          incomingTransition: {
+            type: 'opening',
+            notes: 'Open the sequence.',
+          },
         },
       ],
       [

@@ -10,10 +10,13 @@ import {
   getStoryboardImagePath,
   loadKeyframeArtifacts,
   loadKeyframes,
+  loadShotPrompts,
   type FrameType,
   type GenerationReferenceEntry,
   type KeyframeArtifactEntry,
   type KeyframeEntry,
+  type ShotEntry,
+  type ShotIncomingTransitionEntry,
 } from './workflow-data'
 
 interface GenerateKeyframesArgs {
@@ -29,6 +32,7 @@ export interface PendingKeyframeGeneration {
   prompt: string
   outputPath: string
   characterIds: string[]
+  incomingTransition: ShotIncomingTransitionEntry
 }
 
 function parseArgs(): GenerateKeyframesArgs {
@@ -55,46 +59,113 @@ async function fileExists(filePath: string) {
 export function selectPendingKeyframeGenerations(
   keyframes: KeyframeEntry[],
   artifacts: KeyframeArtifactEntry[],
+  shots: ShotEntry[],
   filters: GenerateKeyframesArgs = {},
 ) {
   const artifactById = new Map(artifacts.map((entry) => [entry.keyframeId, entry]))
+  const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
 
-  return keyframes
-    .filter((entry) => {
-      if (filters.keyframeId && entry.keyframeId !== filters.keyframeId) {
-        return false
-      }
+  return shots.flatMap<PendingKeyframeGeneration>((shot) => {
+    const orderedKeyframes = orderShotKeyframesForGeneration(shot, keyframeById)
 
-      if (filters.shotId && entry.shotId !== filters.shotId) {
-        return false
-      }
+    return orderedKeyframes
+      .filter((entry) => {
+        if (filters.keyframeId && entry.keyframeId !== filters.keyframeId) {
+          return false
+        }
 
-      return artifactById.has(entry.keyframeId)
-    })
-    .map<PendingKeyframeGeneration>((entry) => {
-      const artifact = artifactById.get(entry.keyframeId)
+        if (filters.shotId && entry.shotId !== filters.shotId) {
+          return false
+        }
 
-      if (!artifact) {
-        throw new Error(`Missing keyframe artifact for "${entry.keyframeId}".`)
-      }
+        return artifactById.has(entry.keyframeId)
+      })
+      .map((entry) => {
+        const artifact = artifactById.get(entry.keyframeId)
 
-      return {
-        keyframeId: entry.keyframeId,
-        shotId: entry.shotId,
-        frameType: entry.frameType,
-        model: artifact.model,
-        prompt: artifact.prompt,
-        outputPath: entry.imagePath,
-        characterIds: entry.characterIds,
-      }
-    })
+        if (!artifact) {
+          throw new Error(`Missing keyframe artifact for "${entry.keyframeId}".`)
+        }
+
+        return {
+          keyframeId: entry.keyframeId,
+          shotId: entry.shotId,
+          frameType: entry.frameType,
+          model: artifact.model,
+          prompt: artifact.prompt,
+          outputPath: entry.imagePath,
+          characterIds: entry.characterIds,
+          incomingTransition: shot.incomingTransition,
+        }
+      })
+  })
+}
+
+function orderShotKeyframesForGeneration(
+  shot: ShotEntry,
+  keyframeById: ReadonlyMap<string, KeyframeEntry>,
+) {
+  const shotKeyframes = shot.keyframeIds.map((keyframeId) => {
+    const keyframe = keyframeById.get(keyframeId)
+
+    if (!keyframe) {
+      throw new Error(`Shot "${shot.shotId}" references missing keyframe "${keyframeId}".`)
+    }
+
+    return keyframe
+  })
+
+  if (shotKeyframes.length === 1) {
+    if (shotKeyframes[0]?.frameType !== 'single') {
+      throw new Error(
+        `Shot "${shot.shotId}" references one keyframe, so it must use frameType "single".`,
+      )
+    }
+
+    return shotKeyframes
+  }
+
+  const start = shotKeyframes.find((entry) => entry.frameType === 'start')
+  const end = shotKeyframes.find((entry) => entry.frameType === 'end')
+
+  if (!start || !end || shotKeyframes.some((entry) => entry.frameType === 'single')) {
+    throw new Error(
+      `Shot "${shot.shotId}" must reference one "start" and one "end" keyframe for generation.`,
+    )
+  }
+
+  return [start, end]
+}
+
+function getPreviousShot(shots: ShotEntry[], shotId: string) {
+  const shotIndex = shots.findIndex((entry) => entry.shotId === shotId)
+
+  if (shotIndex === -1) {
+    throw new Error(`Cannot find shot "${shotId}" in workspace/SHOTS.json.`)
+  }
+
+  return shotIndex === 0 ? null : shots[shotIndex - 1]!
+}
+
+export function resolveKeyframeGenerationPrompt(
+  generation: Pick<PendingKeyframeGeneration, 'frameType' | 'incomingTransition' | 'prompt'>,
+) {
+  if (generation.frameType === 'end' || generation.incomingTransition.type !== 'continuity') {
+    return generation.prompt
+  }
+
+  return `${generation.prompt}\n\nContinuity handoff: ${generation.incomingTransition.notes}`
 }
 
 export function planKeyframeGenerationReferences(
-  generation: Pick<PendingKeyframeGeneration, 'keyframeId' | 'shotId' | 'frameType'> & {
+  generation: Pick<
+    PendingKeyframeGeneration,
+    'keyframeId' | 'shotId' | 'frameType' | 'incomingTransition'
+  > & {
     characterIds: readonly string[]
   },
   keyframes: KeyframeEntry[],
+  shots: ShotEntry[],
 ): GenerationReferenceEntry[] {
   const storyboardReference: GenerationReferenceEntry = {
     kind: 'storyboard',
@@ -108,8 +179,37 @@ export function planKeyframeGenerationReferences(
     }),
   )
 
-  if (generation.frameType !== 'end') {
+  if (generation.frameType !== 'end' && generation.incomingTransition.type !== 'continuity') {
     return [storyboardReference, ...characterReferences]
+  }
+
+  if (generation.frameType !== 'end') {
+    const previousShot = getPreviousShot(shots, generation.shotId)
+
+    if (!previousShot) {
+      throw new Error(
+        `Cannot generate ${generation.keyframeId}; continuity requires a previous shot before "${generation.shotId}".`,
+      )
+    }
+
+    const previousEndKeyframe = keyframes.find(
+      (entry) => entry.shotId === previousShot.shotId && entry.frameType === 'end',
+    )
+
+    if (!previousEndKeyframe) {
+      throw new Error(
+        `Cannot generate ${generation.keyframeId}; previous shot "${previousShot.shotId}" is missing an end keyframe.`,
+      )
+    }
+
+    return [
+      {
+        kind: 'previous-shot-end-frame',
+        path: previousEndKeyframe.imagePath,
+      },
+      storyboardReference,
+      ...characterReferences,
+    ]
   }
 
   const startKeyframe = keyframes.find(
@@ -151,8 +251,12 @@ async function assertReferenceFilesExist(
 
 async function main() {
   const filters = parseArgs()
-  const [keyframes, artifacts] = await Promise.all([loadKeyframes(), loadKeyframeArtifacts()])
-  const plannedGenerations = selectPendingKeyframeGenerations(keyframes, artifacts, filters)
+  const [keyframes, artifacts, shots] = await Promise.all([
+    loadKeyframes(),
+    loadKeyframeArtifacts(),
+    loadShotPrompts(),
+  ])
+  const plannedGenerations = selectPendingKeyframeGenerations(keyframes, artifacts, shots, filters)
 
   if (plannedGenerations.length === 0) {
     throw new Error(
@@ -188,11 +292,11 @@ async function main() {
       `Generating ${generation.keyframeId} with model ${generation.model} -> ${generation.outputPath}`,
     )
 
-    const references = planKeyframeGenerationReferences(generation, keyframes)
+    const references = planKeyframeGenerationReferences(generation, keyframes, shots)
     await assertReferenceFilesExist(references, generation.keyframeId)
 
     await generateImagenOptions({
-      prompt: generation.prompt,
+      prompt: resolveKeyframeGenerationPrompt(generation),
       model: generation.model,
       outputPath: generation.outputPath,
       keyframeId: generation.keyframeId,

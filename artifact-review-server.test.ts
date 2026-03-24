@@ -75,6 +75,10 @@ test('artifact review server renders the shots tab with prompt metadata and a mi
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
             durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
           },
         ],
         null,
@@ -153,6 +157,10 @@ test('artifact review server serves the canonical shot video', async () => {
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
             durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
           },
         ],
         null,

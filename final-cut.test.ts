@@ -106,6 +106,10 @@ async function createFinalCutTestRepo() {
           videoPath: 'workspace/SHOTS/SHOT-01.mp4',
           keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
           durationSeconds: 2,
+          incomingTransition: {
+            type: 'opening',
+            notes: 'Open the sequence.',
+          },
         },
         {
           shotId: 'SHOT-02',
@@ -113,6 +117,10 @@ async function createFinalCutTestRepo() {
           videoPath: 'workspace/SHOTS/SHOT-02.mp4',
           keyframeIds: ['SHOT-02-START', 'SHOT-02-END'],
           durationSeconds: 2,
+          incomingTransition: {
+            type: 'continuity',
+            notes: 'Carry the setup forward.',
+          },
         },
       ],
       null,

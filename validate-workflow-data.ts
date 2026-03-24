@@ -184,16 +184,28 @@ function validateShotArtifacts(shots: ShotEntry[], artifacts: ShotArtifactEntry[
   }
 }
 
-function validateShots(keyframes: KeyframeEntry[], shots: ShotEntry[]) {
+export function validateShots(keyframes: KeyframeEntry[], shots: ShotEntry[]) {
   const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
   const shotIds = new Set<string>()
 
-  for (const shot of shots) {
+  for (const [index, shot] of shots.entries()) {
     if (shotIds.has(shot.shotId)) {
       throw new Error(`Duplicate shotId "${shot.shotId}" in workspace/SHOTS.json.`)
     }
 
     shotIds.add(shot.shotId)
+
+    if (index === 0 && shot.incomingTransition.type !== 'opening') {
+      throw new Error(
+        `Shot "${shot.shotId}" is the first SHOTS.json entry, so incomingTransition.type must be "opening".`,
+      )
+    }
+
+    if (index > 0 && shot.incomingTransition.type === 'opening') {
+      throw new Error(
+        `Shot "${shot.shotId}" may not use incomingTransition.type "opening" unless it is the first SHOTS.json entry.`,
+      )
+    }
 
     if (shot.keyframeIds.length === 0 || shot.keyframeIds.length > 2) {
       throw new Error(
@@ -307,7 +319,9 @@ async function main() {
   )
 }
 
-main().catch((error) => {
-  console.error(error)
-  process.exitCode = 1
-})
+if (import.meta.main) {
+  main().catch((error) => {
+    console.error(error)
+    process.exitCode = 1
+  })
+}

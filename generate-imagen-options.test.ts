@@ -18,3 +18,16 @@ test('buildPromptText tells keyframe generation which storyboard panel to use', 
   expect(prompt).toContain('Focus on the panel labeled "SHOT-02"')
   expect(prompt).toContain('Reference 2 is a character identity sheet.')
 })
+
+test('buildPromptText explains previous-shot continuity references', () => {
+  const prompt = buildPromptText(
+    'Render the continuity start frame.',
+    [{ kind: 'previous-shot-end-frame', path: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png' }],
+    '16:9',
+    'google/gemini-3.1-flash-image-preview',
+    'SHOT-02',
+  )
+
+  expect(prompt).toContain('Reference 1 is the previous shot end frame.')
+  expect(prompt).toContain('preserve cross-shot continuity')
+})
