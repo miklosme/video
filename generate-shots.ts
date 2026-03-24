@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { access, appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
+import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import {
   getCharacterSheetImagePath,
   loadCharacterSheets,
@@ -398,6 +399,10 @@ export async function syncShotGenerations(
       await writeFile(absoluteOutputPath, result.data)
       outputPaths.push(absoluteOutputPath)
       completedAt = new Date().toISOString()
+      captureWorkflowEvent('shot_generated', {
+        shotId: generation.shotId,
+        model: generation.model,
+      })
       generatedCount += 1
     } catch (error) {
       completedAt = new Date().toISOString()
@@ -405,6 +410,11 @@ export async function syncShotGenerations(
         name: error instanceof Error ? error.name : 'Error',
         message: error instanceof Error ? error.message : String(error),
       }
+      captureWorkflowEvent('shot_generation_failed', {
+        shotId: generation.shotId,
+        model: generation.model,
+        error: errorDetails.message,
+      })
       throw error
     } finally {
       await appendGenerationLog({
@@ -472,8 +482,10 @@ async function main() {
 }
 
 if (import.meta.main) {
-  main().catch((error) => {
-    console.error(error)
-    process.exitCode = 1
-  })
+  main()
+    .catch((error) => {
+      console.error(error)
+      process.exitCode = 1
+    })
+    .finally(() => shutdownPostHog())
 }

@@ -4,6 +4,7 @@ import path from 'node:path'
 import arg from 'arg'
 
 import { generateImagenOptions } from './generate-imagen-options'
+import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import {
   getCharacterSheetImagePath,
   loadCharacterSheets,
@@ -94,6 +95,10 @@ async function main() {
       references: [],
     })
 
+    captureWorkflowEvent('character_sheet_generated', {
+      characterId: generation.characterId,
+      model: generation.model,
+    })
     generatedCount += 1
   }
 
@@ -103,8 +108,10 @@ async function main() {
 }
 
 if (import.meta.main) {
-  main().catch((error) => {
-    console.error(error)
-    process.exitCode = 1
-  })
+  main()
+    .catch((error) => {
+      console.error(error)
+      process.exitCode = 1
+    })
+    .finally(() => shutdownPostHog())
 }

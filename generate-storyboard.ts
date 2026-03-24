@@ -2,6 +2,7 @@ import { access, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import { generateImagenOptions } from './generate-imagen-options'
+import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import {
   getStoryboardImagePath,
   loadConfig,
@@ -83,12 +84,15 @@ async function main() {
     references: [],
   })
 
+  captureWorkflowEvent('storyboard_generated', { model: generation.model })
   console.log('Storyboard sync complete. Generated 1; skipped 0 existing images.')
 }
 
 if (import.meta.main) {
-  main().catch((error) => {
-    console.error(error)
-    process.exitCode = 1
-  })
+  main()
+    .catch((error) => {
+      console.error(error)
+      process.exitCode = 1
+    })
+    .finally(() => shutdownPostHog())
 }

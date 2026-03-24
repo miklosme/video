@@ -54,6 +54,14 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `bun run remotion:render` uses the same `workspace/FINAL-CUT.json` manifest to render the `final-cut` composition to `outputs/final.mp4` by default.
 - `generate-imagen-options.ts` preserves the direct CLI contract, uses the Vercel AI Gateway through the AI SDK, supports `AI_GATEWAY_API_KEY`, and appends generation records to `workspace/GENERATION-LOG.jsonl`.
 
+## Telemetry
+
+- PostHog telemetry is optional. Set `POSTHOG_KEY` and optionally `POSTHOG_HOST` to enable it.
+- The app stores a stable anonymous local install ID outside the repo and adds a fresh session ID for each run plus a trace ID for each agent turn.
+- v1 PostHog LLM analytics targets the text agent path in `app.tsx` and `video-agent-core.ts`. Full prompt and completion traces are sent for those agent turns.
+- Image generation, video generation, and Remotion still use lightweight custom workflow events only in v1. They are not wired into PostHog LLM analytics or model-cost reporting yet.
+- The existing workflow events remain available for coarse product telemetry such as config saves, milestone resets, generation success/failure, and render starts.
+
 ## Commit Workflow
 
 - `.current-commit-message` is a local scratch file that the coding agent updates after successful validation with a terse commit subject suffix.

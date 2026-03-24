@@ -6,6 +6,7 @@ import { stepCountIs, tool, ToolLoopAgent, type ModelMessage } from 'ai'
 import { z } from 'zod'
 
 import { ensureFinalCutManifest, resolveFinalCutProps } from './final-cut'
+import { posthogTelemetry, type PostHogTelemetry } from './posthog'
 import {
   DEFAULT_VIDEO_DURATION_SECONDS,
   loadCharacterSheets,
@@ -156,20 +157,7 @@ export interface VideoAgentRuntimeEvents {
 }
 
 export interface VideoAgentRunner {
-  stream: (args: {
-    messages: ModelMessage[]
-    experimental_onToolCallStart?: (event: {
-      toolCall: {
-        toolName: string
-      }
-    }) => void
-    experimental_onToolCallFinish?: (event: {
-      toolCall: {
-        toolName: string
-      }
-      success: boolean
-    }) => void
-  }) => Promise<{
+  stream: (args: any) => Promise<{
     textStream: AsyncIterable<string>
     text: PromiseLike<string>
   }>
@@ -180,6 +168,7 @@ export interface VideoAgentRuntimeOptions extends VideoAgentRuntimeEvents {
   creativePrompt?: string
   creativePromptPath?: string
   promptingGuidePath?: string
+  telemetry?: PostHogTelemetry
   createAgent?: (options: { instructions: string; model: string }) => VideoAgentRunner
 }
 
@@ -187,6 +176,7 @@ export interface RunTurnOptions {
   userInput: string
   transcript: TranscriptEntry[]
   onTextDelta?: (delta: string) => void
+  traceId?: string
 }
 
 export interface VideoAgentRuntime {
@@ -529,8 +519,31 @@ function countChangedLines(previousContent: string | null, nextContent: string) 
   }
 }
 
+function summarizeToolNames(toolCalls: Array<{ toolName?: string }>) {
+  return toolCalls.map((toolCall) => toolCall.toolName).filter(Boolean)
+}
+
+function buildAiOutputChoices(
+  text: string,
+  toolCalls: Array<{ toolName?: string }>,
+  response: unknown[],
+) {
+  if (response.length > 0) {
+    return response
+  }
+
+  return [
+    {
+      role: 'assistant',
+      content: text,
+      toolCalls: summarizeToolNames(toolCalls),
+    },
+  ]
+}
+
 export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}): VideoAgentRuntime {
   const rootDir = path.resolve(options.rootDir ?? process.cwd())
+  const telemetry = options.telemetry ?? posthogTelemetry
   let eventHandlers: VideoAgentRuntimeEvents = {
     onToolEvent: options.onToolEvent,
     onFileChange: options.onFileChange,
@@ -1602,12 +1615,14 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
     resetWorkflowFromMilestone(startIndex) {
       return resetWorkflowFromMilestoneInternal(startIndex)
     },
-    async runTurn({ userInput, transcript, onTextDelta }) {
+    async runTurn({ userInput, transcript, onTextDelta, traceId }) {
       const trimmedInput = userInput.trim()
 
       if (trimmedInput.length === 0) {
         throw new Error('User input must not be empty.')
       }
+
+      const turnTraceId = traceId ?? telemetry.createTraceId()
 
       let initialWorkflow = await loadWorkflowSummaryInternal()
       emitWorkflowChange(initialWorkflow)
@@ -1627,36 +1642,127 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         resolveWorkspacePath(rootDir, WORKFLOW_FILES.status),
         'utf8',
       )
+      const messages = [
+        buildRuntimeDirective(initialWorkflow, rawStatusContent),
+        ...buildAgentMessages(trimmedInput, transcript),
+      ]
       const agent = await getAgent(initialWorkflow.config.agentModel)
-      const result = await agent.stream({
-        messages: [
-          buildRuntimeDirective(initialWorkflow, rawStatusContent),
-          ...buildAgentMessages(trimmedInput, transcript),
-        ],
-        experimental_onToolCallStart: ({ toolCall }) => {
-          emitToolEvent(`Running ${toolCall.toolName}`)
-        },
-        experimental_onToolCallFinish: ({ toolCall, success }) => {
-          emitToolEvent(`${success ? 'Completed' : 'Failed'} ${toolCall.toolName}`)
-        },
-      })
-
       let streamedText = ''
+      const pendingSteps = new Map<
+        number,
+        {
+          startedAt: number
+          messages: ModelMessage[]
+          model: {
+            provider: string
+            modelId: string
+          }
+        }
+      >()
 
-      for await (const delta of result.textStream) {
-        streamedText += delta
-        onTextDelta?.(delta)
-      }
+      try {
+        const result = await agent.stream({
+          messages,
+          experimental_telemetry: {
+            isEnabled: true,
+            recordInputs: true,
+            recordOutputs: true,
+            functionId: 'video_agent_turn',
+            metadata: {
+              traceId: turnTraceId,
+            },
+          },
+          experimental_onStepStart: (event: any) => {
+            pendingSteps.set(event.stepNumber, {
+              startedAt: Date.now(),
+              messages: event.messages,
+              model: event.model,
+            })
+          },
+          experimental_onToolCallStart: ({ toolCall }: any) => {
+            emitToolEvent(`Running ${toolCall.toolName}`)
+          },
+          experimental_onToolCallFinish: ({ toolCall, success }: any) => {
+            emitToolEvent(`${success ? 'Completed' : 'Failed'} ${toolCall.toolName}`)
+          },
+          onStepFinish: (event: any) => {
+            const pendingStep = pendingSteps.get(event.stepNumber)
+            pendingSteps.delete(event.stepNumber)
 
-      const finalText = (await result.text).trim()
-      const finalWorkflow = await loadWorkflowSummaryInternal()
-      emitWorkflowChange(finalWorkflow)
+            telemetry.captureAiGeneration({
+              traceId: turnTraceId,
+              spanId: event.response.id,
+              spanName: `video_agent_step_${event.stepNumber + 1}`,
+              provider: event.model.provider,
+              model: event.model.modelId,
+              input: pendingStep?.messages ?? messages,
+              outputChoices: buildAiOutputChoices(
+                event.text,
+                event.toolCalls,
+                event.response.messages,
+              ),
+              toolCalls: summarizeToolNames(event.toolCalls),
+              toolResults: event.toolResults,
+              modelParameters: event.request.body,
+              providerMetadata: event.providerMetadata,
+              metadata: event.metadata,
+              requestBody: event.request.body,
+              responseBody: event.response.body,
+              responseId: event.response.id,
+              statusCode: 200,
+              latencyMs: pendingStep ? Date.now() - pendingStep.startedAt : undefined,
+              usage: {
+                inputTokens: event.usage.inputTokens,
+                outputTokens: event.usage.outputTokens,
+                totalTokens: event.usage.totalTokens,
+                reasoningTokens: event.usage.reasoningTokens,
+                cacheReadInputTokens: event.usage.cachedInputTokens,
+                cacheCreationInputTokens: event.usage.inputTokenDetails?.cacheWriteTokens,
+              },
+              finishReason: event.finishReason,
+              rawFinishReason: event.rawFinishReason,
+              error: null,
+            })
+          },
+        })
 
-      return {
-        text: finalText.length > 0 ? finalText : streamedText || 'No response generated.',
-        initialWorkflow,
-        finalWorkflow,
-        bootstrappedFiles,
+        for await (const delta of result.textStream) {
+          streamedText += delta
+          onTextDelta?.(delta)
+        }
+
+        const finalText = (await result.text).trim()
+        const finalWorkflow = await loadWorkflowSummaryInternal()
+        emitWorkflowChange(finalWorkflow)
+
+        return {
+          text: finalText.length > 0 ? finalText : streamedText || 'No response generated.',
+          initialWorkflow,
+          finalWorkflow,
+          bootstrappedFiles,
+        }
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+
+        for (const [stepNumber, pendingStep] of pendingSteps.entries()) {
+          telemetry.captureAiGeneration({
+            traceId: turnTraceId,
+            spanName: `video_agent_step_${stepNumber + 1}`,
+            provider: pendingStep.model.provider,
+            model: pendingStep.model.modelId,
+            input: pendingStep.messages,
+            outputChoices:
+              streamedText.length > 0 ? [{ role: 'assistant', content: streamedText }] : [],
+            statusCode: 500,
+            latencyMs: Date.now() - pendingStep.startedAt,
+            error: {
+              name: error instanceof Error ? error.name : 'Error',
+              message,
+            },
+          })
+        }
+
+        throw error
       }
     },
   }

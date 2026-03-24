@@ -4,6 +4,7 @@ import path from 'node:path'
 import arg from 'arg'
 
 import { generateImagenOptions } from './generate-imagen-options'
+import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import {
   getCharacterSheetImagePath,
   getStoryboardImagePath,
@@ -175,6 +176,10 @@ async function main() {
       console.log(
         `Skipping ${generation.keyframeId} with model ${generation.model}; image already exists at ${generation.outputPath}`,
       )
+      captureWorkflowEvent('keyframe_generation_skipped', {
+        keyframeId: generation.keyframeId,
+        shotId: generation.shotId,
+      })
       skippedCount += 1
       continue
     }
@@ -196,6 +201,11 @@ async function main() {
       references,
     })
 
+    captureWorkflowEvent('keyframe_generated', {
+      keyframeId: generation.keyframeId,
+      shotId: generation.shotId,
+      model: generation.model,
+    })
     generatedCount += 1
   }
 
@@ -205,8 +215,10 @@ async function main() {
 }
 
 if (import.meta.main) {
-  main().catch((error) => {
-    console.error(error)
-    process.exitCode = 1
-  })
+  main()
+    .catch((error) => {
+      console.error(error)
+      process.exitCode = 1
+    })
+    .finally(() => shutdownPostHog())
 }

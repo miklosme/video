@@ -6,6 +6,7 @@ import process from 'node:process'
 import { spawn, type ChildProcess } from 'node:child_process'
 
 import { ensureFinalCutManifest, resolveFinalCutProps } from './final-cut'
+import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import { startWorkspaceAssetServer } from './workspace-asset-server'
 
 type RemotionMode = 'studio' | 'render'
@@ -194,6 +195,8 @@ async function runRemotion(mode: RemotionMode, extraArgs: string[]) {
             ...extraArgs,
           ]
 
+    captureWorkflowEvent('remotion_render_started', { mode })
+
     const exitCode = await new Promise<number>((resolve, reject) => {
       const child = spawn(remotionBinary, renderArgs, {
         cwd,
@@ -223,5 +226,5 @@ async function main() {
 }
 
 if (import.meta.main) {
-  await main()
+  await main().finally(() => shutdownPostHog())
 }

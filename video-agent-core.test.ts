@@ -8,6 +8,7 @@ import {
   planKeyframeGenerationReferences,
   selectPendingKeyframeGenerations,
 } from './generate-keyframes'
+import type { AiGenerationEventInput, PostHogTelemetry, WorkflowEventProperties } from './posthog'
 import { createVideoAgentRuntime, type WorkflowSummary } from './video-agent-core'
 import { loadKeyframes, type KeyframeEntry } from './workflow-data'
 
@@ -838,6 +839,283 @@ test('runTurn emits callbacks in the expected order', async () => {
       'delta: world',
       'workflow:incomplete',
     ])
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+function createMockTelemetry(traceId = 'trace-test') {
+  const workflowEvents: Array<{ event: string; properties?: Record<string, unknown> }> = []
+  const aiGenerations: AiGenerationEventInput[] = []
+
+  return {
+    telemetry: {
+      isEnabled: true,
+      distinctId: 'install-test',
+      sessionId: 'session-test',
+      createTraceId: () => traceId,
+      captureWorkflowEvent: (event: string, properties?: WorkflowEventProperties) => {
+        workflowEvents.push({ event, properties })
+      },
+      captureAiGeneration: (event: AiGenerationEventInput) => {
+        aiGenerations.push(event)
+      },
+      shutdown: async () => {},
+    } satisfies PostHogTelemetry,
+    workflowEvents,
+    aiGenerations,
+  }
+}
+
+test('runTurn captures AI generation telemetry for a successful step', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/CONFIG.json', createValidConfig())
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/STATUS.json',
+      createWorkflowStatus([
+        {
+          title: 'Clarify idea',
+          instruction: 'Capture the project brief.',
+          checked: true,
+          relatedFiles: ['IDEA.md'],
+        },
+      ]),
+    )
+    await writeRepoFile(repo.rootDir, 'workspace/IDEA.md', '# Idea\n\nTelemetry test idea.\n')
+
+    const { telemetry, aiGenerations } = createMockTelemetry('trace-success')
+    const runtime = createVideoAgentRuntime({
+      rootDir: repo.rootDir,
+      creativePrompt: 'test',
+      telemetry,
+      createAgent: () => ({
+        stream: async ({ messages, experimental_onStepStart, onStepFinish }) => {
+          experimental_onStepStart?.({
+            stepNumber: 0,
+            model: { provider: 'gateway', modelId: 'openai/gpt-5.4' },
+            messages,
+          })
+
+          onStepFinish?.({
+            stepNumber: 0,
+            model: { provider: 'gateway', modelId: 'openai/gpt-5.4' },
+            text: 'Telemetry success',
+            toolCalls: [{ toolName: 'readWorkspaceFile' }],
+            toolResults: [{ ok: true }],
+            finishReason: 'stop',
+            rawFinishReason: 'stop',
+            usage: {
+              inputTokens: 11,
+              outputTokens: 7,
+              totalTokens: 18,
+              reasoningTokens: 2,
+              cachedInputTokens: 3,
+              inputTokenDetails: {
+                cacheWriteTokens: 1,
+              },
+            },
+            request: {
+              body: {
+                temperature: 0.2,
+              },
+            },
+            response: {
+              id: 'resp-success',
+              body: {
+                ok: true,
+              },
+              messages: [{ role: 'assistant', content: 'Telemetry success' }],
+            },
+            providerMetadata: { route: 'primary' },
+            metadata: { traceId: 'trace-success' },
+          })
+
+          return {
+            textStream: (async function* () {
+              yield 'Telemetry success'
+            })(),
+            text: Promise.resolve('Telemetry success'),
+          }
+        },
+      }),
+    })
+
+    const result = await runtime.runTurn({
+      userInput: 'Tell me something useful.',
+      transcript: [],
+      traceId: 'trace-success',
+    })
+
+    expect(result.text).toBe('Telemetry success')
+    expect(aiGenerations).toHaveLength(1)
+    expect(aiGenerations[0]).toMatchObject({
+      traceId: 'trace-success',
+      spanId: 'resp-success',
+      spanName: 'video_agent_step_1',
+      provider: 'gateway',
+      model: 'openai/gpt-5.4',
+      finishReason: 'stop',
+      rawFinishReason: 'stop',
+      usage: {
+        inputTokens: 11,
+        outputTokens: 7,
+        totalTokens: 18,
+        reasoningTokens: 2,
+        cacheReadInputTokens: 3,
+        cacheCreationInputTokens: 1,
+      },
+    })
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('runTurn captures failed AI telemetry for an unfinished step', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/CONFIG.json', createValidConfig())
+    await writeRepoFile(repo.rootDir, 'workspace/STATUS.json', createWorkflowStatus([]))
+
+    const { telemetry, aiGenerations } = createMockTelemetry('trace-failure')
+    const runtime = createVideoAgentRuntime({
+      rootDir: repo.rootDir,
+      creativePrompt: 'test',
+      telemetry,
+      createAgent: () => ({
+        stream: async ({ messages, experimental_onStepStart }) => {
+          experimental_onStepStart?.({
+            stepNumber: 0,
+            model: { provider: 'gateway', modelId: 'openai/gpt-5.4' },
+            messages,
+          })
+
+          throw new Error('LLM exploded')
+        },
+      }),
+    })
+
+    await expect(
+      runtime.runTurn({
+        userInput: 'Break please.',
+        transcript: [],
+        traceId: 'trace-failure',
+      }),
+    ).rejects.toThrow('LLM exploded')
+
+    expect(aiGenerations).toHaveLength(1)
+    expect(aiGenerations[0]).toMatchObject({
+      traceId: 'trace-failure',
+      spanName: 'video_agent_step_1',
+      provider: 'gateway',
+      model: 'openai/gpt-5.4',
+      statusCode: 500,
+      error: {
+        name: 'Error',
+        message: 'LLM exploded',
+      },
+    })
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('runTurn emits one AI generation event per completed step', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/CONFIG.json', createValidConfig())
+    await writeRepoFile(repo.rootDir, 'workspace/STATUS.json', createWorkflowStatus([]))
+
+    const { telemetry, aiGenerations } = createMockTelemetry('trace-multi')
+    const runtime = createVideoAgentRuntime({
+      rootDir: repo.rootDir,
+      creativePrompt: 'test',
+      telemetry,
+      createAgent: () => ({
+        stream: async ({ messages, experimental_onStepStart, onStepFinish }) => {
+          experimental_onStepStart?.({
+            stepNumber: 0,
+            model: { provider: 'gateway', modelId: 'openai/gpt-5.4' },
+            messages,
+          })
+          onStepFinish?.({
+            stepNumber: 0,
+            model: { provider: 'gateway', modelId: 'openai/gpt-5.4' },
+            text: '',
+            toolCalls: [{ toolName: 'readWorkspaceFile' }],
+            toolResults: [{ fileName: 'IDEA.md' }],
+            finishReason: 'tool-calls',
+            rawFinishReason: 'tool-calls',
+            usage: {},
+            request: { body: { step: 1 } },
+            response: {
+              id: 'resp-step-1',
+              messages: [{ role: 'assistant', content: '', tool_calls: ['readWorkspaceFile'] }],
+            },
+          })
+
+          experimental_onStepStart?.({
+            stepNumber: 1,
+            model: { provider: 'gateway', modelId: 'openai/gpt-5.4' },
+            messages,
+          })
+          onStepFinish?.({
+            stepNumber: 1,
+            model: { provider: 'gateway', modelId: 'openai/gpt-5.4' },
+            text: 'Final answer',
+            toolCalls: [],
+            toolResults: [],
+            finishReason: 'stop',
+            rawFinishReason: 'stop',
+            usage: {
+              inputTokens: 4,
+              outputTokens: 5,
+              totalTokens: 9,
+            },
+            request: { body: { step: 2 } },
+            response: {
+              id: 'resp-step-2',
+              messages: [{ role: 'assistant', content: 'Final answer' }],
+            },
+          })
+
+          return {
+            textStream: (async function* () {
+              yield 'Final answer'
+            })(),
+            text: Promise.resolve('Final answer'),
+          }
+        },
+      }),
+    })
+
+    await runtime.runTurn({
+      userInput: 'Two steps please.',
+      transcript: [],
+      traceId: 'trace-multi',
+    })
+
+    expect(aiGenerations).toHaveLength(2)
+    expect(aiGenerations[0]).toMatchObject({
+      traceId: 'trace-multi',
+      spanId: 'resp-step-1',
+      finishReason: 'tool-calls',
+      toolCalls: ['readWorkspaceFile'],
+    })
+    expect(aiGenerations[1]).toMatchObject({
+      traceId: 'trace-multi',
+      spanId: 'resp-step-2',
+      finishReason: 'stop',
+      usage: {
+        inputTokens: 4,
+        outputTokens: 5,
+        totalTokens: 9,
+      },
+    })
   } finally {
     await repo.cleanup()
   }

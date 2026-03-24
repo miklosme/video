@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
 import { startArtifactReviewServer, type ArtifactReviewServer } from './artifact-review-server'
+import { captureWorkflowEvent, createTraceId, shutdownPostHog } from './posthog'
 import { startManagedRemotionStudio, type ManagedRemotionStudio } from './remotion-workflow'
 import {
   createVideoAgentRuntime,
@@ -645,6 +646,7 @@ function App({
 
     try {
       await runtime.resetWorkflowFromMilestone(pendingResetIndex)
+      captureWorkflowEvent('milestone_reset_confirmed')
       setPendingResetIndex(null)
     } catch (error) {
       setRuntimeErrorState(error instanceof Error ? error.message : String(error))
@@ -690,6 +692,7 @@ function App({
     try {
       validateConfigAgainstModelOptions(nextConfig, workflow.modelOptions)
       await runtime.writeWorkspaceFile(WORKFLOW_FILES.config, JSON.stringify(nextConfig, null, 2))
+      captureWorkflowEvent('config_saved')
       setOpenConfigField(null)
     } catch (error) {
       setRuntimeErrorState(error instanceof Error ? error.message : String(error))
@@ -761,6 +764,7 @@ function App({
 
     const assistantEntryId = createId('assistant')
     const priorTranscript = transcriptRef.current
+    const traceId = createTraceId()
     activeAssistantEntryIdRef.current = assistantEntryId
     assistantHasStartedRef.current = false
 
@@ -777,10 +781,16 @@ function App({
       },
     )
 
+    captureWorkflowEvent('agent_turn_submitted', {
+      traceId,
+      turnId: assistantEntryId,
+    })
+
     try {
       const result = await runtime.runTurn({
         userInput: trimmedInput,
         transcript: priorTranscript,
+        traceId,
         onTextDelta: (delta) => {
           if (!assistantHasStartedRef.current && delta.length > 0) {
             assistantHasStartedRef.current = true
@@ -798,9 +808,18 @@ function App({
         text: result.text.length > 0 ? result.text : entry.text || 'No response generated.',
       }))
       assistantHasStartedRef.current = result.text.length > 0
+      captureWorkflowEvent('agent_turn_completed', {
+        traceId,
+        turnId: assistantEntryId,
+      })
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
 
+      captureWorkflowEvent('agent_turn_failed', {
+        traceId,
+        turnId: assistantEntryId,
+        error: message,
+      })
       setRuntimeErrorState(message)
       patchTranscriptEntry(assistantEntryId, (entry) => ({
         ...entry,
@@ -1172,6 +1191,7 @@ async function main() {
       await stopArtifactReviewServer()
       await stopRemotionStudio()
       await statePersistence.flush()
+      await shutdownPostHog()
       renderer?.destroy()
       process.exit(exitCode)
     })()
