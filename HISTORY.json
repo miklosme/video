@@ -275,14 +275,154 @@
       "id": "assistant-1774457368028-bkixkh",
       "role": "assistant",
       "text": "I turned your beats into a tight 5-shot storyboard with a clean deadpan build and a warmer final push-in.\n\nWhat’s working in this version:\n- **Shot 1** establishes the whole joke immediately in one readable frame.\n- **Shot 2** gives the pause the scene needs so the comedy can breathe.\n- **Shot 3** sharpens the setup by isolating the doctor’s question.\n- **Shot 4** lets the panda’s desperation spike just enough.\n- **Shot 5** gives the punchline a subtle emotional weight instead of playing it broad.\n\nOne thing I’d keep an eye on: you call him **psychiatrist** in the shot description but **psychologist/doctor** elsewhere. For consistency, I’d treat him as a **psychologist** unless you specifically want a more medical read.\n\nThe next practical move is to generate the storyboard board and check whether the framing rhythm really lands visually before we lock keyframes."
+    },
+    {
+      "id": "user-1774457628497-2o5j41",
+      "role": "user",
+      "text": "i checked the character sheets. please add one detail to the panda: it should be female"
+    },
+    {
+      "id": "tool-1774457630811-dhvjot",
+      "role": "tool",
+      "text": "Running getCreativeContext"
+    },
+    {
+      "id": "tool-1774457630813-y11eyg",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774457630813-b2i71f",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774457630814-xsi05d",
+      "role": "tool",
+      "text": "Running readPromptingGuide"
+    },
+    {
+      "id": "tool-1774457630814-d7ofmz",
+      "role": "tool",
+      "text": "Running readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774457630815-fgwokr",
+      "role": "tool",
+      "text": "Read MODEL_PROMPTING_GUIDE.md"
+    },
+    {
+      "id": "tool-1774457630815-oqqlgz",
+      "role": "tool",
+      "text": "Completed readPromptingGuide"
+    },
+    {
+      "id": "tool-1774457630815-vhsxd0",
+      "role": "tool",
+      "text": "Read CHARACTERS/"
+    },
+    {
+      "id": "tool-1774457630816-ffb7gz",
+      "role": "tool",
+      "text": "Completed readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774457630816-axtz6f",
+      "role": "tool",
+      "text": "Read CONFIG.json"
+    },
+    {
+      "id": "tool-1774457630816-7rwtbe",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774457630816-enysub",
+      "role": "tool",
+      "text": "Read CHARACTERS.md"
+    },
+    {
+      "id": "tool-1774457630816-vjjkds",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774457630822-yvhs92",
+      "role": "tool",
+      "text": "Completed getCreativeContext"
+    },
+    {
+      "id": "tool-1774457633896-74dckj",
+      "role": "tool",
+      "text": "Running readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774457633897-74azdz",
+      "role": "tool",
+      "text": "Running readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774457633897-29hk7k",
+      "role": "tool",
+      "text": "Read CHARACTERS/panda-patient.json"
+    },
+    {
+      "id": "tool-1774457633897-1cch2a",
+      "role": "tool",
+      "text": "Completed readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774457633897-grohc6",
+      "role": "tool",
+      "text": "Read CHARACTERS/psychologist.json"
+    },
+    {
+      "id": "tool-1774457633897-g690f1",
+      "role": "tool",
+      "text": "Completed readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774457639451-9afrcb",
+      "role": "tool",
+      "text": "Running writeWorkspaceFile"
+    },
+    {
+      "id": "tool-1774457639464-znu2un",
+      "role": "tool",
+      "text": "Updated CHARACTERS.md (+15 -15)"
+    },
+    {
+      "id": "tool-1774457639464-awrklz",
+      "role": "tool",
+      "text": "Completed writeWorkspaceFile"
+    },
+    {
+      "id": "tool-1774457643891-kmvtfa",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774457643906-8uk6ts",
+      "role": "tool",
+      "text": "Updated CHARACTERS/panda-patient.json"
+    },
+    {
+      "id": "tool-1774457643914-ifkc6i",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "assistant-1774457628497-4ype26",
+      "role": "assistant",
+      "text": "Done — the panda is now canonically **female**, and I updated the reference prompt accordingly.\n\nThat small change helps the emotional read: it makes the vulnerability feel a touch more specific and can give the performance a slightly different softness without changing the joke structure.\n\nNext beat is still the storyboard board review before we lock keyframes."
     }
   ],
   "recentChanges": [
+    "CHARACTERS/panda-patient.json",
+    "CHARACTERS.md",
     "STORYBOARD.md",
     "CHARACTERS/psychologist.json",
-    "CHARACTERS/panda-patient.json",
     "CHARACTERS/",
-    "CHARACTERS.md",
     "CONFIG.json",
     "STORY.md"
   ],

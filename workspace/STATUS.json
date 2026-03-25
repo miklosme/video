@@ -26,7 +26,7 @@
   {
     "title": "Review character sheets",
     "instruction": "Generate and review one canonical PNG per character as a clean single-subject reference image for downstream video, not a grid, collage, or stylized hero shot.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["CHARACTERS/"]
   },
   {
