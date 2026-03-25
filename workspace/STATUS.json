@@ -2,7 +2,7 @@
   {
     "title": "Define concept",
     "instruction": "Establish the core premise, subject, and transformation clearly enough that the project has a specific creative identity and can move into story development.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["IDEA.md"]
   },
   {

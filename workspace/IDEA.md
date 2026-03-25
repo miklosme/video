@@ -1,23 +1,8 @@
 # IDEA
 
-## Core Concept
+Short video of a panda at the psychologist.
 
-A simple dog food advert centered on a striking, magical transformation: a yellow Lab eats the food and becomes a brown Lab.
-
-## Subject
-
-Dog food / pet nutrition ad.
-
-## Transformation
-
-Yellow Lab -> brown Lab after eating the food.
-
-## Creative Identity
-
-A clean, memorable, visually simple product spot built around a single impossible change that makes the food feel special.
-
-## Notes
-
-- Keep the concept direct and easy to read.
-- The transformation is the key hook.
-- Further story and visual tone to be developed next.
+Panda: "Everybody hates me. Either because of my black side or because of my white side."
+Psychologist: "And which one do you like better?"
+Panda: "Neither."
+Psychologist: "Then that’s where we start."

@@ -89,11 +89,11 @@ posthog.flush()
 ### Returns
 
 - `Promise<{
-      distinctId: string;
-      event: string;
-      properties: PostHogEventProperties;
-      options: PostHogCaptureOptions;
-  }>`
+    distinctId: string;
+    event: string;
+    properties: PostHogEventProperties;
+    options: PostHogCaptureOptions;
+}>`
 
 ### Examples
 
@@ -439,10 +439,10 @@ Create an alias to link two distinct IDs together.
 ### Parameters
 
 - **`data`** (`{
-      distinctId: string;
-      alias: string;
-      disableGeoip?: boolean;
-  }`) - The alias data containing distinctId and alias
+    distinctId: string;
+    alias: string;
+    disableGeoip?: boolean;
+}`) - The alias data containing distinctId and alias
 
 ### Returns
 
@@ -469,10 +469,10 @@ Create an alias to link two distinct IDs together immediately (synchronously).
 ### Parameters
 
 - **`data`** (`{
-      distinctId: string;
-      alias: string;
-      disableGeoip?: boolean;
-  }`) - The alias data containing distinctId and alias
+    distinctId: string;
+    alias: string;
+    disableGeoip?: boolean;
+}`) - The alias data containing distinctId and alias
 
 ### Returns
 
@@ -961,13 +961,13 @@ Get the value of a feature flag for a specific user.
 - **`key`** (`string`) - The feature flag key
 - **`distinctId`** (`string`) - The user's distinct ID
 - **`options?`** (`{
-      groups?: Record<string, string>;
-      personProperties?: Record<string, string>;
-      groupProperties?: Record<string, Record<string, string>>;
-      onlyEvaluateLocally?: boolean;
-      sendFeatureFlagEvents?: boolean;
-      disableGeoip?: boolean;
-  }`) - Optional configuration for flag evaluation
+    groups?: Record<string, string>;
+    personProperties?: Record<string, string>;
+    groupProperties?: Record<string, Record<string, string>>;
+    onlyEvaluateLocally?: boolean;
+    sendFeatureFlagEvents?: boolean;
+    disableGeoip?: boolean;
+}`) - Optional configuration for flag evaluation
 
 ### Returns
 
@@ -1026,13 +1026,13 @@ Get the payload for a feature flag.
 - **`distinctId`** (`string`) - The user's distinct ID
 - **`matchValue?`** (`FeatureFlagValue`) - Optional match value to get payload for
 - **`options?`** (`{
-      groups?: Record<string, string>;
-      personProperties?: Record<string, string>;
-      groupProperties?: Record<string, Record<string, string>>;
-      onlyEvaluateLocally?: boolean;
-      sendFeatureFlagEvents?: boolean;
-      disableGeoip?: boolean;
-  }`) - Optional configuration for flag evaluation
+    groups?: Record<string, string>;
+    personProperties?: Record<string, string>;
+    groupProperties?: Record<string, Record<string, string>>;
+    onlyEvaluateLocally?: boolean;
+    sendFeatureFlagEvents?: boolean;
+    disableGeoip?: boolean;
+}`) - Optional configuration for flag evaluation
 
 ### Returns
 
@@ -1156,13 +1156,13 @@ Check if a feature flag is enabled for a specific user.
 - **`key`** (`string`) - The feature flag key
 - **`distinctId`** (`string`) - The user's distinct ID
 - **`options?`** (`{
-      groups?: Record<string, string>;
-      personProperties?: Record<string, string>;
-      groupProperties?: Record<string, Record<string, string>>;
-      onlyEvaluateLocally?: boolean;
-      sendFeatureFlagEvents?: boolean;
-      disableGeoip?: boolean;
-  }`) - Optional configuration for flag evaluation
+    groups?: Record<string, string>;
+    personProperties?: Record<string, string>;
+    groupProperties?: Record<string, Record<string, string>>;
+    onlyEvaluateLocally?: boolean;
+    sendFeatureFlagEvents?: boolean;
+    disableGeoip?: boolean;
+}`) - Optional configuration for flag evaluation
 
 ### Returns
 
