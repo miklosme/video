@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-03-END",
+  "shotId": "SHOT-03",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the same close-up on the female psychologist in the therapy room as the question finishes landing. Follow the panel labeled SHOT-03 in STORYBOARD.png as the upstream visual reference. Her expression remains controlled and warm, eye line steady toward the panda, with only the slightest facial shift to suggest the end of the line. Soft even light, clean uncluttered background, realistic detail, minimal deadpan performance, no extra subjects, stable continuity, 16:9 frame.",
+  "status": "drafted"
+}

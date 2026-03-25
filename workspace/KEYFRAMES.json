@@ -1,0 +1,102 @@
+[
+  {
+    "keyframeId": "SHOT-01-START",
+    "shotId": "SHOT-01",
+    "frameType": "start",
+    "title": "Therapy room established",
+    "goal": "Establish the minimal therapy-room setup, the panda on the couch, and the psychologist at frame edge with the panda as the visual center before the confession fully unfolds.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png",
+    "characterIds": ["panda-patient", "psychologist"]
+  },
+  {
+    "keyframeId": "SHOT-01-END",
+    "shotId": "SHOT-01",
+    "frameType": "end",
+    "title": "Confession lands in the room",
+    "goal": "Hold the same medium-wide setup after the panda's line has emotionally landed, with her slightly more exposed and the psychologist still calm at the edge of frame.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png",
+    "characterIds": ["panda-patient", "psychologist"]
+  },
+  {
+    "keyframeId": "SHOT-02-START",
+    "shotId": "SHOT-02",
+    "frameType": "start",
+    "title": "Psychologist considers the confession",
+    "goal": "Begin the reaction beat on the psychologist in a medium shot as she holds the mug with composed stillness, creating a comedic pause.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png",
+    "characterIds": ["psychologist"]
+  },
+  {
+    "keyframeId": "SHOT-02-END",
+    "shotId": "SHOT-02",
+    "frameType": "end",
+    "title": "Mug set down with deliberation",
+    "goal": "End the reaction beat after the psychologist has taken a sip and set the mug down, preserving the same calm deadpan energy.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png",
+    "characterIds": ["psychologist"]
+  },
+  {
+    "keyframeId": "SHOT-03-START",
+    "shotId": "SHOT-03",
+    "frameType": "start",
+    "title": "Question begins",
+    "goal": "Start on a close-up of the psychologist as she settles into the question, composed and attentive, with the room falling away.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-START.png",
+    "characterIds": ["psychologist"]
+  },
+  {
+    "keyframeId": "SHOT-03-END",
+    "shotId": "SHOT-03",
+    "frameType": "end",
+    "title": "Question lands cleanly",
+    "goal": "Hold the close-up at the end of the line so the psychologist's calm curiosity lands with maximum clarity and minimal movement.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-END.png",
+    "characterIds": ["psychologist"]
+  },
+  {
+    "keyframeId": "SHOT-04-START",
+    "shotId": "SHOT-04",
+    "frameType": "start",
+    "title": "Panda gathers emotion",
+    "goal": "Begin the medium close-up on the panda just before her answer peaks, with tension visible in her posture and hands starting to rise.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-START.png",
+    "characterIds": ["panda-patient"]
+  },
+  {
+    "keyframeId": "SHOT-04-END",
+    "shotId": "SHOT-04",
+    "frameType": "end",
+    "title": "Neither bursts out",
+    "goal": "Capture the panda at the emotional peak of her answer with stronger desperate gestures and an earnest, frustrated expression that still feels grounded.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-END.png",
+    "characterIds": ["panda-patient"]
+  },
+  {
+    "keyframeId": "SHOT-05-START",
+    "shotId": "SHOT-05",
+    "frameType": "start",
+    "title": "Doctor with notes before the turn",
+    "goal": "Start on a medium close-up of the psychologist looking down at her notes before she lifts her gaze, setting up the final line.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-05/SHOT-05-START.png",
+    "characterIds": ["psychologist"]
+  },
+  {
+    "keyframeId": "SHOT-05-END",
+    "shotId": "SHOT-05",
+    "frameType": "end",
+    "title": "Warm final insight",
+    "goal": "End in a tighter close-up after the subtle dolly-in, with the psychologist looking up through adjusted glasses and landing the final line with calm warmth.",
+    "status": "planned",
+    "imagePath": "workspace/KEYFRAMES/SHOT-05/SHOT-05-END.png",
+    "characterIds": ["psychologist"]
+  }
+]

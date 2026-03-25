@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-04-START",
+  "shotId": "SHOT-04",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of a medium close-up on the adult female giant panda in the therapy room, just before her answer peaks. Follow the panel labeled SHOT-04 in STORYBOARD.png as the upstream visual reference. She has classic black-and-white giant panda markings, soft plush fur, no clothing, a readable round face, and a slightly forward posture with tension visible in her shoulders and hands beginning to rise into frame. Soft even interior light, realistic detail, minimal uncluttered background, earnest emotional tone with restrained comedy, no cartoon exaggeration, 16:9 frame.",
+  "status": "drafted"
+}

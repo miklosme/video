@@ -1,0 +1,57 @@
+[
+  {
+    "shotId": "SHOT-01",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-01.mp4",
+    "keyframeIds": ["SHOT-01-START", "SHOT-01-END"],
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "opening",
+      "notes": "Open already settled in the minimal therapy room; establish the panda on the couch and the psychologist at frame edge with no prior motion to inherit."
+    }
+  },
+  {
+    "shotId": "SHOT-02",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-02.mp4",
+    "keyframeIds": ["SHOT-02-START", "SHOT-02-END"],
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "scene-change",
+      "notes": "Reset from the wide two-character setup to a new medium shot on the psychologist, carrying forward the same room, costume, and calm post-confession mood."
+    }
+  },
+  {
+    "shotId": "SHOT-03",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-03.mp4",
+    "keyframeIds": ["SHOT-03-START", "SHOT-03-END"],
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "continuity",
+      "notes": "Carry forward the psychologist's seated position and deadpan composure from the mug beat, then tighten naturally into the close-up for her question."
+    }
+  },
+  {
+    "shotId": "SHOT-04",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-04.mp4",
+    "keyframeIds": ["SHOT-04-START", "SHOT-04-END"],
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "scene-change",
+      "notes": "Reset to the panda's medium close-up while preserving the same therapy-room lighting and emotional tension immediately after the question lands."
+    }
+  },
+  {
+    "shotId": "SHOT-05",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-05.mp4",
+    "keyframeIds": ["SHOT-05-START", "SHOT-05-END"],
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "scene-change",
+      "notes": "Reset to the psychologist looking down at her notes, but keep the same room continuity and emotional aftermath of the panda's outburst before the warm final line."
+    }
+  }
+]

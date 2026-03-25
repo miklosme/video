@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-01-START",
+  "shotId": "SHOT-01",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of a minimal therapy room, medium-wide composition, with an adult female giant panda lying on a therapy couch as the visual center and a calm professional female psychologist seated beside her near the frame edge, partially cropped. Follow the panel labeled SHOT-01 in STORYBOARD.png as the upstream visual reference. The panda is slightly slouched and emotionally guarded, with classic black-and-white markings, soft plush fur, and no clothing; the psychologist has neat medium-length dark hair, muted neutral professional clothing, and a composed attentive posture. Clean uncluttered room, soft even daylight, restrained deadpan visual tone, realistic detail, minimal props, clear readable staging, no broad comedy, no extra subjects, 16:9 frame.",
+  "status": "drafted"
+}

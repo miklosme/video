@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-05-END",
+  "shotId": "SHOT-05",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of a tighter close-up on the female psychologist in the therapy room after a subtle push-in, as she looks up from her notes and adjusts her glasses to deliver the final line. Follow the panel labeled SHOT-05 in STORYBOARD.png as the upstream visual reference. Her expression is calm, warm, and gently incisive rather than dramatic. Readable face, glasses mid-adjustment or just settled, soft even light, clean minimal background, realistic detail, understated emotional release, deadpan visual consistency, no extra subjects, 16:9 frame.",
+  "status": "drafted"
+}

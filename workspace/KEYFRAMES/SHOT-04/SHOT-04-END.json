@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-04-END",
+  "shotId": "SHOT-04",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the same medium close-up on the adult female giant panda in the therapy room at the emotional peak of her answer. Follow the panel labeled SHOT-04 in STORYBOARD.png as the upstream visual reference. Her hands are lifted in stronger desperate gestures, posture pitched slightly forward, expression earnest, frustrated, and vulnerable without becoming broad or slapstick. Classic black-and-white markings, soft fur detail, no clothing, soft even light, clean minimal room context, realistic texture, restrained deadpan comedic style, stable continuity, 16:9 frame.",
+  "status": "drafted"
+}

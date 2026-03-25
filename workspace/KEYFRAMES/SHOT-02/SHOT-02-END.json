@@ -1,0 +1,8 @@
+{
+  "keyframeId": "SHOT-02-END",
+  "shotId": "SHOT-02",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the same medium shot on the female psychologist in the minimal therapy room, just after she has taken a sip and set her mug down with measured calm. Follow the panel labeled SHOT-02 in STORYBOARD.png as the upstream visual reference. Her expression stays controlled and thoughtful, with only a slight shift in posture to mark the beat. Clean therapy-room background, soft even light, realistic detail, understated deadpan comedy, minimal movement, no extra subjects, stable continuity with the previous frame, 16:9 frame.",
+  "status": "drafted"
+}
