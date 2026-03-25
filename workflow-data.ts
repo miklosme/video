@@ -127,6 +127,7 @@ export interface GenerationLogEntry {
   settings: {
     imageCount?: number
     videoCount?: number
+    size?: string
     aspectRatio?: string
     safetyFilterLevel?: string
     durationSeconds?: number

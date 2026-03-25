@@ -24,6 +24,8 @@ interface GenerateKeyframesArgs {
   shotId?: string
 }
 
+const DEFAULT_KEYFRAME_IMAGE_SIZE = '1024x576' as const
+
 export interface PendingKeyframeGeneration {
   keyframeId: string
   shotId: string
@@ -298,6 +300,7 @@ async function main() {
     await generateImagenOptions({
       prompt: resolveKeyframeGenerationPrompt(generation),
       model: generation.model,
+      size: DEFAULT_KEYFRAME_IMAGE_SIZE,
       outputPath: generation.outputPath,
       keyframeId: generation.keyframeId,
       shotId: generation.shotId,

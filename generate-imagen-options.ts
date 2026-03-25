@@ -31,6 +31,7 @@ export interface GenerateImagenOptionsInput {
   prompt: string
   model?: string
   n?: number
+  size?: `${number}x${number}`
   aspectRatio?: string
   safetyFilterLevel?: string
   outputDir?: string
@@ -95,6 +96,7 @@ export function buildPromptText(
   aspectRatio: string,
   model: string,
   shotId?: string,
+  size?: `${number}x${number}`,
 ) {
   const promptLines = [prompt]
 
@@ -140,6 +142,12 @@ export function buildPromptText(
     }
   }
 
+  if (size) {
+    promptLines.push(
+      `Target image size: ${size}. Prefer the lower-resolution output tier when available.`,
+    )
+  }
+
   if (LANGUAGE_IMAGE_MODELS.has(model)) {
     promptLines.push(`Target aspect ratio: ${aspectRatio}.`)
   }
@@ -165,6 +173,7 @@ async function generateImagesWithGateway(input: {
   prompt: string
   model: string
   n: number
+  size?: `${number}x${number}`
   aspectRatio: string
   safetyFilterLevel: string
   references: GenerationReferenceEntry[]
@@ -177,6 +186,7 @@ async function generateImagesWithGateway(input: {
     input.aspectRatio,
     input.model,
     input.shotId,
+    input.size,
   )
   const loadedReferences = await loadReferenceImages(input.references)
 
@@ -191,6 +201,7 @@ async function generateImagesWithGateway(input: {
               images: loadedReferences.map((reference) => reference.data),
             },
       n: input.n,
+      size: input.size,
       aspectRatio: input.aspectRatio as `${number}:${number}`,
     })
 
@@ -256,6 +267,7 @@ export async function generateImagenOptions(
   const startedAt = new Date().toISOString()
   const model = input.model ?? DEFAULT_IMAGE_MODEL
   const imageCount = input.n ?? 1
+  const size = input.size
   const aspectRatio = input.aspectRatio ?? '16:9'
   const safetyFilterLevel = input.safetyFilterLevel ?? 'OFF'
   const references = input.references ?? []
@@ -278,6 +290,7 @@ export async function generateImagenOptions(
       prompt,
       model,
       n: imageCount,
+      size,
       aspectRatio,
       safetyFilterLevel,
       references,
@@ -321,6 +334,7 @@ export async function generateImagenOptions(
       prompt,
       settings: {
         imageCount,
+        size,
         aspectRatio,
         safetyFilterLevel,
       },
@@ -342,6 +356,7 @@ function parseArgs() {
     '--prompt': String,
     '--model': String,
     '--n': Number,
+    '--size': String,
     '--aspect-ratio': String,
     '--safety-filter-level': String,
     '--output-dir': String,
@@ -358,9 +373,14 @@ function parseArgs() {
 
   const prompt = args['--prompt']
   const frameType = args['--frame-type']
+  const size = args['--size']
 
   if (!prompt) {
     throw new Error('Missing required --prompt option.')
+  }
+
+  if (size && !/^\d+x\d+$/.test(size)) {
+    throw new Error(`Invalid --size "${size}". Expected format WIDTHxHEIGHT.`)
   }
 
   if (frameType && !FRAME_TYPES.includes(frameType as FrameType)) {
@@ -373,6 +393,7 @@ function parseArgs() {
     prompt,
     model: args['--model'],
     n: args['--n'],
+    size: size as `${number}x${number}` | undefined,
     aspectRatio: args['--aspect-ratio'],
     safetyFilterLevel: args['--safety-filter-level'],
     outputDir: args['--output-dir'],

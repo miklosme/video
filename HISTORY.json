@@ -415,16 +415,647 @@
       "id": "assistant-1774457628497-4ype26",
       "role": "assistant",
       "text": "Done — the panda is now canonically **female**, and I updated the reference prompt accordingly.\n\nThat small change helps the emotional read: it makes the vulnerability feel a touch more specific and can give the performance a slightly different softness without changing the joke structure.\n\nNext beat is still the storyboard board review before we lock keyframes."
+    },
+    {
+      "id": "user-1774458033935-1xq0lk",
+      "role": "user",
+      "text": "the phsychologist is female on the character sheet, but the story refers her as a him. i'm fine with either, please fix this across all workflow files"
+    },
+    {
+      "id": "tool-1774458037479-8nizm8",
+      "role": "tool",
+      "text": "Running getCreativeContext"
+    },
+    {
+      "id": "tool-1774458037490-z0q2op",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458037491-6sxpc8",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458037491-es2gfq",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458037491-n2pxpb",
+      "role": "tool",
+      "text": "Running readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458037492-3swedt",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458037493-0u045v",
+      "role": "tool",
+      "text": "Read CHARACTERS/"
+    },
+    {
+      "id": "tool-1774458037493-jc6i2v",
+      "role": "tool",
+      "text": "Completed readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458037494-1iq0ju",
+      "role": "tool",
+      "text": "Read CONFIG.json"
+    },
+    {
+      "id": "tool-1774458037494-8z7126",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458037494-wclxgb",
+      "role": "tool",
+      "text": "Read STORYBOARD.md"
+    },
+    {
+      "id": "tool-1774458037494-cp55w6",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458037494-mcoedg",
+      "role": "tool",
+      "text": "Read STORY.md"
+    },
+    {
+      "id": "tool-1774458037494-moc8uz",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458037494-nzdfsg",
+      "role": "tool",
+      "text": "Read CHARACTERS.md"
+    },
+    {
+      "id": "tool-1774458037494-2fhclf",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458037495-akepx7",
+      "role": "tool",
+      "text": "Completed getCreativeContext"
+    },
+    {
+      "id": "tool-1774458039441-p8xhjw",
+      "role": "tool",
+      "text": "Running readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458039450-oeitbn",
+      "role": "tool",
+      "text": "Read CHARACTERS/panda-patient.json"
+    },
+    {
+      "id": "tool-1774458039453-mowgwo",
+      "role": "tool",
+      "text": "Completed readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458039454-x0um9s",
+      "role": "tool",
+      "text": "Running readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458039454-s17cnh",
+      "role": "tool",
+      "text": "Read CHARACTERS/psychologist.json"
+    },
+    {
+      "id": "tool-1774458039454-cq4o0k",
+      "role": "tool",
+      "text": "Completed readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458052606-qsxyh2",
+      "role": "tool",
+      "text": "Running writeWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458052617-roxpsg",
+      "role": "tool",
+      "text": "Running writeWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458052617-ar681j",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458052619-6htawt",
+      "role": "tool",
+      "text": "Updated CHARACTERS/psychologist.json"
+    },
+    {
+      "id": "tool-1774458052620-df0c3p",
+      "role": "tool",
+      "text": "Updated STORY.md (+13 -13)"
+    },
+    {
+      "id": "tool-1774458052620-ze807u",
+      "role": "tool",
+      "text": "Completed writeWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458052621-863fzp",
+      "role": "tool",
+      "text": "Updated STORYBOARD.md (+41 -41)"
+    },
+    {
+      "id": "tool-1774458052621-hzrbxa",
+      "role": "tool",
+      "text": "Completed writeWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458052621-qukebf",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "assistant-1774458033934-rcqqoe",
+      "role": "assistant",
+      "text": "Fixed across the project: the **psychologist is now consistently female** everywhere the story language mattered.\n\nUpdated reads include:\n- story narration and synopsis\n- storyboard shot descriptions and action lines\n- the psychologist’s reference definition staying aligned with that choice\n\nSo the canon is now clean:\n- **female panda**\n- **female psychologist**\n\nNext beat: generate the storyboard board and check whether the visual rhythm lands the way the written sequence does."
+    },
+    {
+      "id": "user-1774458184123-b78rr2",
+      "role": "user",
+      "text": "Assume the storyboard is approved and draft the full keyframe plan for all 5 shots, with start/end frames where appropriate."
+    },
+    {
+      "id": "tool-1774458195304-hzg3rl",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458195313-u9rlkb",
+      "role": "tool",
+      "text": "Read STORYBOARD.md"
+    },
+    {
+      "id": "tool-1774458195313-85svou",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458195347-9k9wtj",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458195353-oitvz4",
+      "role": "tool",
+      "text": "Read CHARACTERS.md"
+    },
+    {
+      "id": "tool-1774458195353-d4cfi7",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458195368-9lk5ae",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458195368-5nq6l6",
+      "role": "tool",
+      "text": "Read KEYFRAMES.json"
+    },
+    {
+      "id": "tool-1774458195368-rb60b2",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458211249-kqetag",
+      "role": "tool",
+      "text": "Running writeWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458211264-imk0sp",
+      "role": "tool",
+      "text": "Updated KEYFRAMES.json (+117 -15)"
+    },
+    {
+      "id": "tool-1774458211264-rmuwr9",
+      "role": "tool",
+      "text": "Prepared next milestone files: KEYFRAMES/"
+    },
+    {
+      "id": "tool-1774458211265-4a19gg",
+      "role": "tool",
+      "text": "Completed writeWorkspaceFile"
+    },
+    {
+      "id": "assistant-1774458184123-43s3c3",
+      "role": "assistant",
+      "text": "I drafted the full keyframe plan for all 5 shots, using **start/end frames for each shot**. That gives you 10 anchors total, which feels right here because the comedy depends on small but important performance shifts rather than big visual resets.\n\n### Keyframe structure\n\n- **SHOT-01-START** — therapy room established  \n- **SHOT-01-END** — confession lands in the room  \n\n- **SHOT-02-START** — psychologist holds the mug in the pause  \n- **SHOT-02-END** — mug set down with measured calm  \n\n- **SHOT-03-START** — psychologist settles into the question  \n- **SHOT-03-END** — question lands cleanly in close-up  \n\n- **SHOT-04-START** — panda gathers emotion before answering  \n- **SHOT-04-END** — “Neither” at the emotional peak  \n\n- **SHOT-05-START** — psychologist looking down at notes before the turn  \n- **SHOT-05-END** — tighter final frame after the slow push-in, glasses adjusted, line lands warm  \n\nA few taste notes:\n- I kept the **acting progression subtle**, especially in shots 2, 3, and 5, because over-expressive keyframes would flatten the deadpan tone.\n- The clearest motion contrast is in **shot 4**, which is where the panda is allowed to spike emotionally.\n- **Shot 5** is planned to support a true visual move, not just a dialogue beat: medium close-up into tighter close-up.\n\nNext I’d turn this into the actual keyframe prompts so the still generations stay consistent with the approved storyboard and character sheets."
+    },
+    {
+      "id": "user-1774458278786-tf1j60",
+      "role": "user",
+      "text": "Write the full keyframe sidecar prompts for all 10 keyframes, keeping the comedy minimal and consistent with the approved storyboard."
+    },
+    {
+      "id": "tool-1774458281670-swcra4",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458281679-l33t0x",
+      "role": "tool",
+      "text": "Read CONFIG.json"
+    },
+    {
+      "id": "tool-1774458281679-rd2yx7",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458281774-flsdwu",
+      "role": "tool",
+      "text": "Running readPromptingGuide"
+    },
+    {
+      "id": "tool-1774458281776-i2aw5r",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458281777-2dq7gv",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458281777-rk66d5",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458281778-jun633",
+      "role": "tool",
+      "text": "Read MODEL_PROMPTING_GUIDE.md"
+    },
+    {
+      "id": "tool-1774458281778-bdw3wd",
+      "role": "tool",
+      "text": "Completed readPromptingGuide"
+    },
+    {
+      "id": "tool-1774458281778-wxr8a8",
+      "role": "tool",
+      "text": "Read KEYFRAMES.json"
+    },
+    {
+      "id": "tool-1774458281779-vcveuo",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458281779-q4uo5t",
+      "role": "tool",
+      "text": "Read CHARACTERS.md"
+    },
+    {
+      "id": "tool-1774458281779-muehr4",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458281779-71gs1b",
+      "role": "tool",
+      "text": "Read STORYBOARD.md"
+    },
+    {
+      "id": "tool-1774458281779-xpgq2s",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458294765-xbz5ty",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774458294775-jmjzbp",
+      "role": "tool",
+      "text": "Confirmed KEYFRAMES/"
+    },
+    {
+      "id": "tool-1774458294781-tz6474",
+      "role": "tool",
+      "text": "Completed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774458299709-8zlgiy",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774458299711-a5gnsk",
+      "role": "tool",
+      "text": "Failed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774458299746-9zrr2j",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774458299746-rrg8wz",
+      "role": "tool",
+      "text": "Failed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774458299816-nhr29m",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774458299817-nfe0nv",
+      "role": "tool",
+      "text": "Failed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774458299817-xy1b8u",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774458299818-tov5q5",
+      "role": "tool",
+      "text": "Failed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774458299818-qks3ls",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774458299818-42nnq6",
+      "role": "tool",
+      "text": "Failed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774458327499-mdx8nz",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327513-z5k7wp",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-01/SHOT-01-START.json"
+    },
+    {
+      "id": "tool-1774458327515-f283j1",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327516-s9yv5m",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-01/SHOT-01-END.json"
+    },
+    {
+      "id": "tool-1774458327516-s151lj",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327517-sn7qr8",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327535-yxa5ui",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327535-2ujwfh",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327536-psi9gn",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-02/SHOT-02-END.json"
+    },
+    {
+      "id": "tool-1774458327536-0kov55",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-02/SHOT-02-START.json"
+    },
+    {
+      "id": "tool-1774458327538-h29ko7",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327538-wk1m3z",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327540-n6gn35",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327540-22cgs3",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327540-eae6cu",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327540-jxu6uq",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327540-jourdb",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327541-48fllj",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327541-r7h3cg",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-03/SHOT-03-START.json"
+    },
+    {
+      "id": "tool-1774458327541-osry7s",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-03/SHOT-03-END.json"
+    },
+    {
+      "id": "tool-1774458327541-2o3x0z",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-05/SHOT-05-START.json"
+    },
+    {
+      "id": "tool-1774458327541-f1hrik",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-04/SHOT-04-END.json"
+    },
+    {
+      "id": "tool-1774458327541-0myp8h",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-05/SHOT-05-END.json"
+    },
+    {
+      "id": "tool-1774458327541-ljbcdx",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-04/SHOT-04-START.json"
+    },
+    {
+      "id": "tool-1774458327545-zv0s8j",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327545-z4dw29",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327545-ejyag5",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327546-1rmz4z",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327546-enbpay",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774458327546-oahfjl",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "assistant-1774458278786-b2y0iq",
+      "role": "assistant",
+      "text": "Done — I wrote the full sidecar prompts for all 10 keyframes, keeping the visual language minimal, deadpan, and consistent with the approved storyboard.\n\nThe prompts are tuned to:\n- keep the **therapy room clean and uncluttered**\n- preserve **character continuity** from the approved sheets\n- avoid broad or cartoony comedy\n- use **small performance shifts** between start and end frames\n- follow the **storyboard panel for each shot** as the upstream visual reference\n\nPerformance shape across the set:\n- **Shot 1:** setup to confession landing\n- **Shot 2:** held reaction with the mug beat\n- **Shot 3:** calm question, almost no movement\n- **Shot 4:** the panda’s one real emotional spike\n- **Shot 5:** notes → glasses adjustment → warm final insight\n\nAt this point, the keyframe prompt package is ready for image generation. You’ll need to run the keyframe generation step and review the 10 PNGs before we treat those shot anchors as locked."
+    },
+    {
+      "id": "user-1774458391989-7ophm1",
+      "role": "user",
+      "text": "Now draft SHOTS.json for the 5-shot sequence, including durations, keyframe anchors, and incoming transitions."
+    },
+    {
+      "id": "tool-1774458394006-eax9qx",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458394007-cckwo6",
+      "role": "tool",
+      "text": "Running readPromptingGuide"
+    },
+    {
+      "id": "tool-1774458394007-5rfv0t",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458394007-zw88hu",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458394008-lppczc",
+      "role": "tool",
+      "text": "Read MODEL_PROMPTING_GUIDE.md"
+    },
+    {
+      "id": "tool-1774458394008-oajr9q",
+      "role": "tool",
+      "text": "Completed readPromptingGuide"
+    },
+    {
+      "id": "tool-1774458394010-o7veij",
+      "role": "tool",
+      "text": "Read CONFIG.json"
+    },
+    {
+      "id": "tool-1774458394010-gre1lk",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458394010-f3h1fv",
+      "role": "tool",
+      "text": "Read KEYFRAMES.json"
+    },
+    {
+      "id": "tool-1774458394010-sr3xoo",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458394011-39lgm4",
+      "role": "tool",
+      "text": "Read SHOTS.json"
+    },
+    {
+      "id": "tool-1774458394011-hautzn",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458404043-3vi2nd",
+      "role": "tool",
+      "text": "Running writeWorkspaceFile"
+    },
+    {
+      "id": "tool-1774458404057-kfrdqe",
+      "role": "tool",
+      "text": "Updated SHOTS.json (+64 -5) (bootstrapped from template)"
+    },
+    {
+      "id": "tool-1774458404057-564gdr",
+      "role": "tool",
+      "text": "Completed writeWorkspaceFile"
+    },
+    {
+      "id": "assistant-1774458391989-hevwfo",
+      "role": "assistant",
+      "text": "Drafted — the 5-shot sequence now has full planning entries with durations, keyframe anchors, and transition logic.\n\n### Timing pass\n- **SHOT-01 — 6s**  \n  Gives the setup and long first line enough room to breathe.\n\n- **SHOT-02 — 4s**  \n  Short reaction beat for the mug sip and set-down.\n\n- **SHOT-03 — 4s**  \n  Clean question beat, minimal movement.\n\n- **SHOT-04 — 4s**  \n  Enough space for the panda’s emotional spike.\n\n- **SHOT-05 — 5s**  \n  Slightly longer to support the slow push-in and the final line landing warmly.\n\n### Transition logic\n- **SHOT-01:** opening\n- **SHOT-02:** scene-change from the wide setup to the psychologist reaction shot\n- **SHOT-03:** continuity from the psychologist reaction into the tighter question close-up\n- **SHOT-04:** scene-change to the panda response close-up\n- **SHOT-05:** scene-change back to the psychologist for the closing insight\n\nThis gives the scene a nice rhythm: establish, pause, question, burst, resolution.\n\nOne important note: in the actual workflow, **keyframe review is still technically the upstream gate** before motion is fully locked. But since you asked to proceed on the assumption that the storyboard is approved, the shot plan itself is now in place and ready to build prompts from."
     }
   ],
   "recentChanges": [
-    "CHARACTERS/panda-patient.json",
-    "CHARACTERS.md",
-    "STORYBOARD.md",
-    "CHARACTERS/psychologist.json",
-    "CHARACTERS/",
-    "CONFIG.json",
-    "STORY.md"
+    "SHOTS.json",
+    "KEYFRAMES/SHOT-04/SHOT-04-START.json",
+    "KEYFRAMES/SHOT-05/SHOT-05-END.json",
+    "KEYFRAMES/SHOT-04/SHOT-04-END.json",
+    "KEYFRAMES/SHOT-05/SHOT-05-START.json",
+    "KEYFRAMES/SHOT-03/SHOT-03-END.json",
+    "KEYFRAMES/SHOT-03/SHOT-03-START.json",
+    "KEYFRAMES/SHOT-02/SHOT-02-START.json"
   ],
   "runtimeError": null
 }

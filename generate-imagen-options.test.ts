@@ -44,3 +44,17 @@ test('buildPromptText explains storyboard template references', () => {
   expect(prompt).toContain('Follow its board layout, panel framing, header structure')
   expect(prompt).toContain('derive the actual shot content from the provided storyboard markdown')
 })
+
+test('buildPromptText includes the requested target image size when provided', () => {
+  const prompt = buildPromptText(
+    'Render the keyframe.',
+    [],
+    '16:9',
+    'google/gemini-3.1-flash-image-preview',
+    'SHOT-01',
+    '1024x576',
+  )
+
+  expect(prompt).toContain('Target image size: 1024x576.')
+  expect(prompt).toContain('Prefer the lower-resolution output tier when available.')
+})
