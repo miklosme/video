@@ -2,25 +2,25 @@
   {
     "title": "Define concept",
     "instruction": "Establish the core premise, subject, and transformation clearly enough that the project has a specific creative identity and can move into story development.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["IDEA.md"]
   },
   {
     "title": "Shape story",
     "instruction": "Turn the concept into a coherent narrative or ad arc with clear progression, emotional logic, and enough structure to guide shot planning.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["STORY.md"]
   },
   {
     "title": "Define characters",
     "instruction": "Establish stable visual and behavioral anchors for recurring subjects so they can stay consistent across story, storyboard, and prompts.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["CHARACTERS.md"]
   },
   {
     "title": "Prepare character sheets",
     "instruction": "Write one sidecar JSON file per character so character-sheet generation produces a clean single-subject reference image for downstream Veo consistency, with stable prompts, IDs, and model metadata.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["CHARACTERS.md", "CHARACTERS/"]
   },
   {
@@ -32,7 +32,7 @@
   {
     "title": "Build storyboard",
     "instruction": "Create a shot-by-shot plan with stable shot IDs and clear visual intent so the sequence can guide keyframes and prompts.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["STORYBOARD.md"]
   },
   {

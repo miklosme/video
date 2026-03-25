@@ -1,0 +1,7 @@
+{
+  "characterId": "psychologist",
+  "displayName": "Psychologist",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A clean studio reference photo of a calm professional female psychologist, single subject, with a composed intelligent face, neat medium-length dark hair, and a clear professional silhouette. Full-body or clearly readable seated or standing framing, neutral pose or slight three-quarter view, muted contemporary therapist wardrobe in soft neutral tones, plain seamless background, soft even lighting, sharp detail. The image should preserve stable facial features, hairstyle, wardrobe identity, posture, and silhouette for downstream character consistency.",
+  "status": "draft"
+}
