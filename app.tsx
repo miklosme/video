@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
 import { startArtifactReviewServer, type ArtifactReviewServer } from './artifact-review-server'
+import { getEditorStatus } from './editor-status'
 import {
   clearBufferedNextStepSuggestions,
   createEmptyBufferedNextStepSuggestions,
@@ -1265,7 +1266,7 @@ async function main() {
     remotionStudio = await startManagedRemotionStudio()
     remotionStudioStatus = 'Running from workspace/FINAL-CUT.json without auto-opening a browser.'
   } catch (error) {
-    remotionStudioStatus = `Unavailable: ${error instanceof Error ? error.message : String(error)}`
+    remotionStudioStatus = getEditorStatus(error)
   }
   const runtime = createVideoAgentRuntime()
   let initialWorkflow = await runtime.loadWorkflowSummary()
