@@ -952,9 +952,9 @@ function App({
         openConfigField === null &&
         displayedNextStepSuggestions.length > 0 ? (
           <box marginTop={1} flexDirection="column" gap={1} flexShrink={0}>
-            <box>
+            {/* <box>
               <text content="Suggested next steps" fg="brightBlack" />
-            </box>
+            </box> */}
             <box flexDirection="row" gap={1}>
               {displayedNextStepSuggestions.map((suggestion, index) => (
                 <box
