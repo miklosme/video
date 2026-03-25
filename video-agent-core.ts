@@ -401,7 +401,11 @@ function buildAgentMessages(userInput: string, transcript: TranscriptEntry[]): M
   ]
 }
 
-function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: string): ModelMessage {
+function buildRuntimeDirective(
+  workflow: WorkflowSummary,
+  rawStatusContent: string,
+  ideaContent?: string,
+): ModelMessage {
   const lines = ['Private runtime brief for this turn:']
 
   lines.push(
@@ -483,6 +487,10 @@ function buildRuntimeDirective(workflow: WorkflowSummary, rawStatusContent: stri
   lines.push(
     '- Do not auto-run paid image or video generation. When sidecar JSON is ready but PNGs or MP4s are missing, tell the user they have to run the generation script and continue after review.',
   )
+  if (ideaContent) {
+    lines.push('Current project idea / creative brief from workspace/IDEA.md:')
+    lines.push(ideaContent.trim())
+  }
   lines.push('Raw workspace/STATUS.json:')
   lines.push(rawStatusContent.trim())
 
@@ -1687,8 +1695,11 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         resolveWorkspacePath(rootDir, WORKFLOW_FILES.status),
         'utf8',
       )
+      const ideaContent = initialWorkflow.ideaExists
+        ? await readFile(resolveWorkspacePath(rootDir, 'IDEA.md'), 'utf8')
+        : undefined
       const messages = [
-        buildRuntimeDirective(initialWorkflow, rawStatusContent),
+        buildRuntimeDirective(initialWorkflow, rawStatusContent, ideaContent),
         ...buildAgentMessages(trimmedInput, transcript),
       ]
       const agent = await getAgent(initialWorkflow.config.agentModel)

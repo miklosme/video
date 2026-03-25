@@ -896,6 +896,12 @@ test('runTurn emits callbacks in the expected order', async () => {
           expect(String(messages[0]?.content)).toContain(
             'Use the raw workspace/STATUS.json below as the exact workflow map for this turn.',
           )
+          expect(String(messages[0]?.content)).toContain(
+            'Current project idea / creative brief from workspace/IDEA.md:',
+          )
+          expect(String(messages[0]?.content)).toContain(
+            'A grounded concept with enough detail to count as ready.',
+          )
           expect(String(messages[0]?.content)).toContain('"relatedFiles": [')
           expect(String(messages[0]?.content)).toContain('"IDEA.md"')
           expect(String(messages[0]?.content)).not.toContain('Primary source files:')
@@ -944,6 +950,57 @@ test('runTurn emits callbacks in the expected order', async () => {
       'delta: world',
       'workflow:incomplete',
     ])
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('runTurn omits IDEA.md runtime context when IDEA.md is missing', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/CONFIG.json', createValidConfig())
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/STATUS.json',
+      createWorkflowStatus([
+        {
+          title: 'Draft story',
+          instruction: 'Write the story.',
+          checked: false,
+          relatedFiles: ['STORY.md'],
+        },
+      ]),
+    )
+    await writeRepoFile(repo.rootDir, 'templates/STORY.template.md', '# Story\n\nTBD\n')
+
+    const runtime = createVideoAgentRuntime({
+      rootDir: repo.rootDir,
+      creativePrompt: 'test',
+      createAgent: () => ({
+        stream: async ({ messages }) => {
+          expect(messages[0]?.role).toBe('system')
+          expect(String(messages[0]?.content)).not.toContain(
+            'Current project idea / creative brief from workspace/IDEA.md:',
+          )
+          expect(String(messages[0]?.content)).not.toContain('Raw workspace/IDEA.md:')
+
+          return {
+            textStream: (async function* () {
+              yield 'Hello world'
+            })(),
+            text: Promise.resolve('Hello world'),
+          }
+        },
+      }),
+    })
+
+    const result = await runtime.runTurn({
+      userInput: 'Draft the story.',
+      transcript: [],
+    })
+
+    expect(result.text).toBe('Hello world')
   } finally {
     await repo.cleanup()
   }
