@@ -1,6 +1,0 @@
-{
-  "shotId": "SHOT-04",
-  "model": "google/veo-3.1-fast-generate-001",
-  "prompt": "Wide medium hero shot, mostly static with a subtle settling motion. The brown Labrador stands calmly near the bowl in the same clean minimal interior, fully transformed and relaxed, holding as a polished after-image. Keep the frame simple, balanced, and advert-clean, with soft flattering light, readable silhouette, and a confident final pose that lets the brown coat register instantly. Match the approved keyframe anchors SHOT-04-START and SHOT-04-END and preserve the exact brown Lab identity established by the end of the transformation. Ambient: quiet interior room tone, gentle dog breath, faint tag or collar movement.",
-  "status": "planned"
-}

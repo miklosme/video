@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-02-END",
-  "shotId": "SHOT-02",
-  "frameType": "end",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of the yellow Labrador retriever actively eating from the bowl in the same clean minimal interior, the feeding action unmistakable, bowl clearly visible, stable body shape and proportions, soft indoor light, realistic detail, straightforward advert composition that sets up the magical transformation. Follow the storyboard panel labeled SHOT-02 from STORYBOARD.png as the upstream visual reference.",
-  "status": "planned"
-}

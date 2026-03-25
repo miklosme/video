@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-02-START",
-  "shotId": "SHOT-02",
-  "frameType": "start",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of the yellow Labrador retriever lowering its head toward the dog food bowl, beginning to eat, in the same clean minimal interior, composition focused on the dog and bowl, body posture readable, natural believable feeding action, soft even light, realistic commercial image, clear continuity with the previous shot. Follow the storyboard panel labeled SHOT-02 from STORYBOARD.png as the upstream visual reference.",
-  "status": "planned"
-}

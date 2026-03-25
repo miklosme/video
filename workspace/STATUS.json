@@ -8,79 +8,79 @@
   {
     "title": "Shape story",
     "instruction": "Turn the concept into a coherent narrative or ad arc with clear progression, emotional logic, and enough structure to guide shot planning.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["STORY.md"]
   },
   {
     "title": "Define characters",
     "instruction": "Establish stable visual and behavioral anchors for recurring subjects so they can stay consistent across story, storyboard, and prompts.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["CHARACTERS.md"]
   },
   {
     "title": "Prepare character sheets",
     "instruction": "Write one sidecar JSON file per character so character-sheet generation produces a clean single-subject reference image for downstream Veo consistency, with stable prompts, IDs, and model metadata.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["CHARACTERS.md", "CHARACTERS/"]
   },
   {
     "title": "Review character sheets",
     "instruction": "Generate and review one canonical PNG per character as a clean single-subject reference image for downstream video, not a grid, collage, or stylized hero shot.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["CHARACTERS/"]
   },
   {
     "title": "Build storyboard",
     "instruction": "Create a shot-by-shot plan with stable shot IDs and clear visual intent so the sequence can guide keyframes and prompts.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["STORYBOARD.md"]
   },
   {
     "title": "Review storyboard",
     "instruction": "Generate and review one full-project storyboard board from STORYBOARD.md before committing to keyframes.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["STORYBOARD.md", "STORYBOARD.png"]
   },
   {
     "title": "Plan keyframes",
     "instruction": "Plan distinct keyframes for each storyboard shot, defaulting to one start and one end frame per shot unless a deliberate single-frame exception is justified.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["KEYFRAMES.json"]
   },
   {
     "title": "Prepare keyframes",
     "instruction": "Write one sidecar JSON file per keyframe so still-image generation has stable prompts, IDs, and model metadata.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["KEYFRAMES.json", "KEYFRAMES/"]
   },
   {
     "title": "Review keyframes",
     "instruction": "Generate and review one canonical PNG per planned keyframe before treating the shot anchors as locked.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["KEYFRAMES.json", "KEYFRAMES/"]
   },
   {
     "title": "Plan shots",
     "instruction": "Write one planning entry per shot so each storyboard beat has canonical keyframe anchors and a canonical output video path.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["SHOTS.json"]
   },
   {
     "title": "Prepare shots",
     "instruction": "Write one sidecar JSON file per shot so video generation has stable prompts, IDs, and model metadata.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["SHOTS.json", "SHOTS/"]
   },
   {
     "title": "Review shots",
     "instruction": "Generate and review one canonical MP4 per planned shot before treating the motion sequence as locked.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["SHOTS.json", "SHOTS/"]
   },
   {
     "title": "Prepare final cut",
     "instruction": "Bootstrap the Remotion final-cut manifest so the approved shot videos can be assembled, trimmed, and rendered in Remotion Studio.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["FINAL-CUT.json"]
   }
 ]

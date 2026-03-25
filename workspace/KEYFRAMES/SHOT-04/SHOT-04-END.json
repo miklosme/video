@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-04-END",
-  "shotId": "SHOT-04",
-  "frameType": "end",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of the brown Labrador as the final polished end image near the bowl in the same clean minimal interior, calm proud stance, clear face, readable silhouette, simple premium advert finish, soft even light, realistic detail, composed to function as the memorable after image. Follow the storyboard panel labeled SHOT-04 from STORYBOARD.png as the upstream visual reference.",
-  "status": "planned"
-}
