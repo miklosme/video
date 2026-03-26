@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-05-START",
-  "shotId": "SHOT-05",
-  "frameType": "start",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of a medium close-up on the female psychologist in the therapy room, looking down at her notes before the final turn. Follow the panel labeled SHOT-05 in STORYBOARD.png as the upstream visual reference. She wears muted professional clothing and glasses, with neat dark hair and a composed thoughtful face. Notes are visible but minimal and unobtrusive. Soft even light, clean uncluttered background, realistic detail, restrained deadpan tone, no extra subjects, 16:9 frame.",
-  "status": "drafted"
-}

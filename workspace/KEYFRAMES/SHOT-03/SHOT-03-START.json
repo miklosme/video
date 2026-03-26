@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-03-START",
-  "shotId": "SHOT-03",
-  "frameType": "start",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of a close-up on the female psychologist in the therapy room, composed and attentive as she settles into asking a careful question. Follow the panel labeled SHOT-03 in STORYBOARD.png as the upstream visual reference. Readable face, neat dark hair, subtle professional styling, soft even light, shallow but natural background separation, uncluttered frame, realistic detail. Her expression is calm, curious, and gently precise, with minimal motion and no theatrical emphasis. Deadpan comedic tone, 16:9 frame.",
-  "status": "drafted"
-}

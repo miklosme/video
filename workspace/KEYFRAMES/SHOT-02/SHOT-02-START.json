@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-02-START",
-  "shotId": "SHOT-02",
-  "frameType": "start",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of a medium shot on the female psychologist in the same minimal therapy room, seated calmly with a mug raised in one hand as she considers what she has just heard. Follow the panel labeled SHOT-02 in STORYBOARD.png as the upstream visual reference. She has neat medium-length dark hair, muted neutral therapist clothing, a composed intelligent face, and a still attentive posture. The room is clean and uncluttered, with the panda off-camera and only lightly implied by the eyeline. Soft even interior daylight, realistic detail, restrained deadpan comedic rhythm, no broad reaction, no extra subjects, 16:9 frame.",
-  "status": "drafted"
-}

@@ -1,8 +1,0 @@
-{
-  "keyframeId": "SHOT-01-END",
-  "shotId": "SHOT-01",
-  "frameType": "end",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of the same minimal therapy room in the same medium-wide composition, with the adult female giant panda still centered on the therapy couch and the female psychologist seated beside her near the frame edge, partially cropped. Follow the panel labeled SHOT-01 in STORYBOARD.png as the upstream visual reference. This is the moment after the panda's confession has landed: her posture is slightly more exposed, expression quietly vulnerable and tired, while the psychologist remains calm and grounded. Clean neutral room, soft even light, realistic detail, understated deadpan comedy, no exaggerated acting, no extra subjects, stable continuity of character design and room layout, 16:9 frame.",
-  "status": "drafted"
-}
