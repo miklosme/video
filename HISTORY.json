@@ -1045,17 +1045,207 @@
       "id": "assistant-1774458391989-hevwfo",
       "role": "assistant",
       "text": "Drafted — the 5-shot sequence now has full planning entries with durations, keyframe anchors, and transition logic.\n\n### Timing pass\n- **SHOT-01 — 6s**  \n  Gives the setup and long first line enough room to breathe.\n\n- **SHOT-02 — 4s**  \n  Short reaction beat for the mug sip and set-down.\n\n- **SHOT-03 — 4s**  \n  Clean question beat, minimal movement.\n\n- **SHOT-04 — 4s**  \n  Enough space for the panda’s emotional spike.\n\n- **SHOT-05 — 5s**  \n  Slightly longer to support the slow push-in and the final line landing warmly.\n\n### Transition logic\n- **SHOT-01:** opening\n- **SHOT-02:** scene-change from the wide setup to the psychologist reaction shot\n- **SHOT-03:** continuity from the psychologist reaction into the tighter question close-up\n- **SHOT-04:** scene-change to the panda response close-up\n- **SHOT-05:** scene-change back to the psychologist for the closing insight\n\nThis gives the scene a nice rhythm: establish, pause, question, burst, resolution.\n\nOne important note: in the actual workflow, **keyframe review is still technically the upstream gate** before motion is fully locked. But since you asked to proceed on the assumption that the storyboard is approved, the shot plan itself is now in place and ready to build prompts from."
+    },
+    {
+      "id": "user-1774459360733-7xi2w3",
+      "role": "user",
+      "text": "Write the full shot sidecar prompts for all 5 shots, based on the approved keyframes and SHOTS plan."
+    },
+    {
+      "id": "tool-1774459365455-w5lzs7",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774459365470-7wi0np",
+      "role": "tool",
+      "text": "Running readPromptingGuide"
+    },
+    {
+      "id": "tool-1774459365470-etz4g2",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774459365471-8xlmwv",
+      "role": "tool",
+      "text": "Read CONFIG.json"
+    },
+    {
+      "id": "tool-1774459365471-ff3zol",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774459365471-5gjxn7",
+      "role": "tool",
+      "text": "Read MODEL_PROMPTING_GUIDE.md"
+    },
+    {
+      "id": "tool-1774459365471-wtygfj",
+      "role": "tool",
+      "text": "Completed readPromptingGuide"
+    },
+    {
+      "id": "tool-1774459365473-75ublx",
+      "role": "tool",
+      "text": "Read SHOTS.json"
+    },
+    {
+      "id": "tool-1774459365473-os5174",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774459365577-atp5e0",
+      "role": "tool",
+      "text": "Running readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774459365579-buobzt",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774459365579-1agfit",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774459365580-lp018q",
+      "role": "tool",
+      "text": "Read SHOTS/"
+    },
+    {
+      "id": "tool-1774459365580-o22fx5",
+      "role": "tool",
+      "text": "Completed readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774459365587-z9ruwg",
+      "role": "tool",
+      "text": "Read KEYFRAMES.json"
+    },
+    {
+      "id": "tool-1774459365587-ihtji5",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774459365587-c6l0jz",
+      "role": "tool",
+      "text": "Read STORYBOARD.md"
+    },
+    {
+      "id": "tool-1774459365587-3sawo5",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774459368146-41ggkz",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774459368157-qgu6p5",
+      "role": "tool",
+      "text": "Confirmed SHOTS/"
+    },
+    {
+      "id": "tool-1774459368163-9gcbh6",
+      "role": "tool",
+      "text": "Completed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774459387533-a7g1cm",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774459387535-mezuwg",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774459387536-k9vs2r",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774459387544-2xazrn",
+      "role": "tool",
+      "text": "Updated SHOTS/SHOT-01.json"
+    },
+    {
+      "id": "tool-1774459387545-fr5op0",
+      "role": "tool",
+      "text": "Updated SHOTS/SHOT-02.json"
+    },
+    {
+      "id": "tool-1774459387545-x109gn",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774459387545-sbhfcc",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774459387545-gp1uh2",
+      "role": "tool",
+      "text": "Updated SHOTS/SHOT-03.json"
+    },
+    {
+      "id": "tool-1774459387546-bbcau9",
+      "role": "tool",
+      "text": "Updated SHOTS/SHOT-04.json"
+    },
+    {
+      "id": "tool-1774459387547-ckydxx",
+      "role": "tool",
+      "text": "Updated SHOTS/SHOT-05.json"
+    },
+    {
+      "id": "tool-1774459387550-6e5rgt",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774459387550-2zgy9t",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774459387550-338e9q",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774459387551-wr7gsr",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774459387552-6i6b3h",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "assistant-1774459360733-fjoibw",
+      "role": "assistant",
+      "text": "Done — the full shot prompt package is now drafted for all 5 shots.\n\nThe prompts are built to:\n- follow the approved **start/end keyframe anchors**\n- keep the **minimal therapy-room continuity**\n- preserve the **deadpan comedic rhythm**\n- give Veo clear **camera behavior, performance, and audio cues**\n- avoid overacting or accidental sitcom energy\n\nShot-by-shot intent:\n- **SHOT-01** restrained opening confession in a locked medium wide\n- **SHOT-02** the mug beat as a quiet reaction pause\n- **SHOT-03** extremely controlled close-up question\n- **SHOT-04** the one emotional spike, still grounded\n- **SHOT-05** subtle push-in for the warm closing line\n\nAt this point the shot sidecars are ready. The next real step is to run video generation for the 5 shots and review the MP4s before treating the motion sequence as locked."
     }
   ],
   "recentChanges": [
+    "SHOTS/SHOT-05.json",
+    "SHOTS/SHOT-04.json",
+    "SHOTS/SHOT-03.json",
+    "SHOTS/SHOT-02.json",
+    "SHOTS/SHOT-01.json",
+    "SHOTS/",
     "SHOTS.json",
-    "KEYFRAMES/SHOT-04/SHOT-04-START.json",
-    "KEYFRAMES/SHOT-05/SHOT-05-END.json",
-    "KEYFRAMES/SHOT-04/SHOT-04-END.json",
-    "KEYFRAMES/SHOT-05/SHOT-05-START.json",
-    "KEYFRAMES/SHOT-03/SHOT-03-END.json",
-    "KEYFRAMES/SHOT-03/SHOT-03-START.json",
-    "KEYFRAMES/SHOT-02/SHOT-02-START.json"
+    "KEYFRAMES/SHOT-04/SHOT-04-START.json"
   ],
   "runtimeError": null
 }

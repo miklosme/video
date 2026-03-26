@@ -1,0 +1,6 @@
+{
+  "shotId": "SHOT-01",
+  "model": "google/veo-3.1-fast-generate-001",
+  "prompt": "Medium wide, locked-off frame in a minimal therapy room. A female giant panda lies on a therapy couch, slightly slouched and emotionally exposed, while a female psychologist sits beside her near the edge of frame, partially cropped so the panda remains the visual center. Use the approved keyframes as the start and end anchors and keep continuity with the storyboard panel labeled SHOT-01. The motion is very restrained: small breathing, a faint shift of the panda's paws and shoulders, a subtle head movement as she delivers the line, and the psychologist remains calm and almost still. Clean neutral room, soft even daylight or soft practical lighting, deadpan comedic tone, naturalistic performance, no exaggerated comedy. Dialogue: the panda says, \"Doctor, everyone hates me. Either because of my black side or my white side.\" Ambient: quiet therapy office room tone, soft fabric movement, faint couch rustle.",
+  "status": "planned"
+}

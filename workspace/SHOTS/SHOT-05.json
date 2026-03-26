@@ -1,0 +1,6 @@
+{
+  "shotId": "SHOT-05",
+  "model": "google/veo-3.1-fast-generate-001",
+  "prompt": "Medium close-up tightening into a closer frame with a slow, smooth dolly-in on the female psychologist in the same minimal therapy room. Use the approved SHOT-05 start and end keyframes as anchors and follow the storyboard panel labeled SHOT-05. She begins looking down at her notes, then lifts her gaze, makes a small glasses adjustment, and lands the line with calm warmth and quiet authority. The camera move should be subtle and steady, giving the final beat a little emotional weight without becoming dramatic. Keep the room clean, the lighting soft and even, and the performance restrained. Dialogue: the psychologist says, \"Then that's where we start.\" SFX: soft paper or notebook handling, tiny glasses touch. Ambient: subdued therapy room tone.",
+  "status": "planned"
+}

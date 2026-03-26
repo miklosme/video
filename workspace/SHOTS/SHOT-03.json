@@ -1,0 +1,6 @@
+{
+  "shotId": "SHOT-03",
+  "model": "google/veo-3.1-fast-generate-001",
+  "prompt": "Close-up on the female psychologist, with a natural continuity handoff from SHOT-02 into the tighter framing for the approved SHOT-03 keyframes. Follow the storyboard panel labeled SHOT-03 and keep the composition still and uncluttered. She settles almost imperceptibly, holds the panda's eyeline, and asks the question with composed curiosity and professional calm. Movement should be minimal: a slight lift of the eyes, tiny facial change, and controlled mouth movement only. Soft depth of field, neutral therapy-room background falling away, understated deadpan tone, warm but precise presence. Dialogue: the psychologist says, \"And which one do you like better?\" Ambient: very quiet room tone.",
+  "status": "planned"
+}

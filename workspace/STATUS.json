@@ -56,7 +56,7 @@
   {
     "title": "Review keyframes",
     "instruction": "Generate and review one canonical PNG per planned keyframe before treating the shot anchors as locked.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["KEYFRAMES.json", "KEYFRAMES/"]
   },
   {
@@ -68,19 +68,19 @@
   {
     "title": "Prepare shots",
     "instruction": "Write one sidecar JSON file per shot so video generation has stable prompts, IDs, and model metadata.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["SHOTS.json", "SHOTS/"]
   },
   {
     "title": "Review shots",
     "instruction": "Generate and review one canonical MP4 per planned shot before treating the motion sequence as locked.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["SHOTS.json", "SHOTS/"]
   },
   {
     "title": "Prepare final cut",
     "instruction": "Bootstrap the Remotion final-cut manifest so the approved shot videos can be assembled, trimmed, and rendered in Remotion Studio.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["FINAL-CUT.json"]
   }
 ]

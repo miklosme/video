@@ -1,0 +1,6 @@
+{
+  "shotId": "SHOT-02",
+  "model": "google/veo-3.1-fast-generate-001",
+  "prompt": "Medium shot on the female psychologist in the same minimal therapy room, matching the approved keyframes for SHOT-02 and following the storyboard panel labeled SHOT-02. Begin with her holding a mug in composed stillness, then let her take a small sip and set the mug down with measured deliberation. Keep the motion sparse and precise so the pause itself carries the comedy. Preserve the same wardrobe, lighting, and calm post-confession mood from the prior shot, with the panda only implied off-camera. Soft neutral lighting, uncluttered background, dry deadpan rhythm, no broad reaction. Dialogue: none. SFX: quiet ceramic mug movement and a soft set-down on the side table or desk. Ambient: subtle therapy room tone.",
+  "status": "planned"
+}
