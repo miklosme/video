@@ -12,7 +12,7 @@ async function writeRepoFile(rootDir: string, relativePath: string, content: str
   await writeFile(filePath, content, 'utf8')
 }
 
-test('buildStoryboardPrompt includes raw markdown and shot-label instructions', () => {
+test('buildStoryboardPrompt keeps storyboard generation visual-first while preserving shot labels', () => {
   const markdown = `# STORYBOARD
 
 ## SHOT-01
@@ -29,8 +29,12 @@ test('buildStoryboardPrompt includes raw markdown and shot-label instructions', 
   expect(prompt).toContain('single storyboard sheet')
   expect(prompt).toContain('attached storyboard template image')
   expect(prompt).toContain('visible shot labels that exactly match the SHOT-XX IDs')
-  expect(prompt).toContain('template-style text labels and descriptive headers')
-  expect(prompt).not.toContain('Do not include any text beyond the visible shot labels.')
+  expect(prompt).toContain('multiple storyboard panels')
+  expect(prompt).toContain('minimal per-panel text')
+  expect(prompt).toContain(
+    'Do not include long descriptions, purpose text, transition text, duration text, or dense header blocks on the board.',
+  )
+  expect(prompt).not.toContain('template-style text labels and descriptive headers')
   expect(prompt).toContain(markdown.trim())
 })
 

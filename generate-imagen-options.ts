@@ -130,7 +130,7 @@ export function buildPromptText(
           break
         case 'storyboard-template':
           promptLines.push(
-            `Reference ${referenceNumber} is the storyboard template image. Follow its board layout, panel framing, header structure, and review-friendly presentation style, but derive the actual shot content from the provided storyboard markdown.`,
+            `Reference ${referenceNumber} is the storyboard template image. Follow its board layout, panel framing, border treatment, and review-friendly presentation style, but derive the actual shot content from the provided storyboard markdown and avoid copying dense template text blocks literally.`,
           )
           break
         case 'character-sheet':

@@ -41,8 +41,9 @@ test('buildPromptText explains storyboard template references', () => {
   )
 
   expect(prompt).toContain('Reference 1 is the storyboard template image.')
-  expect(prompt).toContain('Follow its board layout, panel framing, header structure')
+  expect(prompt).toContain('Follow its board layout, panel framing, border treatment')
   expect(prompt).toContain('derive the actual shot content from the provided storyboard markdown')
+  expect(prompt).toContain('avoid copying dense template text blocks literally')
 })
 
 test('buildPromptText includes the requested target image size when provided', () => {
