@@ -10,6 +10,12 @@ The current repository uses a flat, stage-oriented `workspace/` layout. That str
 
 This PRD defines a forward-looking recursive filesystem convention for a future version of the project. It is intentionally path-driven and Next.js-like in spirit: meaning comes from location, filename, and extension rather than from extra naming tricks.
 
+It should also borrow an important structural idea from the Next.js app router:
+
+- a small set of convention-named files define routed behavior
+- arbitrary neighboring files may live beside them
+- the convention-named files can reference those neighboring files when needed
+
 This document does **not** change the current repo layout or runtime behavior. The existing flat `workspace/` model remains the truth for the current implementation. This PRD describes the intended recursive convention for v2 only.
 
 ## Goals
@@ -107,8 +113,9 @@ STATUS.json
 IDEA.md
 STYLE.md
 CHARACTERS/
-REFERENCES/
 SEQUENCES/
+therapy-room.jpg
+therapy-room.json
 ```
 
 ### Sequential Workspaces
@@ -176,9 +183,8 @@ project/
 │     ├─ artifact.json
 │     ├─ sheet.png
 │     └─ HISTORY/
-├─ REFERENCES/
-│  ├─ therapy-room.jpg
-│  └─ therapy-room.json
+├─ therapy-room.jpg
+├─ therapy-room.json
 └─ SEQUENCES/
    ├─ OPENING/
    │  ├─ WORKSPACE.json
@@ -196,8 +202,8 @@ project/
    │  ├─ WORKSPACE.json
    │  ├─ STORY.md
    │  ├─ STORYBOARD.md
-   │  ├─ REFERENCES/
-   │  │  └─ couch-layout.png
+   │  ├─ couch-layout.png
+   │  ├─ couch-layout.json
    │  ├─ SHOTS/
    │  │  ├─ SHOT-01/
    │  │  │  ├─ plan.json
@@ -253,7 +259,7 @@ Inside `SEQUENCES/THERAPY/`, the visible scope includes:
 - `SEQUENCES/THERAPY/**`
 - root files such as `IDEA.md`
 - root shared canon such as `CHARACTERS/**`
-- root shared references such as `REFERENCES/**`
+- root-level support assets such as `therapy-room.jpg`
 
 It does **not** include:
 
@@ -266,7 +272,7 @@ Inside `SEQUENCES/THERAPY/INSERTS/PANDA-EYE-CLOSEUP/`, the visible scope include
 
 - that insert workspace
 - `SEQUENCES/THERAPY/**`
-- root project canon and references
+- root project canon and visible support assets
 
 It does **not** include:
 
@@ -322,31 +328,51 @@ This PRD does not define how version selection is stored internally or how downs
 
 ## User-Supplied References
 
-`REFERENCES/` is an optional folder at any workspace root.
+This convention should **not** require a dedicated global `REFERENCES/` folder.
 
-Examples:
+Instead, user-supplied reference assets may live anywhere in the visible workspace tree and may use arbitrary filenames.
 
-- root project references in `REFERENCES/`
-- sequence-specific references in `SEQUENCES/THERAPY/REFERENCES/`
+This follows the same general design instinct as the Next.js app router:
+
+- convention-named files define the behavior of a route or artifact
+- arbitrary neighboring files may live beside them
+- the convention-named files may reference those neighboring files explicitly
+
+In this project, that means:
+
+- artifact sidecars or other convention-named files may point at arbitrary visible files as references
+- those reference files may be colocated with the artifact, the local workspace, or an ancestor workspace
+- there is no requirement to move reference assets into a special folder just to make them usable
 
 Rules:
 
-- a workspace can use references from itself
-- a workspace can use references from ancestors
-- a workspace cannot see references from siblings
-- reference image sidecars are optional
+- a workspace can use reference assets from itself
+- a workspace can use reference assets from ancestors
+- a workspace cannot use reference assets from siblings
+- reference asset sidecars are optional
 
 Example:
 
 ```text
-REFERENCES/
-  panda-face.png
-  panda-face.json
+project/
+  WORKSPACE.json
+  IDEA.md
   therapy-room.jpg
-  mood-board-01.png
+  therapy-room.json
+  SEQUENCES/
+    THERAPY/
+      WORKSPACE.json
+      couch-layout.png
+      SHOTS/
+        SHOT-01/
+          plan.json
+          start.png
+          start.json
 ```
 
-If a sidecar exists, it may carry extra machine-readable metadata. If it does not, the reference is still a valid first-class reference asset.
+In this example, `start.json` may reference either `couch-layout.png` or `therapy-room.jpg` without either file needing to live under a special reference route.
+
+If a sidecar exists next to a reference asset, it may carry extra machine-readable metadata. If it does not, the asset is still a valid first-class reference input.
 
 This PRD does not define how reference ranking, selection, or injection into generation calls should work.
 

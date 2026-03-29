@@ -48,7 +48,7 @@ Examples:
 - `video.json`
 - `artifact.json`
 - `CHAT.json`
-- `REFERENCES/*.json`
+- `therapy-room.json`
 - `HISTORY/v2.json`
 
 This keeps machine-readable state close to the relevant artifact or local workspace.
@@ -156,17 +156,26 @@ Version files use simple sequential names such as:
 
 The versioned files in `HISTORY/` represent concrete retained generations. They are distinct from the stable public artifact path used by downstream consumers.
 
-### `REFERENCES/`
+### Reference Assets In Visible Scope
 
-`REFERENCES/` stores user-supplied reference assets.
+This model should **not** require a dedicated `REFERENCES/` folder.
 
-It may exist at any workspace root. Reference sidecars are optional, but the reference asset itself is still a valid first-class input even without a sidecar.
+User-supplied reference assets may live anywhere in the visible workspace tree, with arbitrary filenames, as long as they are reachable from the current workspace under the ancestry visibility rules.
+
+This mirrors the same high-level structural idea used by the Next.js app router:
+
+- a small set of convention-named files define behavior
+- arbitrary neighboring files may exist beside them
+- those convention-named files can explicitly reference the neighboring files they need
+
+Reference sidecars remain optional, but the reference asset itself is still a valid first-class input even without a sidecar.
 
 Examples:
 
-- `REFERENCES/panda-face.png`
-- `REFERENCES/panda-face.json`
-- `SEQUENCES/THERAPY/REFERENCES/couch-layout.png`
+- `therapy-room.jpg`
+- `therapy-room.json`
+- `SEQUENCES/THERAPY/couch-layout.png`
+- `SEQUENCES/THERAPY/SHOTS/SHOT-01/frame-overpaint.png`
 
 ### Standard `references` Field
 
@@ -178,6 +187,8 @@ That field is the consistent attachment point for:
 - inherited references from ancestor workspaces
 - artifact-local references
 - other explicit inputs that should be passed into downstream generation
+
+The entries in `references` should point at visible filesystem assets rather than assume those assets come from a special reference directory.
 
 This PRD does not define the exact entry shape for `references`, but it locks the requirement that it exists across sidecars as a standard part of the model.
 
