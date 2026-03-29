@@ -1,4 +1,4 @@
-# Recursive Workspace Convention — PRD (vNext)
+# Recursive Workspace Convention — PRD (v2)
 
 ## Overview
 
@@ -10,7 +10,7 @@ The current repository uses a flat, stage-oriented `workspace/` layout. That str
 
 This PRD defines a forward-looking recursive filesystem convention for a future version of the project. It is intentionally path-driven and Next.js-like in spirit: meaning comes from location, filename, and extension rather than from extra naming tricks.
 
-This document does **not** change the current repo layout or runtime behavior. The existing flat `workspace/` model remains the truth for the current implementation. This PRD describes the intended recursive convention for vNext only.
+This document does **not** change the current repo layout or runtime behavior. The existing flat `workspace/` model remains the truth for the current implementation. This PRD describes the intended recursive convention for v2 only.
 
 ## Goals
 

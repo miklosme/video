@@ -1,4 +1,4 @@
-# Recursive Workspace Data Model — PRD (vNext)
+# Recursive Workspace Data Model — PRD (v2)
 
 ## Overview
 
@@ -10,7 +10,7 @@ The recursive workspace convention introduces a path-based structure where work 
 - artifact identity and visibility must respect workspace ancestry
 - the harness must assemble a working model from the visible filesystem rather than rely on one global state blob
 
-This PRD defines that vNext data-model architecture. It builds directly on [DOCS/RECURSIVE_WORKSPACE_CONVENTION_PRD.md](/Users/miklosme/github/video/DOCS/RECURSIVE_WORKSPACE_CONVENTION_PRD.md).
+This PRD defines that v2 data-model architecture. It builds directly on [DOCS/RECURSIVE_WORKSPACE_CONVENTION_PRD.md](/Users/miklosme/github/video/DOCS/RECURSIVE_WORKSPACE_CONVENTION_PRD.md).
 
 This document is forward-looking. It does **not** change the current runtime implementation or the current flat `workspace/` source-of-truth files.
 
@@ -240,7 +240,7 @@ This PRD does not define how version selection is implemented internally. It def
 
 ## Template Modules
 
-The template system is part of the data-model architecture in vNext.
+The template system is part of the data-model architecture in v2.
 
 Templates should move from static scaffold files toward TypeScript artifact-definition modules.
 
@@ -303,7 +303,7 @@ The current repository still uses the flat `workspace/` structure and its existi
 
 This PRD does not redefine those current source-of-truth files. It defines the intended architecture for the recursive workspace system introduced in the companion PRD.
 
-The old flat model and the vNext recursive model should be treated as separate architectural layers until implementation exists.
+The old flat model and the v2 recursive model should be treated as separate architectural layers until implementation exists.
 
 ## Out of Scope
 

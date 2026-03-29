@@ -3,6 +3,8 @@
 This repository is primarily a creative preproduction and prompt-design workspace.
 Do not start coding unless the user explicitly asks for tooling, automation, scripts, or other software changes.
 
+We are on v1 currently. There is a major rework is coming up, see the PRD for that effort in [PRD V2](/docs/PRD_V2.md). In the meantime, we want to develop v1 features in a way that the v2 rework will easier.
+
 ## Placeholder Conventions
 
 - `TODO` is reserved for the coding agent and technical implementation follow-up.
