@@ -1,4 +1,4 @@
-# PRD Version 2
+# Index for Version 2 PRDs
 
 In this document, we index the PRDs for the second version of the product.
 
