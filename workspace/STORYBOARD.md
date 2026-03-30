@@ -2,38 +2,46 @@
 
 ## Sequence Summary
 
-A short therapy scene unfolds in four restrained beats: the panda arrives burdened and sincere, describes her pain as rejection from the outside world, the psychologist quietly reframes the issue with one incisive question, and the scene lands on a still, compassionate moment of recognition. The visual arc moves from emotional distance to intimate clarity without losing the dry simplicity of the original joke.
+A restrained therapy scene unfolds in a handful of composed shots, starting with the panda’s guarded emotional monologue, then tightening as the psychologist redirects the conversation inward. The visual language begins observational and slightly distant, then becomes more intimate at the moment of self-revelation, ending on a quiet two-shot that holds the first hint of healing.
 
 ## Shots
 
-### SHOT-01 - Quiet office setup
+### SHOT-01 - Establish the room
 
-Purpose: Establish the therapy setting, the emotional tone, and the relationship dynamic before any dialogue lands.
+Purpose: Ground the audience in a calm psychologist’s office and introduce the panda as emotionally heavy but contained.
 
-Visual: A calm, tasteful psychologist’s office in soft natural light. The female panda sits on the patient chair or couch, slightly slumped, carrying visible emotional weight. The male psychologist sits opposite her in a composed posture, listening. The frame should feel balanced and understated, with enough space between them to suggest emotional distance.
+Visual: A tasteful wide shot of a warm, minimalist psychologist’s office. The female panda sits on the patient chair or couch, slightly slumped, facing the male psychologist across from her. The room feels safe, orderly, and quiet rather than comedic or exaggerated. We should immediately read therapy, stillness, and emotional fatigue.
 
-Transition: Opening shot. Begins in stillness and sets the grounded tone.
+Transition: Opening shot. Begin in stillness, letting the room and relationship read before the dialogue lands.
 
-### SHOT-02 - Panda confesses the problem
+### SHOT-02 - Panda explains her pain
 
-Purpose: Deliver the panda’s line with sincerity so the joke lands as real pain rather than a throwaway gag.
+Purpose: Deliver the central line with emotional sincerity so the joke lands as a real wound rather than a throwaway gag.
 
-Visual: Medium close-up on the panda as she says, “Everybody hates me. Either because of my black side or because of my white side.” Her expression is tired and earnest, not broad or cartoonish. The office background remains soft and unobtrusive.
+Visual: Medium shot on the panda as she says, “Everybody hates me. Either because of my black side or because of my white side.” Her expression is tired, vulnerable, and earnest. Her paws may shift slightly or rest in her lap, but the performance should stay restrained. The office background remains soft and unobtrusive.
 
-Transition: Cuts in closer from the wide setup, narrowing the focus onto her internal burden.
+Transition: Cut in from the wide to bring us closer to her emotional state while preserving continuity of eyeline and room geography.
 
-### SHOT-03 - The question that reframes everything
+### SHOT-03 - The psychologist listens, then asks
 
-Purpose: Shift the scene from external judgment to self-perception.
+Purpose: Shift the scene from external blame to introspection through the psychologist’s calm, precise question.
 
-Visual: Medium close-up on the psychologist, calm and attentive, asking, “And which one do you like better?” He should feel warm, precise, and completely unshowy. The shot is steady and simple, letting the question do the work.
+Visual: Medium close-up on the male psychologist, attentive and grounded, listening without judgment. After a small beat, he asks, “And which one do you like better?” His tone is gentle, curious, and therapeutic rather than clever or smug. Keep his posture open and steady.
 
-Transition: Clean reverse shot from the panda, maintaining conversational continuity.
+Transition: Clean reverse shot from the panda, maintaining the conversational rhythm and emotional calm.
 
-### SHOT-04 - Recognition and a small opening
+### SHOT-04 - Panda realizes the truth
 
-Purpose: Land the emotional turn: the panda admits, “Neither,” and the psychologist responds, “Then that’s where we start.”
+Purpose: Capture the moment the panda is caught off guard and admits the deeper truth: “Neither.”
 
-Visual: A tighter two-shot or over-the-shoulder composition that holds both characters in the same emotional space. The panda absorbs the truth with a quiet, vulnerable stillness. The psychologist remains grounded and compassionate. The room feels unchanged, but the energy is subtly softer and more hopeful than at the start.
+Visual: Closer shot on the panda than before, with a subtle pause before she answers. Her face shifts from defensive framing to exposed honesty. This should feel like the smallest crack in her self-protection. Background falls slightly softer so the emotional turn carries the frame.
 
-Transition: Holds the end beat without flourish, resolving on calm recognition rather than a hard punchline.
+Transition: Cut back to the panda with a slightly tighter framing to mark the internal shift.
+
+### SHOT-05 - Where healing starts
+
+Purpose: Land the final line with warmth and quiet hope, resolving the scene emotionally without overplaying it.
+
+Visual: Intimate two-shot or over-the-shoulder composition that includes both panda and psychologist in the same frame. The psychologist says, “Then that’s where we start.” The panda absorbs it in silence. The room remains calm, and the shot holds just long enough for the line to settle. The feeling is compassionate, understated, and gently uplifting.
+
+Transition: Resolve into a shared frame that visually reunites them after the previous shot-reverse-shot pattern, ending on steadiness rather than punchline emphasis.

@@ -1,0 +1,19 @@
+{
+  "versionId": "v1",
+  "createdAt": "2026-03-30T16:39:09.856Z",
+  "sourceArtifactId": "STORYBOARD",
+  "baseVersionId": null,
+  "generationId": "b5e24b2e-981a-4d9e-80b9-71057e0c1d42",
+  "autoSelected": true,
+  "editInstruction": null,
+  "approvedActionSummary": "Storyboard from no prior version with 1 reference (initial generation)",
+  "references": [
+    {
+      "path": "templates/STORYBOARD.template.png",
+      "source": "system",
+      "kind": "storyboard-template",
+      "label": "Storyboard template",
+      "notes": "System template reference for board layout and framing."
+    }
+  ]
+}
