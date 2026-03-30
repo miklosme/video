@@ -1,20 +1,26 @@
 import { createGateway, experimental_generateVideo as generateVideo } from 'ai'
 import arg from 'arg'
 import { randomUUID } from 'node:crypto'
-import { access, appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
+import { access, appendFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
+import {
+  buildApprovedActionSummary,
+  getShotArtifactDescriptor,
+  prepareStagedArtifactVersion,
+  recordArtifactVersionFromStage,
+  resolveShotGenerationAssets,
+} from './artifact-control'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import {
-  getCharacterSheetImagePath,
   loadCharacterSheets,
   loadConfig,
   loadKeyframes,
   loadShotArtifacts,
   loadShotPrompts,
+  type ArtifactReferenceEntry,
   type CharacterSheetEntry,
   type GenerationLogEntry,
-  type GenerationReferenceEntry,
   type KeyframeEntry,
   type ShotArtifactEntry,
   type ShotEntry,
@@ -34,14 +40,15 @@ export interface PendingShotGeneration {
   outputPath: string
   keyframeIds: string[]
   durationSeconds: number
+  userReferences?: ArtifactReferenceEntry[]
 }
 
 export interface PlannedShotGenerationAssets {
   inputImagePath: string
   lastFramePath: string | null
   characterIds: string[]
-  characterReferencePaths: string[]
-  references: GenerationReferenceEntry[]
+  referenceImagePaths: string[]
+  references: ReturnType<typeof resolveShotGenerationAssets>['references']
 }
 
 export interface GenerateShotVideoInput {
@@ -50,8 +57,9 @@ export interface GenerateShotVideoInput {
   prompt: string
   inputImagePath: string
   lastFramePath: string | null
-  characterReferencePaths: string[]
+  referenceImagePaths: string[]
   durationSeconds: number
+  cwd?: string
 }
 
 export interface GenerateShotVideoResult {
@@ -133,52 +141,6 @@ async function appendGenerationLog(entry: GenerationLogEntry) {
   await appendFile(entry.logFile, `${JSON.stringify(entry)}\n`, 'utf8')
 }
 
-function getShotAnchorKeyframes(generation: PendingShotGeneration, keyframes: KeyframeEntry[]) {
-  const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
-  const anchors = generation.keyframeIds.map((keyframeId) => {
-    const anchor = keyframeById.get(keyframeId)
-
-    if (!anchor) {
-      throw new Error(`Shot "${generation.shotId}" references missing keyframe "${keyframeId}".`)
-    }
-
-    return anchor
-  })
-
-  if (anchors.some((anchor) => anchor.shotId !== generation.shotId)) {
-    throw new Error(`Shot "${generation.shotId}" must only reference same-shot keyframes.`)
-  }
-
-  if (anchors.length === 1) {
-    if (anchors[0]?.frameType !== 'single') {
-      throw new Error(
-        `Shot "${generation.shotId}" references one keyframe, so it must use frameType "single".`,
-      )
-    }
-
-    return {
-      startOrSingle: anchors[0],
-      end: null,
-      anchors,
-    }
-  }
-
-  const start = anchors.find((anchor) => anchor.frameType === 'start')
-  const end = anchors.find((anchor) => anchor.frameType === 'end')
-
-  if (!start || !end || anchors.some((anchor) => anchor.frameType === 'single')) {
-    throw new Error(
-      `Shot "${generation.shotId}" must reference one "start" and one "end" keyframe.`,
-    )
-  }
-
-  return {
-    startOrSingle: start,
-    end,
-    anchors,
-  }
-}
-
 export function selectPendingShotGenerations(
   shots: ShotEntry[],
   artifacts: ShotArtifactEntry[],
@@ -203,6 +165,7 @@ export function selectPendingShotGenerations(
         outputPath: entry.videoPath,
         keyframeIds: entry.keyframeIds,
         durationSeconds: entry.durationSeconds,
+        userReferences: artifact.references,
       }
     })
 }
@@ -210,50 +173,20 @@ export function selectPendingShotGenerations(
 export function planShotGenerationAssets(
   generation: PendingShotGeneration,
   keyframes: KeyframeEntry[],
+  options: {
+    userReferences?: readonly ArtifactReferenceEntry[]
+  } = {},
 ): PlannedShotGenerationAssets {
-  const { startOrSingle, end, anchors } = getShotAnchorKeyframes(generation, keyframes)
-  const characterIds: string[] = []
-  const seenCharacterIds = new Set<string>()
-
-  for (const anchor of anchors) {
-    for (const characterId of anchor.characterIds) {
-      if (seenCharacterIds.has(characterId)) {
-        continue
-      }
-
-      seenCharacterIds.add(characterId)
-      characterIds.push(characterId)
-    }
-  }
-
-  const characterReferencePaths = characterIds
-    .slice(0, 3)
-    .map((characterId) => getCharacterSheetImagePath(characterId))
-  const references: GenerationReferenceEntry[] = [
-    {
-      kind: 'start-frame',
-      path: startOrSingle.imagePath,
-    },
-    ...(end
-      ? ([
-          {
-            kind: 'end-frame',
-            path: end.imagePath,
-          },
-        ] as const)
-      : []),
-    ...characterReferencePaths.map((referencePath) => ({
-      kind: 'character-sheet' as const,
-      path: referencePath,
-    })),
-  ]
+  const resolvedAssets = resolveShotGenerationAssets(generation, keyframes, {
+    userReferences: options.userReferences ?? generation.userReferences ?? [],
+  })
 
   return {
-    inputImagePath: startOrSingle.imagePath,
-    lastFramePath: end?.imagePath ?? null,
-    characterIds,
-    characterReferencePaths,
-    references,
+    inputImagePath: resolvedAssets.inputImagePath,
+    lastFramePath: resolvedAssets.lastFramePath,
+    characterIds: resolvedAssets.characterIds,
+    referenceImagePaths: resolvedAssets.referenceImagePaths,
+    references: resolvedAssets.references,
   }
 }
 
@@ -265,8 +198,8 @@ async function assertReferenceFilesExist(
   const requiredPaths = [
     { kind: 'start frame', path: assets.inputImagePath },
     ...(assets.lastFramePath ? [{ kind: 'end frame', path: assets.lastFramePath }] : []),
-    ...assets.characterReferencePaths.map((referencePath) => ({
-      kind: 'character sheet',
+    ...assets.referenceImagePaths.map((referencePath) => ({
+      kind: 'reference image',
       path: referencePath,
     })),
   ]
@@ -283,13 +216,19 @@ async function assertReferenceFilesExist(
 }
 
 function assertCharacterSidecarsExist(
-  characterIds: string[],
+  referenceImagePaths: string[],
   characterSheets: CharacterSheetEntry[],
   shotId: string,
 ) {
   const knownCharacters = new Set(characterSheets.map((entry) => entry.characterId))
 
-  for (const characterId of characterIds) {
+  for (const referencePath of referenceImagePaths) {
+    if (!referencePath.startsWith('workspace/CHARACTERS/')) {
+      continue
+    }
+
+    const characterId = path.posix.basename(referencePath, path.posix.extname(referencePath))
+
     if (!knownCharacters.has(characterId)) {
       throw new Error(
         `Shot "${shotId}" references missing character sheet sidecar "${characterId}" in workspace/CHARACTERS/.`,
@@ -302,14 +241,16 @@ export async function generateShotVideoWithGateway(
   input: GenerateShotVideoInput,
 ): Promise<GenerateShotVideoResult> {
   const gateway = createGatewayProvider()
-  const inputImage = await readFile(resolvePath(input.inputImagePath))
+  const inputImage = await readFile(resolvePath(input.inputImagePath, input.cwd))
   const referenceImages = await Promise.all(
-    input.characterReferencePaths.map(async (referencePath) => ({
-      image: await encodeGoogleImageFile(referencePath),
+    input.referenceImagePaths.map(async (referencePath) => ({
+      image: await encodeGoogleImageFile(referencePath, input.cwd),
       referenceType: 'asset',
     })),
   )
-  const lastFrame = input.lastFramePath ? await encodeGoogleImageFile(input.lastFramePath) : null
+  const lastFrame = input.lastFramePath
+    ? await encodeGoogleImageFile(input.lastFramePath, input.cwd)
+    : null
   const providerOptions =
     referenceImages.length > 0 || lastFrame
       ? ({
@@ -342,6 +283,190 @@ export async function generateShotVideoWithGateway(
   }
 }
 
+function applyShotEditInstruction(prompt: string, editInstruction?: string | null) {
+  if (!editInstruction) {
+    return prompt
+  }
+
+  return [
+    prompt,
+    '',
+    'Requested edit:',
+    editInstruction,
+    '',
+    'Apply only this approved change while preserving the rest of the current shot intent unless the edit explicitly asks for broader changes.',
+  ].join('\n')
+}
+
+export async function runShotGeneration(
+  generation: PendingShotGeneration,
+  keyframes: KeyframeEntry[],
+  characterSheets: CharacterSheetEntry[],
+  options: {
+    generator?: ShotVideoGenerator
+    logFile?: string
+    cwd?: string
+    firstOnly?: boolean
+    editInstruction?: string | null
+    userReferences?: readonly ArtifactReferenceEntry[]
+    outputPath?: string
+  } = {},
+) {
+  const generator = options.generator ?? generateShotVideoWithGateway
+  const cwd = options.cwd ?? process.cwd()
+  const logFile = options.logFile ? resolvePath(options.logFile, cwd) : resolveDefaultLogFile(cwd)
+  const outputPath = options.outputPath ?? generation.outputPath
+  const absoluteOutputPath = resolvePath(outputPath, cwd)
+  const assets = resolveShotGenerationAssets(generation, keyframes, {
+    userReferences: options.userReferences ?? generation.userReferences ?? [],
+  })
+
+  assertCharacterSidecarsExist(assets.referenceImagePaths, characterSheets, generation.shotId)
+  await assertReferenceFilesExist(
+    {
+      inputImagePath: assets.inputImagePath,
+      lastFramePath: assets.lastFramePath,
+      characterIds: assets.characterIds,
+      referenceImagePaths: assets.referenceImagePaths,
+      references: assets.references,
+    },
+    generation,
+    cwd,
+  )
+
+  console.log(`Generating ${generation.shotId} with model ${generation.model} -> ${outputPath}`)
+
+  const generationId = randomUUID()
+  const startedAt = new Date().toISOString()
+  const outputPaths: string[] = []
+  let completedAt: string | null = null
+  let errorDetails: GenerationLogEntry['error'] = null
+  const prompt = applyShotEditInstruction(generation.prompt, options.editInstruction)
+
+  try {
+    const result = await generator({
+      shotId: generation.shotId,
+      model: generation.model,
+      prompt,
+      inputImagePath: assets.inputImagePath,
+      lastFramePath: assets.lastFramePath,
+      referenceImagePaths: assets.referenceImagePaths,
+      durationSeconds: generation.durationSeconds,
+      cwd,
+    })
+
+    await mkdir(path.dirname(absoluteOutputPath), { recursive: true })
+    await writeFile(absoluteOutputPath, result.data)
+    outputPaths.push(absoluteOutputPath)
+    completedAt = new Date().toISOString()
+    captureWorkflowEvent('shot_generated', {
+      shotId: generation.shotId,
+      model: generation.model,
+    })
+  } catch (error) {
+    completedAt = new Date().toISOString()
+    errorDetails = {
+      name: error instanceof Error ? error.name : 'Error',
+      message: error instanceof Error ? error.message : String(error),
+    }
+    captureWorkflowEvent('shot_generation_failed', {
+      shotId: generation.shotId,
+      model: generation.model,
+      error: errorDetails.message,
+    })
+    throw error
+  } finally {
+    await appendGenerationLog({
+      generationId,
+      startedAt,
+      completedAt,
+      status: errorDetails ? 'error' : 'success',
+      model: generation.model,
+      prompt,
+      settings: {
+        videoCount: 1,
+        aspectRatio: DEFAULT_VIDEO_ASPECT_RATIO,
+        durationSeconds: generation.durationSeconds,
+        referenceImageCount: assets.referenceImagePaths.length,
+      },
+      outputDir: path.dirname(absoluteOutputPath),
+      outputPaths,
+      keyframeId: null,
+      shotId: generation.shotId,
+      frameType: null,
+      promptId: null,
+      artifactType: 'shot',
+      artifactId: generation.shotId,
+      logFile,
+      references: assets.references,
+      error: errorDetails,
+    })
+  }
+
+  return {
+    generationId,
+    prompt,
+    references: assets.references,
+    resolvedReferences: assets.resolvedReferences,
+    droppedReferences: assets.droppedReferences,
+    outputPath,
+    completedAt,
+  }
+}
+
+export async function generateShotArtifactVersion(
+  generation: PendingShotGeneration,
+  keyframes: KeyframeEntry[],
+  characterSheets: CharacterSheetEntry[],
+  options: {
+    generator?: ShotVideoGenerator
+    logFile?: string
+    cwd?: string
+    editInstruction?: string | null
+    userReferences?: readonly ArtifactReferenceEntry[]
+    baseVersionId?: string | null
+  } = {},
+) {
+  const descriptor = getShotArtifactDescriptor(generation.shotId)
+  const cwd = options.cwd ?? process.cwd()
+  const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
+
+  try {
+    const result = await runShotGeneration(generation, keyframes, characterSheets, {
+      generator: options.generator,
+      logFile: options.logFile,
+      cwd,
+      editInstruction: options.editInstruction,
+      userReferences: options.userReferences,
+      outputPath: stagedVersion.stagedPath,
+    })
+    const recorded = await recordArtifactVersionFromStage({
+      descriptor,
+      stagedPath: stagedVersion.stagedPath,
+      baseVersionId: options.baseVersionId ?? null,
+      generationId: result.generationId,
+      editInstruction: options.editInstruction ?? null,
+      approvedActionSummary: buildApprovedActionSummary({
+        descriptor,
+        baseVersionId: options.baseVersionId ?? null,
+        editInstruction: options.editInstruction ?? null,
+        references: result.resolvedReferences,
+      }),
+      references: result.resolvedReferences,
+      cwd,
+    })
+
+    return {
+      ...result,
+      descriptor,
+      versionId: recorded.version.versionId,
+    }
+  } catch (error) {
+    await rm(path.resolve(cwd, stagedVersion.stagedPath), { force: true }).catch(() => undefined)
+    throw error
+  }
+}
+
 export async function syncShotGenerations(
   plannedGenerations: PendingShotGeneration[],
   keyframes: KeyframeEntry[],
@@ -370,77 +495,12 @@ export async function syncShotGenerations(
       continue
     }
 
-    const assets = planShotGenerationAssets(generation, keyframes)
-    assertCharacterSidecarsExist(assets.characterIds, characterSheets, generation.shotId)
-    await assertReferenceFilesExist(assets, generation, cwd)
-
-    console.log(
-      `Generating ${generation.shotId} with model ${generation.model} -> ${generation.outputPath}`,
-    )
-
-    const generationId = randomUUID()
-    const startedAt = new Date().toISOString()
-    const outputPaths: string[] = []
-    let completedAt: string | null = null
-    let errorDetails: GenerationLogEntry['error'] = null
-
-    try {
-      const result = await generator({
-        shotId: generation.shotId,
-        model: generation.model,
-        prompt: generation.prompt,
-        inputImagePath: assets.inputImagePath,
-        lastFramePath: assets.lastFramePath,
-        characterReferencePaths: assets.characterReferencePaths,
-        durationSeconds: generation.durationSeconds,
-      })
-
-      await mkdir(path.dirname(absoluteOutputPath), { recursive: true })
-      await writeFile(absoluteOutputPath, result.data)
-      outputPaths.push(absoluteOutputPath)
-      completedAt = new Date().toISOString()
-      captureWorkflowEvent('shot_generated', {
-        shotId: generation.shotId,
-        model: generation.model,
-      })
-      generatedCount += 1
-    } catch (error) {
-      completedAt = new Date().toISOString()
-      errorDetails = {
-        name: error instanceof Error ? error.name : 'Error',
-        message: error instanceof Error ? error.message : String(error),
-      }
-      captureWorkflowEvent('shot_generation_failed', {
-        shotId: generation.shotId,
-        model: generation.model,
-        error: errorDetails.message,
-      })
-      throw error
-    } finally {
-      await appendGenerationLog({
-        generationId,
-        startedAt,
-        completedAt,
-        status: errorDetails ? 'error' : 'success',
-        model: generation.model,
-        prompt: generation.prompt,
-        settings: {
-          videoCount: 1,
-          aspectRatio: DEFAULT_VIDEO_ASPECT_RATIO,
-          durationSeconds: generation.durationSeconds,
-          referenceImageCount: assets.characterReferencePaths.length,
-        },
-        outputDir: path.dirname(absoluteOutputPath),
-        outputPaths,
-        keyframeId: null,
-        shotId: generation.shotId,
-        frameType: null,
-        promptId: null,
-        logFile,
-        references: assets.references,
-        error: errorDetails,
-      })
-    }
+    await generateShotArtifactVersion(generation, keyframes, characterSheets, {
+      generator,
+      logFile,
+      cwd,
+    })
+    generatedCount += 1
 
     if (options.firstOnly) {
       break

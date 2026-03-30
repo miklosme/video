@@ -6,12 +6,28 @@ export const DEFAULT_VIDEO_DURATION_SECONDS = 4
 export const FINAL_CUT_VERSION = 1
 export const FINAL_CUT_TRANSITION_TYPES = ['cut', 'fade'] as const
 export const SHOT_INCOMING_TRANSITION_TYPES = ['opening', 'continuity', 'scene-change'] as const
+export const ARTIFACT_TYPES = ['storyboard', 'character', 'keyframe', 'shot'] as const
+export const REFERENCE_SOURCES = ['user', 'system'] as const
 
 export type FrameType = (typeof FRAME_TYPES)[number]
 export type FinalCutTransitionType = (typeof FINAL_CUT_TRANSITION_TYPES)[number]
 export type ShotIncomingTransitionType = (typeof SHOT_INCOMING_TRANSITION_TYPES)[number]
+export type ArtifactType = (typeof ARTIFACT_TYPES)[number]
+export type ReferenceSource = (typeof REFERENCE_SOURCES)[number]
 
 type JsonObject = Record<string, unknown>
+
+export interface ArtifactReferenceEntry {
+  path: string
+  label?: string
+  role?: string
+  notes?: string
+}
+
+export interface ResolvedArtifactReference extends ArtifactReferenceEntry {
+  source: ReferenceSource
+  kind?: GenerationReferenceKind
+}
 
 export interface StatusItem {
   title: string
@@ -42,6 +58,7 @@ export interface KeyframeArtifactEntry {
   model: string
   prompt: string
   status: string
+  references?: ArtifactReferenceEntry[]
 }
 
 export type KeyframeArtifactsData = KeyframeArtifactEntry[]
@@ -52,6 +69,7 @@ export interface CharacterSheetEntry {
   model: string
   prompt: string
   status: string
+  references?: ArtifactReferenceEntry[]
 }
 
 export type CharacterSheetsData = CharacterSheetEntry[]
@@ -77,6 +95,11 @@ export interface ShotArtifactEntry {
   model: string
   prompt: string
   status: string
+  references?: ArtifactReferenceEntry[]
+}
+
+export interface StoryboardSidecar {
+  references?: ArtifactReferenceEntry[]
 }
 
 export type ShotArtifactsData = ShotArtifactEntry[]
@@ -139,6 +162,8 @@ export interface GenerationLogEntry {
   shotId: string | null
   frameType: FrameType | null
   promptId: string | null
+  artifactType?: ArtifactType | null
+  artifactId?: string | null
   logFile: string
   references: GenerationReferenceEntry[]
   error: {
@@ -154,6 +179,8 @@ export type GenerationReferenceKind =
   | 'previous-shot-end-frame'
   | 'storyboard'
   | 'storyboard-template'
+  | 'selected-image'
+  | 'user-reference'
 
 export interface GenerationReferenceEntry {
   kind: GenerationReferenceKind
@@ -167,6 +194,7 @@ export const WORKFLOW_FILES = {
   config: 'CONFIG.json',
   status: 'STATUS.json',
   storyboard: 'STORYBOARD.md',
+  storyboardSidecar: 'STORYBOARD.json',
   storyboardImage: 'STORYBOARD.png',
   keyframes: 'KEYFRAMES.json',
   shotPrompts: 'SHOTS.json',
@@ -203,6 +231,10 @@ export function getStoryboardImagePath() {
   return path.posix.join(WORKSPACE_DIR, WORKFLOW_FILES.storyboardImage)
 }
 
+export function getStoryboardSidecarPath() {
+  return path.posix.join(WORKSPACE_DIR, WORKFLOW_FILES.storyboardSidecar)
+}
+
 export function getKeyframeArtifactJsonPath(entry: Pick<KeyframeEntry, 'shotId' | 'keyframeId'>) {
   return path.posix.join(
     WORKSPACE_DIR,
@@ -235,6 +267,24 @@ export function resolveWorkflowPath(fileName: string, cwd = process.cwd()) {
 
 export function resolveRepoPath(fileName: string, cwd = process.cwd()) {
   return path.resolve(cwd, fileName)
+}
+
+export function normalizeRepoRelativePath(fileName: string, context = 'path') {
+  const normalizedPath = path.posix.normalize(fileName.replace(/\\/g, '/'))
+
+  if (normalizedPath.length === 0 || normalizedPath === '.') {
+    throw new Error(`${context} must be a non-empty repo-relative path.`)
+  }
+
+  if (
+    path.posix.isAbsolute(normalizedPath) ||
+    normalizedPath === '..' ||
+    normalizedPath.startsWith('../')
+  ) {
+    throw new Error(`${context} must stay repo-relative and must not escape the repository root.`)
+  }
+
+  return normalizedPath
 }
 
 export async function workspacePathExists(fileName: string, cwd = process.cwd()) {
@@ -324,6 +374,34 @@ function expectArray(value: unknown, context: string): unknown[] {
 function expectStringArray(value: unknown, context: string): string[] {
   return expectArray(value, context).map((entry, index) =>
     expectString(entry, `${context}[${index}]`),
+  )
+}
+
+function parseOptionalString(value: unknown, context: string) {
+  if (value === undefined) {
+    return undefined
+  }
+
+  return expectString(value, context)
+}
+
+function parseArtifactReferenceEntry(value: unknown, context: string): ArtifactReferenceEntry {
+  const object = expectObject(value, context)
+
+  return {
+    path: normalizeRepoRelativePath(
+      expectString(object.path, `${context}.path`),
+      `${context}.path`,
+    ),
+    label: parseOptionalString(object.label, `${context}.label`),
+    role: parseOptionalString(object.role, `${context}.role`),
+    notes: parseOptionalString(object.notes, `${context}.notes`),
+  }
+}
+
+function parseArtifactReferenceEntries(value: unknown, context: string) {
+  return expectArray(value, context).map((entry, index) =>
+    parseArtifactReferenceEntry(entry, `${context}[${index}]`),
   )
 }
 
@@ -428,6 +506,10 @@ export function parseKeyframeArtifactEntry(value: unknown, context: string): Key
     model: expectString(object.model, `${context}.model`),
     prompt: expectString(object.prompt, `${context}.prompt`),
     status: expectString(object.status, `${context}.status`),
+    references:
+      object.references === undefined
+        ? undefined
+        : parseArtifactReferenceEntries(object.references, `${context}.references`),
   }
 }
 
@@ -440,6 +522,24 @@ export function parseCharacterSheetEntry(value: unknown, context: string): Chara
     model: expectString(object.model, `${context}.model`),
     prompt: expectString(object.prompt, `${context}.prompt`),
     status: expectString(object.status, `${context}.status`),
+    references:
+      object.references === undefined
+        ? undefined
+        : parseArtifactReferenceEntries(object.references, `${context}.references`),
+  }
+}
+
+function parseStoryboardSidecar(value: unknown): StoryboardSidecar {
+  const object = expectObject(value, WORKFLOW_FILES.storyboardSidecar)
+
+  return {
+    references:
+      object.references === undefined
+        ? undefined
+        : parseArtifactReferenceEntries(
+            object.references,
+            `${WORKFLOW_FILES.storyboardSidecar}.references`,
+          ),
   }
 }
 
@@ -490,6 +590,10 @@ export function parseShotArtifactEntry(value: unknown, context: string): ShotArt
     model: expectString(object.model, `${context}.model`),
     prompt: expectString(object.prompt, `${context}.prompt`),
     status: expectString(object.status, `${context}.status`),
+    references:
+      object.references === undefined
+        ? undefined
+        : parseArtifactReferenceEntries(object.references, `${context}.references`),
   }
 }
 
@@ -622,6 +726,10 @@ async function listJsonFilesInDirectory(
     const nextPath = path.join(directoryPath, entry.name)
 
     if (entry.isDirectory()) {
+      if (entry.name === 'HISTORY') {
+        continue
+      }
+
       if (recursive) {
         filePaths.push(...(await listJsonFilesInDirectory(nextPath, { recursive: true })))
       }
@@ -672,6 +780,14 @@ export async function loadModelOptions(cwd = process.cwd()) {
 
 export async function loadKeyframes(cwd = process.cwd()) {
   return readJsonFile(WORKFLOW_FILES.keyframes, parseKeyframesData, cwd)
+}
+
+export async function loadStoryboardSidecar(cwd = process.cwd()) {
+  if (!(await workspacePathExists(WORKFLOW_FILES.storyboardSidecar, cwd))) {
+    return null
+  }
+
+  return readJsonFile(WORKFLOW_FILES.storyboardSidecar, parseStoryboardSidecar, cwd)
 }
 
 export async function loadKeyframeArtifacts(cwd = process.cwd()) {

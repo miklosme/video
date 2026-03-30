@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
@@ -177,6 +177,105 @@ test('artifact review server serves the canonical shot video', async () => {
 
       expect(response.status).toBe(200)
       expect([...bytes]).toEqual([9, 8, 7, 6])
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server boots retained history for an existing character and saves reference edits', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/CHARACTERS/hero.json',
+      `${JSON.stringify(
+        {
+          characterId: 'hero',
+          displayName: 'Hero',
+          model: 'image-test',
+          prompt: 'A clean character reference.',
+          status: 'ready',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'workspace/CHARACTERS/hero.png', 'hero-image')
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const detailResponse = await fetch(new URL('/characters/hero', server.url))
+      const detailHtml = await detailResponse.text()
+
+      expect(detailResponse.status).toBe(200)
+      expect(detailHtml).toContain('Retained History')
+      expect(detailHtml).toContain('v1')
+
+      const saveResponse = await fetch(new URL('/characters/hero/references', server.url), {
+        method: 'POST',
+        body: new URLSearchParams({
+          referencesJson: JSON.stringify([
+            {
+              path: 'workspace/REFERENCES/pose.png',
+              label: 'Pose',
+              role: 'composition',
+            },
+          ]),
+        }),
+      })
+
+      expect(saveResponse.status).toBe(200)
+
+      const sidecar = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/CHARACTERS/hero.json'), 'utf8'),
+      )
+      expect(sidecar.references).toEqual([
+        {
+          path: 'workspace/REFERENCES/pose.png',
+          label: 'Pose',
+          role: 'composition',
+        },
+      ])
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server renders an approval preview for storyboard edits', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.md',
+      '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
+    )
+    await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard-image')
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard/approve', server.url), {
+        method: 'POST',
+        body: new URLSearchParams({
+          baseVersionId: 'v1',
+          editInstruction: 'Tighten the panel spacing and simplify the captions.',
+        }),
+      })
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('Approve storyboard edit')
+      expect(html).toContain('Tighten the panel spacing and simplify the captions.')
+      expect(html).toContain('Storyboard template')
     } finally {
       await server.stop()
     }

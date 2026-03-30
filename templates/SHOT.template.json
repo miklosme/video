@@ -2,5 +2,6 @@
   "shotId": "SHOT-01",
   "model": "TBD",
   "prompt": "TBD",
-  "status": "planned"
+  "status": "planned",
+  "references": []
 }

@@ -1,12 +1,20 @@
-import { access, readFile } from 'node:fs/promises'
+import { access, readFile, rm } from 'node:fs/promises'
 import path from 'node:path'
 
+import {
+  assertResolvedReferencesExist,
+  buildApprovedActionSummary,
+  getStoryboardArtifactDescriptor,
+  prepareStagedArtifactVersion,
+  recordArtifactVersionFromStage,
+  resolveStoryboardGenerationReferences,
+} from './artifact-control'
 import { generateImagenOptions } from './generate-imagen-options'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import {
-  type GenerationReferenceEntry,
   getStoryboardImagePath,
   loadConfig,
+  loadStoryboardSidecar,
   resolveWorkflowPath,
   WORKFLOW_FILES,
 } from './workflow-data'
@@ -15,10 +23,8 @@ export interface PendingStoryboardGeneration {
   model: string
   prompt: string
   outputPath: string
-  references: GenerationReferenceEntry[]
+  references: ReturnType<typeof resolveStoryboardGenerationReferences>['references']
 }
-
-const STORYBOARD_TEMPLATE_PATH = 'templates/STORYBOARD.template.png'
 
 async function fileExists(filePath: string) {
   try {
@@ -63,22 +69,132 @@ export function buildStoryboardPrompt(storyboardMarkdown: string) {
 export function selectPendingStoryboardGeneration(
   storyboardMarkdown: string,
   model: string,
+  userReferences: Parameters<typeof resolveStoryboardGenerationReferences>[0] = [],
 ): PendingStoryboardGeneration {
+  const { references } = resolveStoryboardGenerationReferences(userReferences)
+
   return {
     model,
     prompt: buildStoryboardPrompt(storyboardMarkdown),
     outputPath: getStoryboardImagePath(),
-    references: [{ kind: 'storyboard-template', path: STORYBOARD_TEMPLATE_PATH }],
+    references,
+  }
+}
+
+function applyStoryboardEditInstruction(prompt: string, editInstruction?: string | null) {
+  if (!editInstruction) {
+    return prompt
+  }
+
+  return [
+    prompt,
+    '',
+    'Requested edit:',
+    editInstruction,
+    '',
+    'Apply only this approved change while preserving the rest of the current storyboard board unless the edit explicitly asks for broader changes.',
+  ].join('\n')
+}
+
+export async function runStoryboardGeneration(options: {
+  storyboardMarkdown: string
+  model: string
+  outputPath: string
+  editInstruction?: string | null
+  userReferences?: Parameters<typeof resolveStoryboardGenerationReferences>[0]
+  logFile?: string
+  cwd?: string
+}) {
+  const { resolvedReferences, references } = resolveStoryboardGenerationReferences(
+    options.userReferences,
+  )
+  await assertResolvedReferencesExist(resolvedReferences, options.cwd)
+
+  const prompt = applyStoryboardEditInstruction(
+    buildStoryboardPrompt(options.storyboardMarkdown),
+    options.editInstruction,
+  )
+  const result = await generateImagenOptions({
+    prompt,
+    model: options.model,
+    outputPath: options.outputPath,
+    references,
+    logFile: options.logFile,
+    cwd: options.cwd,
+    artifactType: 'storyboard',
+    artifactId: 'STORYBOARD',
+  })
+
+  return {
+    ...result,
+    prompt,
+    resolvedReferences,
+    references,
+  }
+}
+
+export async function generateStoryboardArtifactVersion(options: {
+  storyboardMarkdown: string
+  model: string
+  editInstruction?: string | null
+  userReferences?: Parameters<typeof resolveStoryboardGenerationReferences>[0]
+  baseVersionId?: string | null
+  logFile?: string
+  cwd?: string
+}) {
+  const descriptor = getStoryboardArtifactDescriptor()
+  const cwd = options.cwd ?? process.cwd()
+  const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
+
+  try {
+    const result = await runStoryboardGeneration({
+      storyboardMarkdown: options.storyboardMarkdown,
+      model: options.model,
+      outputPath: stagedVersion.stagedPath,
+      editInstruction: options.editInstruction,
+      userReferences: options.userReferences,
+      logFile: options.logFile,
+      cwd,
+    })
+    const recorded = await recordArtifactVersionFromStage({
+      descriptor,
+      stagedPath: stagedVersion.stagedPath,
+      baseVersionId: options.baseVersionId ?? null,
+      generationId: result.generationId,
+      editInstruction: options.editInstruction ?? null,
+      approvedActionSummary: buildApprovedActionSummary({
+        descriptor,
+        baseVersionId: options.baseVersionId ?? null,
+        editInstruction: options.editInstruction ?? null,
+        references: result.resolvedReferences,
+      }),
+      references: result.resolvedReferences,
+      cwd,
+    })
+
+    return {
+      ...result,
+      descriptor,
+      versionId: recorded.version.versionId,
+    }
+  } catch (error) {
+    await rm(path.resolve(cwd, stagedVersion.stagedPath), { force: true }).catch(() => undefined)
+    throw error
   }
 }
 
 async function main() {
-  const [config, storyboardMarkdown] = await Promise.all([
+  const [config, storyboardMarkdown, storyboardSidecar] = await Promise.all([
     loadConfig(),
     readFile(resolveWorkflowPath(WORKFLOW_FILES.storyboard), 'utf8'),
+    loadStoryboardSidecar(),
   ])
 
-  const generation = selectPendingStoryboardGeneration(storyboardMarkdown, config.imageModel)
+  const generation = selectPendingStoryboardGeneration(
+    storyboardMarkdown,
+    config.imageModel,
+    storyboardSidecar?.references ?? [],
+  )
   const absoluteOutputPath = path.resolve(process.cwd(), generation.outputPath)
 
   if (await fileExists(absoluteOutputPath)) {
@@ -89,11 +205,10 @@ async function main() {
 
   console.log(`Generating storyboard with model ${generation.model} -> ${generation.outputPath}`)
 
-  await generateImagenOptions({
-    prompt: generation.prompt,
+  await generateStoryboardArtifactVersion({
+    storyboardMarkdown,
     model: generation.model,
-    outputPath: generation.outputPath,
-    references: generation.references,
+    userReferences: storyboardSidecar?.references ?? [],
   })
 
   captureWorkflowEvent('storyboard_generated', { model: generation.model })

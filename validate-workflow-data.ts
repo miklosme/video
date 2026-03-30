@@ -12,6 +12,7 @@ import {
   loadShotArtifacts,
   loadShotPrompts,
   loadStatus,
+  loadStoryboardSidecar,
   MODEL_OPTIONS_FILE,
   resolveRepoPath,
   resolveWorkflowPath,
@@ -24,6 +25,7 @@ import {
   type KeyframeEntry,
   type ShotArtifactEntry,
   type ShotEntry,
+  type StoryboardSidecar,
 } from './workflow-data'
 
 async function requireWorkspacePath(fileName: string, label: string) {
@@ -48,6 +50,23 @@ async function requireRepoPath(fileName: string, label: string) {
   }
 
   return filePath
+}
+
+async function validateArtifactReferencesExist(
+  references: { path: string }[] | undefined,
+  context: string,
+) {
+  for (const reference of references ?? []) {
+    const absoluteReferencePath = resolveRepoPath(reference.path)
+
+    try {
+      await access(absoluteReferencePath)
+    } catch {
+      throw new Error(
+        `${context} references missing file "${path.relative(process.cwd(), absoluteReferencePath)}".`,
+      )
+    }
+  }
 }
 
 function groupByShotId<T extends { shotId: string }>(entries: T[]) {
@@ -147,7 +166,16 @@ function validateKeyframeArtifacts(keyframes: KeyframeEntry[], artifacts: Keyfra
   }
 }
 
-function validateCharacterSheets(characterSheets: CharacterSheetEntry[]) {
+async function validateKeyframeArtifactReferences(artifacts: KeyframeArtifactEntry[]) {
+  for (const artifact of artifacts) {
+    await validateArtifactReferencesExist(
+      artifact.references,
+      `Keyframe artifact "${artifact.keyframeId}"`,
+    )
+  }
+}
+
+async function validateCharacterSheets(characterSheets: CharacterSheetEntry[]) {
   const characterIds = new Set<string>()
 
   for (const entry of characterSheets) {
@@ -156,10 +184,14 @@ function validateCharacterSheets(characterSheets: CharacterSheetEntry[]) {
     }
 
     characterIds.add(entry.characterId)
+    await validateArtifactReferencesExist(
+      entry.references,
+      `Character sheet "${entry.characterId}"`,
+    )
   }
 }
 
-function validateShotArtifacts(shots: ShotEntry[], artifacts: ShotArtifactEntry[]) {
+async function validateShotArtifacts(shots: ShotEntry[], artifacts: ShotArtifactEntry[]) {
   const shotById = new Map(shots.map((entry) => [entry.shotId, entry]))
   const artifactIds = new Set<string>()
 
@@ -181,7 +213,13 @@ function validateShotArtifacts(shots: ShotEntry[], artifacts: ShotArtifactEntry[
         `Shot artifact "${artifact.shotId}" has shotId "${artifact.shotId}" but shot "${shot.shotId}" uses a different ID.`,
       )
     }
+
+    await validateArtifactReferencesExist(artifact.references, `Shot artifact "${artifact.shotId}"`)
   }
+}
+
+async function validateStoryboardSidecar(sidecar: StoryboardSidecar | null) {
+  await validateArtifactReferencesExist(sidecar?.references, 'workspace/STORYBOARD.json')
 }
 
 export function validateShots(keyframes: KeyframeEntry[], shots: ShotEntry[]) {
@@ -265,6 +303,7 @@ async function main() {
   const characterSheets = await loadCharacterSheets()
   const keyframeArtifacts = await loadKeyframeArtifacts()
   const shotArtifacts = await loadShotArtifacts()
+  const storyboardSidecar = await loadStoryboardSidecar()
 
   const keyframes = keyframesExists ? await loadKeyframes() : []
   const shots = shotPromptsExists ? await loadShotPrompts() : []
@@ -287,11 +326,13 @@ async function main() {
     await requireWorkspacePath(WORKFLOW_FILES.storyboardImage, 'workspace/STORYBOARD.png')
   }
 
-  validateCharacterSheets(characterSheets)
+  await validateCharacterSheets(characterSheets)
   await validateKeyframes(keyframes, characterSheets)
   validateKeyframeArtifacts(keyframes, keyframeArtifacts)
+  await validateKeyframeArtifactReferences(keyframeArtifacts)
   validateShots(keyframes, shots)
-  validateShotArtifacts(shots, shotArtifacts)
+  await validateShotArtifacts(shots, shotArtifacts)
+  await validateStoryboardSidecar(storyboardSidecar)
 
   if (finalCutExists) {
     await resolveFinalCutProps(process.cwd(), { assetBaseUrl: 'http://127.0.0.1:1' })

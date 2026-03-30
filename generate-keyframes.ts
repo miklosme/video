@@ -1,16 +1,22 @@
-import { access } from 'node:fs/promises'
+import { access, rm } from 'node:fs/promises'
 import path from 'node:path'
 
 import arg from 'arg'
 
+import {
+  buildApprovedActionSummary,
+  getKeyframeArtifactDescriptor,
+  prepareStagedArtifactVersion,
+  recordArtifactVersionFromStage,
+  resolveKeyframeGenerationReferences,
+} from './artifact-control'
 import { generateImagenOptions } from './generate-imagen-options'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import {
-  getCharacterSheetImagePath,
-  getStoryboardImagePath,
   loadKeyframeArtifacts,
   loadKeyframes,
   loadShotPrompts,
+  type ArtifactReferenceEntry,
   type FrameType,
   type GenerationReferenceEntry,
   type KeyframeArtifactEntry,
@@ -35,6 +41,7 @@ export interface PendingKeyframeGeneration {
   outputPath: string
   characterIds: string[]
   incomingTransition: ShotIncomingTransitionEntry
+  userReferences?: ArtifactReferenceEntry[]
 }
 
 function parseArgs(): GenerateKeyframesArgs {
@@ -98,6 +105,7 @@ export function selectPendingKeyframeGenerations(
           outputPath: entry.imagePath,
           characterIds: entry.characterIds,
           incomingTransition: shot.incomingTransition,
+          userReferences: artifact.references,
         }
       })
   })
@@ -148,7 +156,6 @@ function getPreviousShot(shots: ShotEntry[], shotId: string) {
 
   return shotIndex === 0 ? null : shots[shotIndex - 1]!
 }
-
 export function resolveKeyframeGenerationPrompt(
   generation: Pick<PendingKeyframeGeneration, 'frameType' | 'incomingTransition' | 'prompt'>,
 ) {
@@ -168,78 +175,21 @@ export function planKeyframeGenerationReferences(
   },
   keyframes: KeyframeEntry[],
   shots: ShotEntry[],
+  options: {
+    selectedVersionPath?: string | null
+    userReferences?: readonly ArtifactReferenceEntry[]
+  } = {},
 ): GenerationReferenceEntry[] {
-  const storyboardReference: GenerationReferenceEntry = {
-    kind: 'storyboard',
-    path: getStoryboardImagePath(),
-  }
-
-  const characterReferences: GenerationReferenceEntry[] = generation.characterIds.map(
-    (characterId) => ({
-      kind: 'character-sheet',
-      path: getCharacterSheetImagePath(characterId),
-    }),
-  )
-
-  if (generation.frameType !== 'end' && generation.incomingTransition.type !== 'continuity') {
-    return [storyboardReference, ...characterReferences]
-  }
-
-  if (generation.frameType !== 'end') {
-    const previousShot = getPreviousShot(shots, generation.shotId)
-
-    if (!previousShot) {
-      throw new Error(
-        `Cannot generate ${generation.keyframeId}; continuity requires a previous shot before "${generation.shotId}".`,
-      )
-    }
-
-    const previousEndKeyframe = keyframes.find(
-      (entry) => entry.shotId === previousShot.shotId && entry.frameType === 'end',
-    )
-
-    if (!previousEndKeyframe) {
-      throw new Error(
-        `Cannot generate ${generation.keyframeId}; previous shot "${previousShot.shotId}" is missing an end keyframe.`,
-      )
-    }
-
-    return [
-      {
-        kind: 'previous-shot-end-frame',
-        path: previousEndKeyframe.imagePath,
-      },
-      storyboardReference,
-      ...characterReferences,
-    ]
-  }
-
-  const startKeyframe = keyframes.find(
-    (entry) => entry.shotId === generation.shotId && entry.frameType === 'start',
-  )
-
-  if (!startKeyframe) {
-    throw new Error(
-      `Cannot generate ${generation.keyframeId}; shot "${generation.shotId}" is missing a start keyframe.`,
-    )
-  }
-
-  return [
-    {
-      kind: 'start-frame',
-      path: startKeyframe.imagePath,
-    },
-    storyboardReference,
-    ...characterReferences,
-  ]
+  return resolveKeyframeGenerationReferences(generation, keyframes, shots, options).references
 }
 
 async function assertReferenceFilesExist(
   references: GenerationReferenceEntry[],
   keyframeId: string,
+  cwd = process.cwd(),
 ) {
   for (const reference of references) {
-    const absoluteReferencePath = path.resolve(process.cwd(), reference.path)
+    const absoluteReferencePath = path.resolve(cwd, reference.path)
 
     if (await fileExists(absoluteReferencePath)) {
       continue
@@ -248,6 +198,125 @@ async function assertReferenceFilesExist(
     throw new Error(
       `Cannot generate ${keyframeId}; required ${reference.kind} reference is missing at ${reference.path}.`,
     )
+  }
+}
+
+function applyKeyframeEditInstruction(prompt: string, editInstruction?: string | null) {
+  if (!editInstruction) {
+    return prompt
+  }
+
+  return [
+    prompt,
+    '',
+    'Requested edit:',
+    editInstruction,
+    '',
+    'Apply only this approved change while preserving the rest of the current keyframe unless the edit explicitly requests broader changes.',
+  ].join('\n')
+}
+
+export async function runKeyframeGeneration(
+  generation: PendingKeyframeGeneration,
+  keyframes: KeyframeEntry[],
+  shots: ShotEntry[],
+  options: {
+    outputPath?: string
+    editInstruction?: string | null
+    selectedVersionPath?: string | null
+    userReferences?: readonly ArtifactReferenceEntry[]
+    logFile?: string
+    cwd?: string
+  } = {},
+) {
+  const { resolvedReferences, references } = resolveKeyframeGenerationReferences(
+    generation,
+    keyframes,
+    shots,
+    {
+      selectedVersionPath: options.selectedVersionPath,
+      userReferences: options.userReferences ?? generation.userReferences ?? [],
+    },
+  )
+  await assertReferenceFilesExist(references, generation.keyframeId, options.cwd)
+
+  const prompt = applyKeyframeEditInstruction(
+    resolveKeyframeGenerationPrompt(generation),
+    options.editInstruction,
+  )
+  const result = await generateImagenOptions({
+    prompt,
+    model: generation.model,
+    size: DEFAULT_KEYFRAME_IMAGE_SIZE,
+    outputPath: options.outputPath ?? generation.outputPath,
+    keyframeId: generation.keyframeId,
+    shotId: generation.shotId,
+    frameType: generation.frameType,
+    references,
+    logFile: options.logFile,
+    cwd: options.cwd,
+    artifactType: 'keyframe',
+    artifactId: generation.keyframeId,
+  })
+
+  return {
+    ...result,
+    prompt,
+    resolvedReferences,
+    references,
+  }
+}
+
+export async function generateKeyframeArtifactVersion(
+  generation: PendingKeyframeGeneration,
+  keyframes: KeyframeEntry[],
+  shots: ShotEntry[],
+  options: {
+    editInstruction?: string | null
+    selectedVersionPath?: string | null
+    baseVersionId?: string | null
+    userReferences?: readonly ArtifactReferenceEntry[]
+    logFile?: string
+    cwd?: string
+  } = {},
+) {
+  const descriptor = getKeyframeArtifactDescriptor(generation)
+  const cwd = options.cwd ?? process.cwd()
+  const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
+
+  try {
+    const result = await runKeyframeGeneration(generation, keyframes, shots, {
+      outputPath: stagedVersion.stagedPath,
+      editInstruction: options.editInstruction,
+      selectedVersionPath: options.selectedVersionPath,
+      userReferences: options.userReferences,
+      logFile: options.logFile,
+      cwd,
+    })
+    const recorded = await recordArtifactVersionFromStage({
+      descriptor,
+      stagedPath: stagedVersion.stagedPath,
+      baseVersionId: options.baseVersionId ?? null,
+      generationId: result.generationId,
+      editInstruction: options.editInstruction ?? null,
+      approvedActionSummary: buildApprovedActionSummary({
+        descriptor,
+        baseVersionId: options.baseVersionId ?? null,
+        editInstruction: options.editInstruction ?? null,
+        references: result.resolvedReferences,
+      }),
+      references: result.resolvedReferences,
+      cwd,
+    })
+
+    return {
+      ...result,
+      descriptor,
+      versionId: recorded.version.versionId,
+    }
+  } catch (error) {
+    await rm(path.resolve(cwd, stagedVersion.stagedPath), { force: true }).catch(() => undefined)
+    throw error
   }
 }
 
@@ -294,19 +363,7 @@ async function main() {
       `Generating ${generation.keyframeId} with model ${generation.model} -> ${generation.outputPath}`,
     )
 
-    const references = planKeyframeGenerationReferences(generation, keyframes, shots)
-    await assertReferenceFilesExist(references, generation.keyframeId)
-
-    await generateImagenOptions({
-      prompt: resolveKeyframeGenerationPrompt(generation),
-      model: generation.model,
-      size: DEFAULT_KEYFRAME_IMAGE_SIZE,
-      outputPath: generation.outputPath,
-      keyframeId: generation.keyframeId,
-      shotId: generation.shotId,
-      frameType: generation.frameType,
-      references,
-    })
+    await generateKeyframeArtifactVersion(generation, keyframes, shots)
 
     captureWorkflowEvent('keyframe_generated', {
       keyframeId: generation.keyframeId,

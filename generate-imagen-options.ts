@@ -5,6 +5,7 @@ import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import {
+  type ArtifactType,
   FRAME_TYPES,
   type FrameType,
   type GenerationLogEntry,
@@ -43,6 +44,9 @@ export interface GenerateImagenOptionsInput {
   promptId?: string
   logFile?: string
   references?: GenerationReferenceEntry[]
+  artifactType?: ArtifactType
+  artifactId?: string
+  cwd?: string
 }
 
 export interface GenerateImagenOptionsResult {
@@ -51,12 +55,12 @@ export interface GenerateImagenOptionsResult {
   outputPaths: string[]
 }
 
-function resolvePath(maybeRelativePath: string) {
-  return path.resolve(process.cwd(), maybeRelativePath)
+function resolvePath(maybeRelativePath: string, cwd = process.cwd()) {
+  return path.resolve(cwd, maybeRelativePath)
 }
 
-function resolveDefaultLogFile() {
-  return path.resolve(process.cwd(), 'workspace', 'GENERATION-LOG.jsonl')
+function resolveDefaultLogFile(cwd = process.cwd()) {
+  return path.resolve(cwd, 'workspace', 'GENERATION-LOG.jsonl')
 }
 
 function createGatewayProvider() {
@@ -138,6 +142,16 @@ export function buildPromptText(
             `Reference ${referenceNumber} is a character identity sheet. Preserve the same subject identity, markings, and silhouette.`,
           )
           break
+        case 'selected-image':
+          promptLines.push(
+            `Reference ${referenceNumber} is the currently selected artifact version. Treat it as the direct visual baseline and apply only the requested changes unless instructed otherwise.`,
+          )
+          break
+        case 'user-reference':
+          promptLines.push(
+            `Reference ${referenceNumber} is an additional user-supplied reference image. Use it only for the qualities implied by the request and preserve higher-priority continuity references when they conflict.`,
+          )
+          break
       }
     }
   }
@@ -160,11 +174,11 @@ async function appendGenerationLog(entry: GenerationLogEntry) {
   await appendFile(entry.logFile, `${JSON.stringify(entry)}\n`, 'utf8')
 }
 
-async function loadReferenceImages(references: GenerationReferenceEntry[]) {
+async function loadReferenceImages(references: GenerationReferenceEntry[], cwd = process.cwd()) {
   return Promise.all(
     references.map(async (reference) => ({
       ...reference,
-      data: await readFile(resolvePath(reference.path)),
+      data: await readFile(resolvePath(reference.path, cwd)),
     })),
   )
 }
@@ -178,6 +192,7 @@ async function generateImagesWithGateway(input: {
   safetyFilterLevel: string
   references: GenerationReferenceEntry[]
   shotId?: string
+  cwd?: string
 }) {
   const gateway = createGatewayProvider()
   const promptText = buildPromptText(
@@ -188,7 +203,7 @@ async function generateImagesWithGateway(input: {
     input.shotId,
     input.size,
   )
-  const loadedReferences = await loadReferenceImages(input.references)
+  const loadedReferences = await loadReferenceImages(input.references, input.cwd)
 
   if (IMAGE_ONLY_MODELS.has(input.model)) {
     const result = await generateImage({
@@ -265,17 +280,18 @@ export async function generateImagenOptions(
 
   const generationId = randomUUID()
   const startedAt = new Date().toISOString()
+  const cwd = input.cwd ?? process.cwd()
   const model = input.model ?? DEFAULT_IMAGE_MODEL
   const imageCount = input.n ?? 1
   const size = input.size
   const aspectRatio = input.aspectRatio ?? '16:9'
   const safetyFilterLevel = input.safetyFilterLevel ?? 'OFF'
   const references = input.references ?? []
-  const explicitOutputPath = input.outputPath ? resolvePath(input.outputPath) : null
+  const explicitOutputPath = input.outputPath ? resolvePath(input.outputPath, cwd) : null
   const outputDir = explicitOutputPath
     ? path.dirname(explicitOutputPath)
-    : resolvePath(input.outputDir ?? 'output')
-  const logFile = input.logFile ? resolvePath(input.logFile) : resolveDefaultLogFile()
+    : resolvePath(input.outputDir ?? 'output', cwd)
+  const logFile = input.logFile ? resolvePath(input.logFile, cwd) : resolveDefaultLogFile(cwd)
   const namePrefix = input.namePrefix ? `${input.namePrefix}-` : ''
   const createdAtPrefix = startedAt.replace(/[-:]/g, '').replace(/\..+/, '').replace('T', '-')
   const outputPaths: string[] = []
@@ -295,6 +311,7 @@ export async function generateImagenOptions(
       safetyFilterLevel,
       references,
       shotId: input.shotId,
+      cwd,
     })
 
     await mkdir(outputDir, { recursive: true })
@@ -344,6 +361,8 @@ export async function generateImagenOptions(
       shotId: input.shotId ?? null,
       frameType: input.frameType ?? null,
       promptId: input.promptId ?? null,
+      artifactType: input.artifactType ?? null,
+      artifactId: input.artifactId ?? null,
       logFile,
       references,
       error: errorDetails,

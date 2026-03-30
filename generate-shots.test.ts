@@ -220,7 +220,7 @@ test('planShotGenerationAssets uses start and end anchors and caps deduped chara
     inputImagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
     lastFramePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
     characterIds: ['dog', 'pack', 'bowl', 'room'],
-    characterReferencePaths: [
+    referenceImagePaths: [
       'workspace/CHARACTERS/dog.png',
       'workspace/CHARACTERS/pack.png',
       'workspace/CHARACTERS/bowl.png',
@@ -245,6 +245,82 @@ test('planShotGenerationAssets uses start and end anchors and caps deduped chara
       {
         kind: 'character-sheet',
         path: 'workspace/CHARACTERS/bowl.png',
+      },
+    ],
+  })
+})
+
+test('planShotGenerationAssets prioritizes explicit user references ahead of derived character sheets', () => {
+  const generation: PendingShotGeneration = {
+    shotId: 'SHOT-02',
+    model: 'video-test',
+    prompt: 'A concise motion prompt.',
+    outputPath: 'workspace/SHOTS/SHOT-02.mp4',
+    keyframeIds: ['SHOT-02-START', 'SHOT-02-END'],
+    durationSeconds: 4,
+    userReferences: [
+      {
+        path: 'workspace/REFERENCES/layout.png',
+        label: 'Layout',
+      },
+      {
+        path: 'workspace/REFERENCES/light.png',
+        label: 'Light',
+      },
+    ],
+  }
+  const keyframes: KeyframeEntry[] = [
+    {
+      keyframeId: 'SHOT-02-START',
+      shotId: 'SHOT-02',
+      frameType: 'start',
+      title: 'Start frame',
+      goal: 'Open the shot.',
+      status: 'planned',
+      imagePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png',
+      characterIds: ['dog', 'pack'],
+    },
+    {
+      keyframeId: 'SHOT-02-END',
+      shotId: 'SHOT-02',
+      frameType: 'end',
+      title: 'End frame',
+      goal: 'Close the shot.',
+      status: 'planned',
+      imagePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png',
+      characterIds: ['dog'],
+    },
+  ]
+
+  expect(planShotGenerationAssets(generation, keyframes)).toEqual({
+    inputImagePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png',
+    lastFramePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png',
+    characterIds: ['dog', 'pack'],
+    referenceImagePaths: [
+      'workspace/REFERENCES/layout.png',
+      'workspace/REFERENCES/light.png',
+      'workspace/CHARACTERS/dog.png',
+    ],
+    references: [
+      {
+        kind: 'start-frame',
+        path: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png',
+      },
+      {
+        kind: 'end-frame',
+        path: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png',
+      },
+      {
+        kind: 'user-reference',
+        path: 'workspace/REFERENCES/layout.png',
+      },
+      {
+        kind: 'user-reference',
+        path: 'workspace/REFERENCES/light.png',
+      },
+      {
+        kind: 'character-sheet',
+        path: 'workspace/CHARACTERS/dog.png',
       },
     ],
   })

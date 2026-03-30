@@ -1,13 +1,22 @@
-import { access } from 'node:fs/promises'
+import { access, rm } from 'node:fs/promises'
 import path from 'node:path'
 
 import arg from 'arg'
 
+import {
+  assertResolvedReferencesExist,
+  buildApprovedActionSummary,
+  getCharacterArtifactDescriptor,
+  prepareStagedArtifactVersion,
+  recordArtifactVersionFromStage,
+  resolveCharacterGenerationReferences,
+} from './artifact-control'
 import { generateImagenOptions } from './generate-imagen-options'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import {
   getCharacterSheetImagePath,
   loadCharacterSheets,
+  type ArtifactReferenceEntry,
   type CharacterSheetEntry,
 } from './workflow-data'
 
@@ -21,6 +30,7 @@ export interface PendingCharacterSheetGeneration {
   model: string
   prompt: string
   outputPath: string
+  userReferences?: ArtifactReferenceEntry[]
 }
 
 function parseArgs(): GenerateCharacterSheetsArgs {
@@ -54,7 +64,111 @@ export function selectPendingCharacterSheetGenerations(
       model: entry.model,
       prompt: entry.prompt,
       outputPath: getCharacterSheetImagePath(entry.characterId),
+      userReferences: entry.references,
     }))
+}
+
+function applyCharacterEditInstruction(prompt: string, editInstruction?: string | null) {
+  if (!editInstruction) {
+    return prompt
+  }
+
+  return [
+    prompt,
+    '',
+    'Requested edit:',
+    editInstruction,
+    '',
+    'Apply only this approved change while preserving the rest of the current character reference image unless the edit explicitly asks for a broader redesign.',
+  ].join('\n')
+}
+
+export async function runCharacterSheetGeneration(
+  generation: PendingCharacterSheetGeneration,
+  options: {
+    outputPath?: string
+    editInstruction?: string | null
+    selectedVersionPath?: string | null
+    userReferences?: readonly ArtifactReferenceEntry[]
+    logFile?: string
+    cwd?: string
+  } = {},
+) {
+  const { resolvedReferences, references } = resolveCharacterGenerationReferences({
+    selectedVersionPath: options.selectedVersionPath,
+    userReferences: options.userReferences ?? generation.userReferences ?? [],
+  })
+  await assertResolvedReferencesExist(resolvedReferences, options.cwd)
+
+  const prompt = applyCharacterEditInstruction(generation.prompt, options.editInstruction)
+  const result = await generateImagenOptions({
+    prompt,
+    model: generation.model,
+    outputPath: options.outputPath ?? generation.outputPath,
+    references,
+    logFile: options.logFile,
+    cwd: options.cwd,
+    artifactType: 'character',
+    artifactId: generation.characterId,
+  })
+
+  return {
+    ...result,
+    prompt,
+    resolvedReferences,
+    references,
+  }
+}
+
+export async function generateCharacterSheetArtifactVersion(
+  generation: PendingCharacterSheetGeneration,
+  options: {
+    editInstruction?: string | null
+    selectedVersionPath?: string | null
+    baseVersionId?: string | null
+    userReferences?: readonly ArtifactReferenceEntry[]
+    logFile?: string
+    cwd?: string
+  } = {},
+) {
+  const descriptor = getCharacterArtifactDescriptor(generation.characterId)
+  const cwd = options.cwd ?? process.cwd()
+  const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
+
+  try {
+    const result = await runCharacterSheetGeneration(generation, {
+      outputPath: stagedVersion.stagedPath,
+      editInstruction: options.editInstruction,
+      selectedVersionPath: options.selectedVersionPath,
+      userReferences: options.userReferences,
+      logFile: options.logFile,
+      cwd,
+    })
+    const recorded = await recordArtifactVersionFromStage({
+      descriptor,
+      stagedPath: stagedVersion.stagedPath,
+      baseVersionId: options.baseVersionId ?? null,
+      generationId: result.generationId,
+      editInstruction: options.editInstruction ?? null,
+      approvedActionSummary: buildApprovedActionSummary({
+        descriptor,
+        baseVersionId: options.baseVersionId ?? null,
+        editInstruction: options.editInstruction ?? null,
+        references: result.resolvedReferences,
+      }),
+      references: result.resolvedReferences,
+      cwd,
+    })
+
+    return {
+      ...result,
+      descriptor,
+      versionId: recorded.version.versionId,
+    }
+  } catch (error) {
+    await rm(path.resolve(cwd, stagedVersion.stagedPath), { force: true }).catch(() => undefined)
+    throw error
+  }
 }
 
 async function main() {
@@ -88,12 +202,7 @@ async function main() {
       `Generating ${generation.characterId} with model ${generation.model} -> ${generation.outputPath}`,
     )
 
-    await generateImagenOptions({
-      prompt: generation.prompt,
-      model: generation.model,
-      outputPath: generation.outputPath,
-      references: [],
-    })
+    await generateCharacterSheetArtifactVersion(generation)
 
     captureWorkflowEvent('character_sheet_generated', {
       characterId: generation.characterId,
