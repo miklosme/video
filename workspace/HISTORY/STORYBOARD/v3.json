@@ -1,11 +1,11 @@
 {
-  "versionId": "v1",
-  "createdAt": "2026-03-31T15:32:55.897Z",
+  "versionId": "v3",
+  "createdAt": "2026-03-31T15:33:45.074Z",
   "sourceArtifactId": "STORYBOARD",
   "baseVersionId": null,
-  "generationId": "aa23f880-aece-41a2-aa46-f35e8ec6a5de",
-  "seed": 1,
-  "autoSelected": false,
+  "generationId": "357790f9-90b2-4a6e-8c25-805b93a5873e",
+  "seed": 3,
+  "autoSelected": true,
   "editInstruction": null,
   "approvedActionSummary": "Storyboard from no prior version with 1 reference (initial generation)",
   "references": [
