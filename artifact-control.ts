@@ -312,6 +312,10 @@ export function getArtifactVersionMediaPath(descriptor: ArtifactDescriptor, vers
   return path.posix.join(descriptor.historyDir, `${versionId}${descriptor.mediaExtension}`)
 }
 
+function getArtifactVersionMetadataPath(descriptor: ArtifactDescriptor, versionId: string) {
+  return path.posix.join(descriptor.historyDir, `${versionId}.json`)
+}
+
 export async function loadArtifactHistory(
   descriptor: ArtifactDescriptor,
   cwd = process.cwd(),
@@ -422,6 +426,29 @@ export async function promoteArtifactVersion(
   return {
     versionId,
     archivedVersionId,
+  }
+}
+
+export async function deleteArtifactVersion(
+  descriptor: ArtifactDescriptor,
+  versionId: string,
+  cwd = process.cwd(),
+) {
+  const history = await loadArtifactHistory(descriptor, cwd)
+
+  if (!history.versions.some((entry) => entry.versionId === versionId)) {
+    throw new Error(`${descriptor.displayName} is missing retained version ${versionId}.`)
+  }
+
+  await rm(resolveRepoPath(getArtifactVersionMediaPath(descriptor, versionId), cwd), {
+    force: true,
+  })
+  await rm(resolveRepoPath(getArtifactVersionMetadataPath(descriptor, versionId), cwd), {
+    force: true,
+  })
+
+  return {
+    versionId,
   }
 }
 

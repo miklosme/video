@@ -262,7 +262,8 @@ test('artifact review server shows version history for an existing character and
       const detailHtml = await detailResponse.text()
 
       expect(detailResponse.status).toBe(200)
-      expect(detailHtml).toContain('Version History')
+      expect(detailHtml).toContain('class="version-badges"')
+      expect(detailHtml).not.toContain('Version History')
       expect(detailHtml).toContain('data-version-id="current"')
       expect(detailHtml).toContain('data-version-id="v2"')
       expect(detailHtml).toContain('data-version-id="v1"')
@@ -322,12 +323,35 @@ test('artifact review server renders the version rail current first, then retain
       expect(v1Index).toBeGreaterThan(-1)
       expect(currentIndex).toBeLessThan(v2Index)
       expect(v2Index).toBeLessThan(v1Index)
+      expect(html).toContain('class="version-badges"')
+      expect(html).not.toContain('Version History')
+      expect(html).not.toContain(
+        'Current artifact first, then retained versions in descending order.',
+      )
+      expect(html).not.toContain('Public artifact')
+      expect(html).not.toContain('Retained version')
+      expect(html).not.toContain('version-tile-copy')
       expect(html).toContain('Regenerate')
       expect(html).not.toContain('Edit Request')
       expect(html).toContain('action="/characters/hero/generate"')
       expect(html).not.toContain('/characters/hero/approve')
       expect(html).toContain('name="baseVersionId" value="current"')
+      expect(html).not.toContain(
+        'Regeneration starts immediately from the version you are viewing. The raw edit text is passed through as written.',
+      )
       expect(html).not.toContain('Go to current')
+
+      const detailVisualIndex = html.indexOf('<div class="detail-visual">')
+      const subtitleIndex = html.indexOf(
+        'Review the current artifact, browse retained versions, update the source reference stack, and request targeted edits.',
+      )
+      const detailSideIndex = html.indexOf('<div class="detail-side">')
+      const backActionIndex = html.indexOf('Back to characters')
+
+      expect(detailVisualIndex).toBeGreaterThan(-1)
+      expect(subtitleIndex).toBeGreaterThan(detailVisualIndex)
+      expect(detailSideIndex).toBeGreaterThan(subtitleIndex)
+      expect(backActionIndex).toBeGreaterThan(detailSideIndex)
     } finally {
       await server.stop()
     }
@@ -336,7 +360,7 @@ test('artifact review server renders the version rail current first, then retain
   }
 })
 
-test('artifact review server shows historical actions and regenerates from the viewed retained version', async () => {
+test('artifact review server shows historical actions, including confirmed delete, and regenerates from the viewed retained version', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
@@ -352,9 +376,49 @@ test('artifact review server shows historical actions and regenerates from the v
       expect(html).toContain('Historical Version')
       expect(html).toContain('Make current')
       expect(html).toContain('Go to current')
+      expect(html).toContain('Delete')
+      expect(html).toContain('action="/characters/hero/delete"')
+      expect(html).toContain(
+        'window.confirm(&quot;Delete retained version v2? This cannot be undone.&quot;)',
+      )
       expect(html).toContain('name="baseVersionId" value="v2"')
       expect(html).toContain('data-version-id="v2"')
       expect(html).toContain('Viewing')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server deletes a retained version and redirects back to current detail view', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeCharacterArtifactFixture(rootDir)
+    await writeRepoFile(rootDir, 'workspace/CHARACTERS/HISTORY/hero/v2.json', '{"seed":2}')
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/characters/hero/delete', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+        body: new URLSearchParams({
+          versionId: 'v2',
+        }),
+      })
+
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toBe('/characters/hero')
+
+      const detailResponse = await fetch(new URL('/characters/hero', server.url))
+      const html = await detailResponse.text()
+
+      expect(detailResponse.status).toBe(200)
+      expect(html).not.toContain('data-version-id="v2"')
+      expect(html).toContain('data-version-id="v1"')
     } finally {
       await server.stop()
     }
@@ -449,6 +513,8 @@ test('artifact review server uses silent video thumbnails in the version rail wh
       expect(html).toContain(
         'class="version-media" src="/shots/SHOT-01/versions/v1/media" muted autoplay loop playsinline preload="metadata"></video>',
       )
+      expect(html).toContain('class="version-badges"')
+      expect(html).not.toContain('version-tile-copy')
       expect(html).toContain(
         '<video class="" src="/workspace/SHOTS/SHOT-01.mp4" controls preload="metadata" playsinline></video>',
       )

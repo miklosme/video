@@ -4,6 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import {
+  deleteArtifactVersion,
   getCharacterArtifactDescriptor,
   loadArtifactHistory,
   prepareStagedArtifactVersion,
@@ -78,6 +79,24 @@ test('artifact history ignores legacy metadata json files', async () => {
 
     const history = await loadArtifactHistory(descriptor, rootDir)
     expect(history.versions.map((entry) => entry.versionId)).toEqual(['v1'])
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact history delete removes the retained media and matching metadata sidecar', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-control-'))
+
+  try {
+    const descriptor = getCharacterArtifactDescriptor('hero')
+
+    await writeRepoFile(rootDir, path.join(descriptor.historyDir, 'v1.png'), 'v1-image')
+    await writeRepoFile(rootDir, path.join(descriptor.historyDir, 'v1.json'), '{"seed":1}')
+
+    await deleteArtifactVersion(descriptor, 'v1', rootDir)
+
+    const history = await loadArtifactHistory(descriptor, rootDir)
+    expect(history.versions).toEqual([])
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

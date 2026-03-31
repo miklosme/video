@@ -3,6 +3,7 @@ import path from 'node:path'
 import process from 'node:process'
 
 import {
+  deleteArtifactVersion,
   getArtifactKey,
   getArtifactVersionMediaPath,
   getCharacterArtifactDescriptor,
@@ -134,7 +135,6 @@ interface VersionRailItem {
   href: string
   mediaUrl: string | null
   mediaExists: boolean
-  createdAtLabel: string
   isActive: boolean
   isCurrent: boolean
 }
@@ -609,6 +609,12 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
         color: var(--accent-2);
       }
 
+      .button-danger,
+      button.button-danger {
+        background: rgba(248,115,115,0.12);
+        color: var(--error);
+      }
+
       button:disabled { opacity: 0.45; cursor: not-allowed; }
 
       .storyboard-panel {
@@ -636,11 +642,7 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
       }
 
       .artifact-meta-bar {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 16px;
-        padding: 16px 18px;
+        padding: 14px 16px;
         border: 1px solid rgba(255,255,255,0.05);
         border-radius: 16px;
         background:
@@ -648,54 +650,23 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
           rgba(255,255,255,0.015);
       }
 
-      .artifact-meta-main {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        min-width: 0;
-      }
-
-      .artifact-title-row {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 12px;
-      }
-
-      .artifact-title {
-        font-size: clamp(24px, 2.8vw, 34px);
-        line-height: 1.02;
-        letter-spacing: -0.04em;
-      }
-
       .version-rail-shell {
-        display: flex;
-        flex-direction: column;
-        gap: 14px;
-      }
-
-      .version-rail-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 12px;
+        padding: 12px;
       }
 
       .version-rail {
         display: flex;
-        gap: 14px;
+        gap: 12px;
         overflow-x: auto;
         overscroll-behavior-x: contain;
-        padding-bottom: 6px;
+        padding-bottom: 2px;
         scrollbar-width: thin;
       }
 
       .version-tile {
-        flex: 0 0 212px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-        padding: 12px;
+        flex: 0 0 196px;
+        display: block;
+        padding: 0;
         border-radius: 16px;
         border: 1px solid rgba(255,255,255,0.06);
         background:
@@ -727,8 +698,7 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
       .version-visual {
         position: relative;
         aspect-ratio: 16 / 9;
-        border-radius: 12px;
-        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 15px;
         background: var(--panel-strong);
         overflow: hidden;
       }
@@ -738,16 +708,28 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
         background: #080a0d;
       }
 
-      .version-tile-copy {
+      .version-badges {
+        position: absolute;
+        top: 10px;
+        right: 10px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
+        align-items: flex-end;
+        gap: 6px;
+        z-index: 1;
       }
 
-      .version-tile-title {
-        font-size: 14px;
-        font-weight: 700;
-        color: var(--text);
+      .version-badges .pill {
+        padding: 6px 8px;
+        font-size: 10px;
+        background: rgba(17,21,29,0.78);
+        backdrop-filter: blur(8px);
+      }
+
+      .detail-side-nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
       }
 
       .shot {
@@ -903,11 +885,7 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
           border-top: 1px solid var(--line);
         }
 
-        .artifact-meta-bar,
-        .artifact-title-row,
-        .version-rail-header {
-          flex-direction: column;
-        }
+        .artifact-meta-bar { padding: 14px; }
       }
 
       @media (max-width: 720px) {
@@ -916,7 +894,7 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
         .shot { grid-template-columns: 1fr; }
         .shot-id { text-align: left; }
         .character-grid { grid-template-columns: 1fr 1fr; }
-        .version-tile { flex-basis: 176px; }
+        .version-tile { flex-basis: 170px; }
       }
     </style>
   </head>
@@ -1003,19 +981,15 @@ function buildVersionRailItems(context: ArtifactDetailContext): VersionRailItem[
       href: getArtifactDetailPath(context.descriptor),
       mediaUrl: getCanonicalMediaUrl(context.descriptor),
       mediaExists: context.historyState.currentExists,
-      createdAtLabel: context.historyState.currentExists
-        ? 'Public artifact'
-        : 'Current artifact missing',
       isActive: context.historyState.isViewingCurrent,
       isCurrent: true,
     },
     ...context.historyState.versions.map((version) => ({
       versionId: version.versionId,
-      label: version.versionId,
+      label: version.versionId.toUpperCase(),
       href: `${getArtifactDetailPath(context.descriptor)}?version=${encodeURIComponent(version.versionId)}`,
       mediaUrl: getArtifactVersionMediaUrl(context.descriptor, version.versionId),
       mediaExists: true,
-      createdAtLabel: version.createdAt,
       isActive: context.historyState.activeVersionId === version.versionId,
       isCurrent: false,
     })),
@@ -1036,19 +1010,9 @@ function renderVersionRailMedia(context: ArtifactDetailContext, item: VersionRai
 
 function renderVersionRail(context: ArtifactDetailContext) {
   const items = buildVersionRailItems(context)
-  const railNote =
-    context.historyState.versions.length === 0
-      ? 'Current artifact only for now. Retained versions will appear here after regeneration.'
-      : 'Current artifact first, then retained versions in descending order.'
 
   return `
     <section class="panel version-rail-shell">
-      <div class="version-rail-header">
-        <div class="meta-stack">
-          <p class="section-title">Version History</p>
-          <p class="small">${escapeHtml(railNote)}</p>
-        </div>
-      </div>
       <div class="version-rail">
         ${items
           .map((item) => {
@@ -1067,15 +1031,11 @@ function renderVersionRail(context: ArtifactDetailContext) {
                 data-version-id="${escapeHtml(item.versionId)}"
               >
                 <div class="version-visual">
-                  ${renderVersionRailMedia(context, item)}
-                </div>
-                <div class="version-tile-copy">
-                  <div class="pill-row">
+                  <div class="version-badges">
                     <span class="pill ${item.isCurrent ? 'pill-info' : ''}">${escapeHtml(item.label)}</span>
                     ${item.isActive ? '<span class="pill pill-accent">Viewing</span>' : ''}
                   </div>
-                  <p class="version-tile-title">${escapeHtml(item.isCurrent ? 'Public artifact' : 'Retained version')}</p>
-                  <p class="small">${escapeHtml(item.createdAtLabel)}</p>
+                  ${renderVersionRailMedia(context, item)}
                 </div>
               </a>
             `
@@ -1137,22 +1097,22 @@ function renderReferenceEditor(
 }
 
 function renderArtifactMeta(context: ArtifactDetailContext) {
-  const activeVersionLabel = context.historyState.isViewingCurrent
-    ? 'Current'
-    : (context.historyState.activeVersion?.versionId ?? 'Current')
-  const showSummaryAction = context.summaryHref !== getArtifactDetailPath(context.descriptor)
-
   return `
     <section class="artifact-meta-bar">
-      <div class="artifact-meta-main">
-        <p class="muted">${escapeHtml(context.subtitle)}</p>
-      </div>
-      ${
-        showSummaryAction
-          ? `<a class="button button-secondary" href="${context.summaryHref}">${escapeHtml(context.summaryLabel)}</a>`
-          : ''
-      }
+      <p class="muted">${escapeHtml(context.subtitle)}</p>
     </section>
+  `
+}
+
+function renderDetailSideNav(context: ArtifactDetailContext) {
+  if (context.summaryHref === getArtifactDetailPath(context.descriptor)) {
+    return ''
+  }
+
+  return `
+    <div class="detail-side-nav">
+      <a class="button button-secondary" href="${context.summaryHref}">${escapeHtml(context.summaryLabel)}</a>
+    </div>
   `
 }
 
@@ -1183,16 +1143,22 @@ function renderHistoricalVersionActions(context: ArtifactDetailContext) {
     return ''
   }
 
+  const deleteMessage = `Delete retained version ${activeVersion.versionId}? This cannot be undone.`
+
   return `
     <section class="panel">
       <p class="section-title">Historical Version</p>
-      <p class="form-note">You are viewing retained ${escapeHtml(activeVersion.versionId)} from ${escapeHtml(activeVersion.createdAt)}. Promote it to the public artifact or return to the current selection.</p>
+      <p class="form-note">You are viewing retained ${escapeHtml(activeVersion.versionId)} from ${escapeHtml(activeVersion.createdAt)}. Promote it to the public artifact, return to the current selection, or delete this retained version.</p>
       <div class="version-actions">
         <form method="post" action="${getArtifactSelectActionPath(context.descriptor)}">
           <input type="hidden" name="versionId" value="${escapeHtml(activeVersion.versionId)}">
           <button class="button-primary" type="submit">Make current</button>
         </form>
         <a class="button button-secondary" href="${getArtifactDetailPath(context.descriptor)}">Go to current</a>
+        <form method="post" action="${getArtifactDeleteActionPath(context.descriptor)}" onsubmit="return window.confirm(${escapeHtml(JSON.stringify(deleteMessage))})">
+          <input type="hidden" name="versionId" value="${escapeHtml(activeVersion.versionId)}">
+          <button class="button-danger" type="submit">Delete</button>
+        </form>
       </div>
     </section>
   `
@@ -1211,7 +1177,6 @@ function renderEditComposer(context: ArtifactDetailContext) {
   return `
     <section class="panel">
       <p class="section-title">Regenerate</p>
-      <p class="form-note">Regeneration starts immediately from the version you are viewing. The raw edit text is passed through as written.</p>
       <form method="post" action="${getArtifactGenerateActionPath(context.descriptor)}">
         <input type="hidden" name="baseVersionId" value="${escapeHtml(context.historyState.activeVersionId ?? CURRENT_BASE_VERSION_ID)}">
         <textarea name="editInstruction" placeholder="Describe the precise change you want from the version you are viewing." required></textarea>
@@ -1230,7 +1195,6 @@ function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState 
       ${renderJobBanner(job)}
       <section class="detail-layout">
         <div class="detail-main">
-          ${renderArtifactMeta(context)}
           <div class="detail-visual">
             ${renderMediaBlock({
               mediaType: context.mediaType,
@@ -1241,6 +1205,7 @@ function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState 
               className: '',
             })}
           </div>
+          ${renderArtifactMeta(context)}
           <section class="panel">
             <p class="section-title">Source Prompt</p>
             <div class="meta-stack">
@@ -1251,6 +1216,7 @@ function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState 
           ${context.notesHtml}
         </div>
         <div class="detail-side">
+          ${renderDetailSideNav(context)}
           ${renderHistoricalVersionActions(context)}
           ${renderEditComposer(context)}
           ${renderReferenceEditor(
@@ -1459,6 +1425,10 @@ function getArtifactGenerateActionPath(descriptor: ArtifactDescriptor) {
 
 function getArtifactSelectActionPath(descriptor: ArtifactDescriptor) {
   return `${getArtifactDetailPath(descriptor)}/select`
+}
+
+function getArtifactDeleteActionPath(descriptor: ArtifactDescriptor) {
+  return `${getArtifactDetailPath(descriptor)}/delete`
 }
 
 function getArtifactVersionMediaUrl(descriptor: ArtifactDescriptor, versionId: string) {
@@ -2211,6 +2181,24 @@ async function handleSelect(pathname: string, request: Request, cwd: string) {
   return redirectTo(getArtifactDetailPath(detail.descriptor))
 }
 
+async function handleDelete(pathname: string, request: Request, cwd: string) {
+  const detail = await getDetailContext(pathname, cwd)
+
+  if (!detail) {
+    return renderErrorPage('characters', 'Missing Artifact', 'Artifact not found.', '/')
+  }
+
+  const formData = await request.formData()
+  const versionId = String(formData.get('versionId') ?? '').trim()
+
+  if (versionId.length === 0) {
+    throw new Error('A retained versionId is required to delete a version.')
+  }
+
+  await deleteArtifactVersion(detail.descriptor, versionId, cwd)
+  return redirectTo(getArtifactDetailPath(detail.descriptor))
+}
+
 export function startArtifactReviewServer(options: { cwd?: string; preferredPort?: number } = {}) {
   const { cwd = process.cwd(), preferredPort = 3000 } = options
   const activeJobs = new Map<string, ArtifactJobState>()
@@ -2377,6 +2365,10 @@ export function startArtifactReviewServer(options: { cwd?: string; preferredPort
 
           if (request.method === 'POST' && /\/select$/.test(url.pathname)) {
             return handleSelect(url.pathname.replace(/\/select$/, ''), request, cwd)
+          }
+
+          if (request.method === 'POST' && /\/delete$/.test(url.pathname)) {
+            return handleDelete(url.pathname.replace(/\/delete$/, ''), request, cwd)
           }
 
           if (
