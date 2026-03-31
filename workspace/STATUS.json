@@ -20,7 +20,7 @@
   {
     "title": "Prepare character sheets",
     "instruction": "Write one sidecar JSON file per character so character-sheet generation produces a clean single-subject reference image for downstream Veo consistency, with stable prompts, IDs, and model metadata.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["CHARACTERS.md", "CHARACTERS/"]
   },
   {

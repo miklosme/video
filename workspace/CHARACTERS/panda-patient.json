@@ -1,0 +1,7 @@
+{
+  "characterId": "panda-patient",
+  "displayName": "Panda",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A clean studio reference photo of an adult female panda, single subject, full-body framing with a readable face and clear black-and-white markings, gentle rounded silhouette, natural appearance with no clothing or accessories, neutral standing pose with a slight three-quarter view, plain seamless light background, soft even lighting, sharp detail, stable proportions and calm vulnerable expression.",
+  "status": "ready"
+}
