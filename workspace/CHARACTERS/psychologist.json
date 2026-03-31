@@ -1,7 +1,0 @@
-{
-  "characterId": "psychologist",
-  "displayName": "Psychologist",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A clean studio reference photo of an adult male psychologist, single subject, full-body framing with a readable face and clear grounded silhouette, neutral standing pose with a slight three-quarter turn, soft even lighting, plain seamless light neutral background. Calm thoughtful expression, understated professional wardrobe in muted tones, such as a simple textured blazer over a collared shirt and dark trousers, no tie, no accessories beyond what is essential to the wardrobe, no props, sharp detail, grounded realistic presentation, designed as a consistent downstream video character reference asset.",
-  "status": "ready"
-}
