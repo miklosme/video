@@ -38,7 +38,7 @@
   {
     "title": "Review storyboard",
     "instruction": "Generate and review one full-project storyboard board from STORYBOARD.md before committing to keyframes.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["STORYBOARD.md", "STORYBOARD.png"]
   },
   {
@@ -50,7 +50,7 @@
   {
     "title": "Prepare keyframes",
     "instruction": "Write one sidecar JSON file per keyframe so still-image generation has stable prompts, IDs, and model metadata.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["KEYFRAMES.json", "KEYFRAMES/"]
   },
   {
