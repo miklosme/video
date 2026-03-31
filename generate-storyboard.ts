@@ -3,7 +3,6 @@ import path from 'node:path'
 
 import {
   assertResolvedReferencesExist,
-  buildApprovedActionSummary,
   getStoryboardArtifactDescriptor,
   getVersionSeed,
   prepareStagedArtifactVersion,
@@ -181,17 +180,6 @@ export async function generateStoryboardArtifactVersion(options: {
     const recorded = await recordArtifactVersionFromStage({
       descriptor,
       stagedPath: stagedVersion.stagedPath,
-      baseVersionId: options.baseVersionId ?? null,
-      generationId: result.generationId,
-      seed,
-      editInstruction: options.editInstruction ?? null,
-      approvedActionSummary: buildApprovedActionSummary({
-        descriptor,
-        baseVersionId: options.baseVersionId ?? null,
-        editInstruction: options.editInstruction ?? null,
-        references: result.resolvedReferences,
-      }),
-      references: result.resolvedReferences,
       autoSelect: options.autoSelect,
       cwd,
     })
@@ -200,7 +188,7 @@ export async function generateStoryboardArtifactVersion(options: {
       ...result,
       descriptor,
       seed,
-      versionId: recorded.version.versionId,
+      versionId: recorded.versionId,
     }
   } catch (error) {
     await rm(path.resolve(cwd, stagedVersion.stagedPath), { force: true }).catch(() => undefined)

@@ -686,25 +686,23 @@ test('syncShotGenerations renders variantCount retained versions, selects the la
     expect(await readFile(path.resolve(repo.rootDir, 'workspace/SHOTS/SHOT-01.mp4'), 'utf8')).toBe(
       'video:3',
     )
-
-    const history = JSON.parse(
-      await readFile(path.resolve(repo.rootDir, descriptor.artifactControlPath), 'utf8'),
-    ) as {
-      latestVersionId: string
-      selectedVersionId: string
-    }
-    expect(history.latestVersionId).toBe('v3')
-    expect(history.selectedVersionId).toBe('v3')
-
-    const firstVariant = JSON.parse(
-      await readFile(path.resolve(repo.rootDir, descriptor.historyDir, 'v1.json'), 'utf8'),
-    ) as { autoSelected: boolean; seed: number }
-    const lastVariant = JSON.parse(
-      await readFile(path.resolve(repo.rootDir, descriptor.historyDir, 'v3.json'), 'utf8'),
-    ) as { autoSelected: boolean; seed: number }
-
-    expect(firstVariant).toMatchObject({ autoSelected: false, seed: 1 })
-    expect(lastVariant).toMatchObject({ autoSelected: true, seed: 3 })
+    expect(
+      await readFile(path.resolve(repo.rootDir, descriptor.historyDir, 'v1.mp4'), 'utf8'),
+    ).toBe('video:1')
+    expect(
+      await readFile(path.resolve(repo.rootDir, descriptor.historyDir, 'v2.mp4'), 'utf8'),
+    ).toBe('video:2')
+    expect(
+      await readFile(path.resolve(repo.rootDir, descriptor.historyDir, 'v3.mp4'), 'utf8').catch(
+        () => null,
+      ),
+    ).toBeNull()
+    expect(
+      await readFile(
+        path.resolve(repo.rootDir, descriptor.historyDir, 'artifact.json'),
+        'utf8',
+      ).catch(() => null),
+    ).toBeNull()
 
     const logEntries = (
       await readFile(path.resolve(repo.rootDir, 'workspace/test-log.jsonl'), 'utf8')

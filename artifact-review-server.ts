@@ -80,6 +80,8 @@ const HTML_HEADERS = {
   'cache-control': 'no-store',
 }
 
+const CURRENT_BASE_VERSION_ID = 'current'
+
 type Tab = 'characters' | 'storyboard' | 'keyframes' | 'shots'
 
 type ArtifactJobStatus = 'running' | 'success' | 'error'
@@ -952,9 +954,7 @@ function renderReferenceEditor(
 }
 
 function renderHistoryList(context: ArtifactDetailContext) {
-  const history = context.historyState.history
-
-  if (!history || context.historyState.versions.length === 0) {
+  if (context.historyState.versions.length === 0) {
     return '<div class="empty-state">No retained versions yet. Once this artifact has been generated, its history will appear here.</div>'
   }
 
@@ -962,8 +962,6 @@ function renderHistoryList(context: ArtifactDetailContext) {
     <div class="history-list">
       ${context.historyState.versions
         .map((version) => {
-          const isSelected = history.selectedVersionId === version.versionId
-          const isLatest = history.latestVersionId === version.versionId
           const isActive = context.historyState.activeVersionId === version.versionId
           const detailUrl = `${getArtifactDetailPath(context.descriptor)}?version=${encodeURIComponent(version.versionId)}`
 
@@ -973,19 +971,16 @@ function renderHistoryList(context: ArtifactDetailContext) {
                 <div class="meta-stack">
                   <p class="title">${escapeHtml(version.versionId)}</p>
                   <p class="small">${escapeHtml(version.createdAt)}</p>
-                  <p class="small">${escapeHtml(version.editInstruction ?? 'No stored edit instruction')}</p>
                 </div>
                 <div class="pill-row">
                   ${isActive ? '<span class="pill pill-info">Viewing</span>' : ''}
-                  ${isSelected ? '<span class="pill pill-accent">Selected</span>' : ''}
-                  ${isLatest ? '<span class="pill pill-warn">Latest</span>' : ''}
                 </div>
               </div>
               <div class="version-actions">
                 <a class="button button-secondary" href="${detailUrl}">View</a>
                 <form method="post" action="${getArtifactSelectActionPath(context.descriptor)}">
                   <input type="hidden" name="versionId" value="${escapeHtml(version.versionId)}">
-                  <button type="submit" ${isSelected ? 'disabled' : ''}>Select</button>
+                  <button type="submit">Make current</button>
                 </form>
               </div>
             </div>
@@ -1017,11 +1012,11 @@ function renderJobBanner(job: ArtifactJobState | null) {
 }
 
 function renderEditComposer(context: ArtifactDetailContext) {
-  if (!context.canEdit || !context.historyState.activeVersionId) {
+  if (!context.canEdit) {
     return `
       <section class="panel">
         <p class="section-title">Edit Request</p>
-        <div class="empty-state">A retained base version is required before browser-driven edits can be approved.</div>
+        <div class="empty-state">A current or retained artifact is required before browser-driven edits can be approved.</div>
       </section>
     `
   }
@@ -1029,9 +1024,9 @@ function renderEditComposer(context: ArtifactDetailContext) {
   return `
     <section class="panel">
       <p class="section-title">Edit Request</p>
-      <p class="form-note">The raw edit text is stored as written. Approval will show the base version and the exact resolved reference stack before generation starts.</p>
+      <p class="form-note">The raw edit text is stored as written. Approval will show the base artifact preview and the exact resolved reference stack before generation starts.</p>
       <form method="post" action="${getArtifactApproveActionPath(context.descriptor)}">
-        <input type="hidden" name="baseVersionId" value="${escapeHtml(context.historyState.activeVersionId)}">
+        <input type="hidden" name="baseVersionId" value="${escapeHtml(context.historyState.activeVersionId ?? CURRENT_BASE_VERSION_ID)}">
         <textarea name="editInstruction" placeholder="Describe the precise change you want from the version you are viewing." required></textarea>
         <div class="form-actions">
           <button class="button-primary" type="submit">Review approval</button>
@@ -1048,7 +1043,7 @@ function renderApprovalPreview(
   mediaUrl: string | null,
   mediaExists: boolean,
 ) {
-  const backHref = `${getArtifactDetailPath(preview.descriptor)}?version=${encodeURIComponent(preview.baseVersionId)}`
+  const backHref = getBaseVersionBackHref(preview.descriptor, preview.baseVersionId)
   const confirmationForm = `
     <form method="post" action="${getArtifactGenerateActionPath(preview.descriptor)}">
       <input type="hidden" name="baseVersionId" value="${escapeHtml(preview.baseVersionId)}">
@@ -1080,7 +1075,7 @@ function renderApprovalPreview(
             <section class="approval-panel">
               <p class="section-title">Approved Action</p>
               <div class="pill-row">
-                <span class="pill pill-accent">${escapeHtml(preview.baseVersionId)}</span>
+                <span class="pill pill-accent">${escapeHtml(formatBaseVersionLabel(preview.baseVersionId))}</span>
                 <span class="pill">${escapeHtml(preview.descriptor.displayName)}</span>
               </div>
               <p class="muted">${escapeHtml(preview.editInstruction)}</p>
@@ -1111,21 +1106,10 @@ function renderApprovalPreview(
 }
 
 function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState | null) {
-  const history = context.historyState.history
   const activeVersion = context.historyState.activeVersion
   const activeBadges = `
     <div class="pill-row">
-      ${activeVersion ? `<span class="pill pill-info">${escapeHtml(activeVersion.versionId)}</span>` : ''}
-      ${
-        history && activeVersion && history.selectedVersionId === activeVersion.versionId
-          ? '<span class="pill pill-accent">Selected</span>'
-          : ''
-      }
-      ${
-        history && activeVersion && history.latestVersionId === activeVersion.versionId
-          ? '<span class="pill pill-warn">Latest</span>'
-          : ''
-      }
+      <span class="pill pill-info">${escapeHtml(context.historyState.isViewingCurrent ? 'Current' : (activeVersion?.versionId ?? 'Current'))}</span>
       ${context.sourceStatus ? `<span class="pill">${escapeHtml(context.sourceStatus)}</span>` : ''}
     </div>
   `
@@ -1153,10 +1137,9 @@ function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState 
           </div>
           ${activeBadges}
           <section class="panel">
-            <p class="section-title">Version Notes</p>
+            <p class="section-title">Source Prompt</p>
             <div class="meta-stack">
-              <p class="muted">${escapeHtml(activeVersion?.editInstruction ?? 'No edit instruction stored for this version.')}</p>
-              ${context.sourcePrompt ? `<p class="small">Prompt: ${escapeHtml(context.sourcePrompt)}</p>` : ''}
+              <p class="muted">${escapeHtml(context.sourcePrompt ?? 'No source prompt available for this artifact.')}</p>
               ${context.sourceModel ? `<p class="small">Model: ${escapeHtml(context.sourceModel)}</p>` : ''}
             </div>
           </section>
@@ -1166,10 +1149,6 @@ function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState 
           <section class="panel">
             <p class="section-title">Retained History</p>
             ${renderHistoryList(context)}
-          </section>
-          <section class="panel">
-            <p class="section-title">Active Version References</p>
-            ${renderReferenceList(activeVersion?.references ?? [])}
           </section>
           ${renderReferenceEditor(
             getArtifactReferencesActionPath(context.descriptor),
@@ -1218,7 +1197,7 @@ function renderCharactersSummary(cards: CharacterReviewCard[]) {
     renderPage(
       'characters',
       `<div class="stack">
-        ${renderHero('Characters', 'Open a character to inspect the selected version, retained history, and source references.', 'Review Surface')}
+        ${renderHero('Characters', 'Open a character to inspect the current image, retained history, and source references.', 'Review Surface')}
         ${
           cards.length === 0
             ? '<div class="empty-state">No characters yet.</div>'
@@ -1307,7 +1286,7 @@ function renderShotsSummary(cards: ShotReviewCard[]) {
     renderPage(
       'shots',
       `<div class="stack">
-        ${renderHero('Shots', 'Open a shot to inspect the selected cut, retained versions, sidecar references, and approval flow.', 'Review Surface')}
+        ${renderHero('Shots', 'Open a shot to inspect the current cut, retained versions, sidecar references, and approval flow.', 'Review Surface')}
         ${
           cards.length === 0
             ? '<div class="empty-state">No shots yet.</div>'
@@ -1424,6 +1403,32 @@ function getArtifactVersionMediaUrl(descriptor: ArtifactDescriptor, versionId: s
 
 function getCanonicalMediaUrl(descriptor: ArtifactDescriptor) {
   return `/${encodeAssetUrl(descriptor.publicPath)}`
+}
+
+function isCurrentBaseVersionId(versionId: string) {
+  return versionId === CURRENT_BASE_VERSION_ID
+}
+
+function formatBaseVersionLabel(versionId: string) {
+  return isCurrentBaseVersionId(versionId) ? 'Current' : versionId
+}
+
+function getBaseVersionBackHref(descriptor: ArtifactDescriptor, versionId: string) {
+  return isCurrentBaseVersionId(versionId)
+    ? getArtifactDetailPath(descriptor)
+    : `${getArtifactDetailPath(descriptor)}?version=${encodeURIComponent(versionId)}`
+}
+
+function getBaseVersionMediaUrl(descriptor: ArtifactDescriptor, versionId: string) {
+  return isCurrentBaseVersionId(versionId)
+    ? getCanonicalMediaUrl(descriptor)
+    : getArtifactVersionMediaUrl(descriptor, versionId)
+}
+
+function getBaseVersionMediaPath(descriptor: ArtifactDescriptor, versionId: string) {
+  return isCurrentBaseVersionId(versionId)
+    ? descriptor.publicPath
+    : getArtifactVersionMediaPath(descriptor, versionId)
 }
 
 function parseReferenceEditorInput(rawValue: string) {
@@ -1609,16 +1614,14 @@ async function loadCharacterDetail(
     activeTab: 'characters' as const,
     title: character.displayName,
     subtitle:
-      'Review retained versions, update the source reference stack, and request targeted edits from the version you are viewing.',
+      'Review the current artifact, browse retained versions, update the source reference stack, and request targeted edits.',
     summaryHref: '/',
     summaryLabel: 'Back to characters',
     mediaType: 'image' as const,
     mediaUrl: activeVersionId
       ? getArtifactVersionMediaUrl(descriptor, activeVersionId)
       : getCanonicalMediaUrl(descriptor),
-    mediaExists: Boolean(
-      activeVersionId || (await fileExists(resolveRepoPath(descriptor.publicPath, cwd))),
-    ),
+    mediaExists: activeVersionId !== null ? true : historyState.currentExists,
     mediaPlaceholder: 'No character image yet',
     sourceReferences: character.references ?? [],
     sourcePrompt: character.prompt,
@@ -1626,7 +1629,7 @@ async function loadCharacterDetail(
     sourceStatus: character.status,
     historyState,
     notesHtml: `<section class="panel"><p class="section-title">Current Prompt</p><p class="muted">${escapeHtml(character.prompt)}</p></section>`,
-    canEdit: historyState.activeVersionId !== null,
+    canEdit: historyState.currentExists || historyState.activeVersionId !== null,
     canEditReferences: true,
   } satisfies ArtifactDetailContext
 }
@@ -1658,16 +1661,14 @@ async function loadKeyframeDetail(
     activeTab: 'keyframes' as const,
     title: keyframe.title,
     subtitle:
-      'Use retained versions and explicit references to iterate on a single keyframe without manual file copying.',
+      'Use the current artifact, retained versions, and explicit references to iterate on a single keyframe without manual file copying.',
     summaryHref: '/keyframes',
     summaryLabel: 'Back to keyframes',
     mediaType: 'image' as const,
     mediaUrl: activeVersionId
       ? getArtifactVersionMediaUrl(descriptor, activeVersionId)
       : getCanonicalMediaUrl(descriptor),
-    mediaExists: Boolean(
-      activeVersionId || (await fileExists(resolveRepoPath(descriptor.publicPath, cwd))),
-    ),
+    mediaExists: activeVersionId !== null ? true : historyState.currentExists,
     mediaPlaceholder: 'No keyframe image yet',
     sourceReferences: artifact?.references ?? [],
     sourcePrompt: artifact?.prompt ?? null,
@@ -1675,7 +1676,9 @@ async function loadKeyframeDetail(
     sourceStatus: artifact?.status ?? keyframe.status,
     historyState,
     notesHtml: `<section class="panel"><p class="section-title">Keyframe Goal</p><p class="muted">${escapeHtml(keyframe.goal)}</p></section>`,
-    canEdit: historyState.activeVersionId !== null && artifact !== undefined,
+    canEdit:
+      (historyState.currentExists || historyState.activeVersionId !== null) &&
+      artifact !== undefined,
     canEditReferences: artifact !== undefined,
   } satisfies ArtifactDetailContext
 }
@@ -1703,16 +1706,14 @@ async function loadShotDetail(shotId: string, cwd: string, requestedVersionId?: 
     activeTab: 'shots' as const,
     title: shotId,
     subtitle:
-      'Review retained motion variants, edit the source reference stack, and promote any retained version back to the stable public MP4 path.',
+      'Review the current motion artifact, edit the source reference stack, and promote any retained version back to the stable public MP4 path.',
     summaryHref: '/shots',
     summaryLabel: 'Back to shots',
     mediaType: 'video' as const,
     mediaUrl: activeVersionId
       ? getArtifactVersionMediaUrl(descriptor, activeVersionId)
       : getCanonicalMediaUrl(descriptor),
-    mediaExists: Boolean(
-      activeVersionId || (await fileExists(resolveRepoPath(descriptor.publicPath, cwd))),
-    ),
+    mediaExists: activeVersionId !== null ? true : historyState.currentExists,
     mediaPlaceholder: 'No shot video yet',
     sourceReferences: artifact?.references ?? [],
     sourcePrompt: artifact?.prompt ?? null,
@@ -1720,7 +1721,9 @@ async function loadShotDetail(shotId: string, cwd: string, requestedVersionId?: 
     sourceStatus: artifact?.status ?? shot.status,
     historyState,
     notesHtml: `<section class="panel"><p class="section-title">Shot Plan</p><p class="muted">Anchors: ${escapeHtml(shot.keyframeIds.join(' -> '))}</p><p class="small">Duration: ${escapeHtml(formatDurationSeconds(shot.durationSeconds))}</p></section>`,
-    canEdit: historyState.activeVersionId !== null && artifact !== undefined,
+    canEdit:
+      (historyState.currentExists || historyState.activeVersionId !== null) &&
+      artifact !== undefined,
     canEditReferences: artifact !== undefined,
   } satisfies ArtifactDetailContext
 }
@@ -1742,24 +1745,22 @@ async function loadStoryboardDetail(cwd: string, requestedVersionId?: string | n
     activeTab: 'storyboard' as const,
     title: 'Storyboard',
     subtitle:
-      'The storyboard board acts as a retained visual artifact with explicit references and selected-versus-latest history.',
+      'The storyboard board acts as a retained visual artifact with explicit references and simple filesystem-based history.',
     summaryHref: '/storyboard',
     summaryLabel: 'Storyboard overview',
     mediaType: 'image' as const,
     mediaUrl: activeVersionId
       ? getArtifactVersionMediaUrl(descriptor, activeVersionId)
       : getCanonicalMediaUrl(descriptor),
-    mediaExists: Boolean(
-      activeVersionId || (await fileExists(resolveRepoPath(descriptor.publicPath, cwd))),
-    ),
+    mediaExists: activeVersionId !== null ? true : historyState.currentExists,
     mediaPlaceholder: 'No storyboard image yet',
     sourceReferences: storyboardSidecar?.references ?? [],
     sourcePrompt: markdown,
     sourceModel: config?.imageModel ?? null,
-    sourceStatus: historyState.history?.selectedVersionId ? 'ready' : 'missing',
+    sourceStatus: historyState.currentExists ? 'ready' : 'missing',
     historyState,
     notesHtml: `<section class="panel"><p class="section-title">Source Storyboard</p>${markdown ? `<pre class="storyboard-markdown">${escapeHtml(markdown.trim())}</pre>` : '<div class="empty-state">No storyboard markdown yet.</div>'}</section>`,
-    canEdit: historyState.activeVersionId !== null,
+    canEdit: historyState.currentExists || historyState.activeVersionId !== null,
     canEditReferences: true,
   } satisfies ArtifactDetailContext
 }
@@ -1803,10 +1804,10 @@ async function buildApprovalPreview(
     ])
     const descriptor = getStoryboardArtifactDescriptor()
     const state = await loadArtifactHistoryState(descriptor, cwd, {
-      activeVersionId: baseVersionId,
+      activeVersionId: isCurrentBaseVersionId(baseVersionId) ? null : baseVersionId,
     })
 
-    if (!state.activeVersion) {
+    if (isCurrentBaseVersionId(baseVersionId) ? !state.currentExists : !state.activeVersion) {
       throw new Error('The selected storyboard base version does not exist.')
     }
 
@@ -1823,7 +1824,7 @@ async function buildApprovalPreview(
       droppedReferences: [],
       title: 'Approve storyboard edit',
       mediaType: 'image' as const,
-      mediaUrl: getArtifactVersionMediaUrl(descriptor, baseVersionId),
+      mediaUrl: getBaseVersionMediaUrl(descriptor, baseVersionId),
       mediaExists: true,
     }
   }
@@ -1842,15 +1843,15 @@ async function buildApprovalPreview(
 
     const descriptor = getCharacterArtifactDescriptor(characterId)
     const state = await loadArtifactHistoryState(descriptor, cwd, {
-      activeVersionId: baseVersionId,
+      activeVersionId: isCurrentBaseVersionId(baseVersionId) ? null : baseVersionId,
     })
 
-    if (!state.activeVersion) {
+    if (isCurrentBaseVersionId(baseVersionId) ? !state.currentExists : !state.activeVersion) {
       throw new Error('The selected character base version does not exist.')
     }
 
     const { resolvedReferences } = resolveCharacterGenerationReferences({
-      selectedVersionPath: getArtifactVersionMediaPath(descriptor, baseVersionId),
+      selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
       userReferences: character.references ?? [],
     })
 
@@ -1863,7 +1864,7 @@ async function buildApprovalPreview(
       droppedReferences: [],
       title: `Approve character edit for ${character.displayName}`,
       mediaType: 'image' as const,
-      mediaUrl: getArtifactVersionMediaUrl(descriptor, baseVersionId),
+      mediaUrl: getBaseVersionMediaUrl(descriptor, baseVersionId),
       mediaExists: true,
     }
   }
@@ -1886,10 +1887,10 @@ async function buildApprovalPreview(
 
     const descriptor = getKeyframeArtifactDescriptor(keyframe)
     const state = await loadArtifactHistoryState(descriptor, cwd, {
-      activeVersionId: baseVersionId,
+      activeVersionId: isCurrentBaseVersionId(baseVersionId) ? null : baseVersionId,
     })
 
-    if (!state.activeVersion) {
+    if (isCurrentBaseVersionId(baseVersionId) ? !state.currentExists : !state.activeVersion) {
       throw new Error('The selected keyframe base version does not exist.')
     }
 
@@ -1905,7 +1906,7 @@ async function buildApprovalPreview(
       keyframes,
       shots,
       {
-        selectedVersionPath: getArtifactVersionMediaPath(descriptor, baseVersionId),
+        selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
         userReferences: artifact.references ?? [],
       },
     )
@@ -1919,7 +1920,7 @@ async function buildApprovalPreview(
       droppedReferences: [],
       title: `Approve keyframe edit for ${keyframe.title}`,
       mediaType: 'image' as const,
-      mediaUrl: getArtifactVersionMediaUrl(descriptor, baseVersionId),
+      mediaUrl: getBaseVersionMediaUrl(descriptor, baseVersionId),
       mediaExists: true,
     }
   }
@@ -1942,10 +1943,10 @@ async function buildApprovalPreview(
 
     const descriptor = getShotArtifactDescriptor(shotId)
     const state = await loadArtifactHistoryState(descriptor, cwd, {
-      activeVersionId: baseVersionId,
+      activeVersionId: isCurrentBaseVersionId(baseVersionId) ? null : baseVersionId,
     })
 
-    if (!state.activeVersion) {
+    if (isCurrentBaseVersionId(baseVersionId) ? !state.currentExists : !state.activeVersion) {
       throw new Error('The selected shot base version does not exist.')
     }
 
@@ -1962,7 +1963,7 @@ async function buildApprovalPreview(
       droppedReferences: assets.droppedReferences,
       title: `Approve shot edit for ${shotId}`,
       mediaType: 'video' as const,
-      mediaUrl: getArtifactVersionMediaUrl(descriptor, baseVersionId),
+      mediaUrl: getBaseVersionMediaUrl(descriptor, baseVersionId),
       mediaExists: true,
     }
   }
@@ -2076,7 +2077,7 @@ export async function runApprovedAction(
 
     return generateCharacterSheetArtifactVersion(generation, {
       editInstruction,
-      selectedVersionPath: getArtifactVersionMediaPath(descriptor, baseVersionId),
+      selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
       baseVersionId,
       userReferences: generation.userReferences ?? [],
       cwd,
@@ -2098,7 +2099,7 @@ export async function runApprovedAction(
 
     return generateKeyframeArtifactVersion(pending.generation, pending.keyframes, pending.shots, {
       editInstruction,
-      selectedVersionPath: getArtifactVersionMediaPath(descriptor, baseVersionId),
+      selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
       baseVersionId,
       userReferences: pending.generation.userReferences ?? [],
       cwd,
@@ -2210,12 +2211,6 @@ async function serveArtifactVersionMedia(
   versionId: string,
   cwd: string,
 ) {
-  const state = await loadArtifactHistoryState(descriptor, cwd, { activeVersionId: versionId })
-
-  if (!state.activeVersion) {
-    return new Response('Not Found', { status: 404 })
-  }
-
   const absolutePath = resolveRepoPath(getArtifactVersionMediaPath(descriptor, versionId), cwd)
 
   if (!(await fileExists(absolutePath))) {
@@ -2232,7 +2227,7 @@ function getJobState(jobs: Map<string, ArtifactJobState>, descriptor: ArtifactDe
 function startArtifactJob(
   jobs: Map<string, ArtifactJobState>,
   descriptor: ArtifactDescriptor,
-  run: () => Promise<{ versionId: string }>,
+  run: () => Promise<{ versionId: string | null }>,
 ) {
   const key = getArtifactKey(descriptor)
   const current = jobs.get(key)
@@ -2251,11 +2246,14 @@ function startArtifactJob(
 
   void run()
     .then((result) => {
+      const message = result.versionId
+        ? `Generation completed. Previous current archived as ${result.versionId}.`
+        : 'Generation completed.'
       jobs.set(key, {
         status: 'success',
         startedAt: jobs.get(key)?.startedAt ?? new Date().toISOString(),
         completedAt: new Date().toISOString(),
-        message: `Generation completed and promoted to ${result.versionId}.`,
+        message,
         versionId: result.versionId,
       })
     })
@@ -2350,9 +2348,7 @@ async function handleSelect(pathname: string, request: Request, cwd: string) {
   }
 
   await promoteArtifactVersion(detail.descriptor, versionId, cwd)
-  return redirectTo(
-    `${getArtifactDetailPath(detail.descriptor)}?version=${encodeURIComponent(versionId)}`,
-  )
+  return redirectTo(getArtifactDetailPath(detail.descriptor))
 }
 
 export function startArtifactReviewServer(options: { cwd?: string; preferredPort?: number } = {}) {

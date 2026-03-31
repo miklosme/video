@@ -228,7 +228,7 @@ test('artifact review server serves the canonical shot video', async () => {
   }
 })
 
-test('artifact review server boots retained history for an existing character and saves reference edits', async () => {
+test('artifact review server shows empty retained history for an existing character and saves reference edits', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
@@ -257,7 +257,7 @@ test('artifact review server boots retained history for an existing character an
 
       expect(detailResponse.status).toBe(200)
       expect(detailHtml).toContain('Retained History')
-      expect(detailHtml).toContain('v1')
+      expect(detailHtml).toContain('No retained versions yet.')
 
       const saveResponse = await fetch(new URL('/characters/hero/references', server.url), {
         method: 'POST',
@@ -309,7 +309,7 @@ test('artifact review server renders an approval preview for storyboard edits', 
       const response = await fetch(new URL('/storyboard/approve', server.url), {
         method: 'POST',
         body: new URLSearchParams({
-          baseVersionId: 'v1',
+          baseVersionId: 'current',
           editInstruction: 'Tighten the panel spacing and simplify the captions.',
         }),
       })
@@ -354,7 +354,7 @@ test('runApprovedAction stays single-variant even when CONFIG.json.variantCount 
     await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard-image')
 
     const seeds: number[] = []
-    await runApprovedAction('/storyboard', rootDir, 'v1', 'Tighten the panel spacing.', {
+    await runApprovedAction('/storyboard', rootDir, 'current', 'Tighten the panel spacing.', {
       imageGenerator: async (input) => {
         seeds.push(input.seed ?? -1)
 
@@ -372,19 +372,13 @@ test('runApprovedAction stays single-variant even when CONFIG.json.variantCount 
       },
     })
 
-    expect(seeds).toEqual([2])
-
-    const history = JSON.parse(
-      await readFile(path.resolve(rootDir, 'workspace/HISTORY/STORYBOARD/artifact.json'), 'utf8'),
-    ) as {
-      latestVersionId: string
-      selectedVersionId: string
-      versions: Array<{ versionId: string }>
-    }
-
-    expect(history.latestVersionId).toBe('v2')
-    expect(history.selectedVersionId).toBe('v2')
-    expect(history.versions.map((entry) => entry.versionId)).toEqual(['v1', 'v2'])
+    expect(seeds).toEqual([1])
+    expect(await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.png'), 'utf8')).toBe(
+      'storyboard:1',
+    )
+    expect(
+      await readFile(path.resolve(rootDir, 'workspace/HISTORY/STORYBOARD/v1.png'), 'utf8'),
+    ).toBe('storyboard-image')
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

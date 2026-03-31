@@ -55,25 +55,22 @@ test('syncCharacterSheetGenerations renders variantCount retained versions and s
     expect(await readFile(path.resolve(rootDir, 'workspace/CHARACTERS/hero.png'), 'utf8')).toBe(
       'character:3',
     )
-
-    const history = JSON.parse(
-      await readFile(path.resolve(rootDir, descriptor.artifactControlPath), 'utf8'),
-    ) as {
-      latestVersionId: string
-      selectedVersionId: string
-    }
-    expect(history.latestVersionId).toBe('v3')
-    expect(history.selectedVersionId).toBe('v3')
-
-    const firstVariant = JSON.parse(
-      await readFile(path.resolve(rootDir, descriptor.historyDir, 'v1.json'), 'utf8'),
-    ) as { autoSelected: boolean; seed: number }
-    const lastVariant = JSON.parse(
-      await readFile(path.resolve(rootDir, descriptor.historyDir, 'v3.json'), 'utf8'),
-    ) as { autoSelected: boolean; seed: number }
-
-    expect(firstVariant).toMatchObject({ autoSelected: false, seed: 1 })
-    expect(lastVariant).toMatchObject({ autoSelected: true, seed: 3 })
+    expect(await readFile(path.resolve(rootDir, descriptor.historyDir, 'v1.png'), 'utf8')).toBe(
+      'character:1',
+    )
+    expect(await readFile(path.resolve(rootDir, descriptor.historyDir, 'v2.png'), 'utf8')).toBe(
+      'character:2',
+    )
+    expect(
+      await readFile(path.resolve(rootDir, descriptor.historyDir, 'v3.png'), 'utf8').catch(
+        () => null,
+      ),
+    ).toBeNull()
+    expect(
+      await readFile(path.resolve(rootDir, descriptor.historyDir, 'artifact.json'), 'utf8').catch(
+        () => null,
+      ),
+    ).toBeNull()
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }
