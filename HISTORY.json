@@ -105,8 +105,492 @@
       "id": "assistant-1774976956900-ward7s",
       "role": "assistant",
       "text": "Done — I turned both characters into clean reference-sheet prompts optimized for downstream consistency.\n\nWhat’s locked in:\n- **Panda**: adult female panda, natural appearance, no clothing/accessories, soft vulnerable read, clear full-body silhouette\n- **Psychologist**: adult male therapist, muted understated wardrobe, calm thoughtful read, clean professional silhouette\n\nThese are written as reusable reference assets rather than stylized hero images, which is the right move for later video consistency.\n\nNext step: generate the two character-sheet images and review them. What we’re looking for:\n- the panda feels emotionally readable without becoming cartoony\n- the psychologist feels warm and credible, not generic stock-photo corporate\n- both have stable, uncluttered silhouettes that will hold up across shots\n\nOnce those images are in, we can either tighten them or move straight into storyboard review before locking keyframes."
+    },
+    {
+      "id": "user-1774982817903-e6l448",
+      "role": "user",
+      "text": "storyboard and characters sheets are good"
+    },
+    {
+      "id": "tool-1774982820514-nzgkwe",
+      "role": "tool",
+      "text": "Running getCreativeContext"
+    },
+    {
+      "id": "tool-1774982820516-cbekgy",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982820527-uma2d5",
+      "role": "tool",
+      "text": "Read STORYBOARD.md"
+    },
+    {
+      "id": "tool-1774982820527-u3np8u",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982820529-bsffn5",
+      "role": "tool",
+      "text": "Completed getCreativeContext"
+    },
+    {
+      "id": "tool-1774982820552-3bgtx7",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982820552-ht2ygj",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982820552-06r840",
+      "role": "tool",
+      "text": "Running readPromptingGuide"
+    },
+    {
+      "id": "tool-1774982820553-icrsgy",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982820555-xlmd41",
+      "role": "tool",
+      "text": "Read MODEL_PROMPTING_GUIDE.md"
+    },
+    {
+      "id": "tool-1774982820555-ez24c4",
+      "role": "tool",
+      "text": "Completed readPromptingGuide"
+    },
+    {
+      "id": "tool-1774982820555-cbyi9p",
+      "role": "tool",
+      "text": "Read CONFIG.json"
+    },
+    {
+      "id": "tool-1774982820555-3isom4",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982820555-5dt6fl",
+      "role": "tool",
+      "text": "Read KEYFRAMES.json"
+    },
+    {
+      "id": "tool-1774982820555-ejvq84",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982820555-pw8mmi",
+      "role": "tool",
+      "text": "Read CHARACTERS.md"
+    },
+    {
+      "id": "tool-1774982820555-hiu9bd",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982838027-msvk51",
+      "role": "tool",
+      "text": "Running writeWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982838050-pjjb10",
+      "role": "tool",
+      "text": "Updated KEYFRAMES.json (+119 -15) (bootstrapped from template)"
+    },
+    {
+      "id": "tool-1774982838050-gnyvxg",
+      "role": "tool",
+      "text": "Completed writeWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982839338-ud9bgn",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774982839356-89wsit",
+      "role": "tool",
+      "text": "Created KEYFRAMES/"
+    },
+    {
+      "id": "tool-1774982839363-beok4f",
+      "role": "tool",
+      "text": "Completed createWorkspaceFolder"
+    },
+    {
+      "id": "assistant-1774982817903-csfqmz",
+      "role": "assistant",
+      "text": "Great — with storyboard and character sheets both holding, I moved the project into keyframe planning.\n\nI mapped the sequence into **10 keyframes total**, with a **start and end frame for each of the 5 shots**. That’s the right choice here because the scene is subtle, but each beat still has a meaningful emotional shift:\n\n- **Shot 01**: room and relationship established\n- **Shot 02**: panda begins speaking, then lands the confession\n- **Shot 03**: psychologist listens, then asks the redirecting question\n- **Shot 04**: panda absorbs the question, then admits “Neither”\n- **Shot 05**: shared frame reunites them, then lands the hopeful final line\n\nThe overall shape is strong: observational at first, then progressively tighter and more intimate, ending in a shared frame instead of a punchline button.\n\nNext, the natural move is to prepare the actual **keyframe prompts** for generation. After that, you’ll need to run the image generation step so we can review the still anchors before moving into motion."
+    },
+    {
+      "id": "user-1774982875294-gyfik7",
+      "role": "user",
+      "text": "Please prepare all keyframe sidecar prompts for the planned shots."
+    },
+    {
+      "id": "tool-1774982878211-wz6br2",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982878213-z4rv9k",
+      "role": "tool",
+      "text": "Running readPromptingGuide"
+    },
+    {
+      "id": "tool-1774982878213-3b2a88",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982878214-ibbudx",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982878215-2or5ug",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982878215-jn3saa",
+      "role": "tool",
+      "text": "Read MODEL_PROMPTING_GUIDE.md"
+    },
+    {
+      "id": "tool-1774982878215-jjn048",
+      "role": "tool",
+      "text": "Completed readPromptingGuide"
+    },
+    {
+      "id": "tool-1774982878221-g0sasb",
+      "role": "tool",
+      "text": "Read CONFIG.json"
+    },
+    {
+      "id": "tool-1774982878221-v3whf4",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982878222-tstimu",
+      "role": "tool",
+      "text": "Read CHARACTERS.md"
+    },
+    {
+      "id": "tool-1774982878222-lw823c",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982878222-z7wpa7",
+      "role": "tool",
+      "text": "Read STORYBOARD.md"
+    },
+    {
+      "id": "tool-1774982878222-rf5q87",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982878222-knuwuq",
+      "role": "tool",
+      "text": "Read KEYFRAMES.json"
+    },
+    {
+      "id": "tool-1774982878222-cm3ws5",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1774982879641-279o73",
+      "role": "tool",
+      "text": "Running createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774982879649-lq711t",
+      "role": "tool",
+      "text": "Confirmed KEYFRAMES/"
+    },
+    {
+      "id": "tool-1774982879652-z6491r",
+      "role": "tool",
+      "text": "Completed createWorkspaceFolder"
+    },
+    {
+      "id": "tool-1774982912515-gnbr9f",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912517-qo25f6",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912518-ate64a",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912518-c4vksl",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912519-sjf4eo",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912519-ffn673",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912520-mj4deq",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912520-bxrfen",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912527-xvfbij",
+      "role": "tool",
+      "text": "Failed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912528-634jdp",
+      "role": "tool",
+      "text": "Failed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912528-gewdew",
+      "role": "tool",
+      "text": "Failed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912528-ybt2vc",
+      "role": "tool",
+      "text": "Failed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912528-62ufjr",
+      "role": "tool",
+      "text": "Failed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912528-h7nr8m",
+      "role": "tool",
+      "text": "Failed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912528-2zocpd",
+      "role": "tool",
+      "text": "Failed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912528-ft6b77",
+      "role": "tool",
+      "text": "Failed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912606-4vwpe8",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912620-1d09j2",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912621-83czm7",
+      "role": "tool",
+      "text": "Failed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982912621-nczijx",
+      "role": "tool",
+      "text": "Failed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942415-fmp1ou",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942416-ny8ll6",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942417-w8svcd",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942418-6t6npt",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942418-s4itmj",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942419-1a5zvi",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942419-ksc6hg",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942420-q6c5sf",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942420-ehdyj7",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942421-74fdrx",
+      "role": "tool",
+      "text": "Running writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942428-ya2c5r",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-02/SHOT-02-START.json"
+    },
+    {
+      "id": "tool-1774982942428-0hvg9k",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-01/SHOT-01-END.json"
+    },
+    {
+      "id": "tool-1774982942428-lm0k96",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-04/SHOT-04-START.json"
+    },
+    {
+      "id": "tool-1774982942429-t9k34i",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-05/SHOT-05-END.json"
+    },
+    {
+      "id": "tool-1774982942429-aqqeo7",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-03/SHOT-03-START.json"
+    },
+    {
+      "id": "tool-1774982942429-17jhgb",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-01/SHOT-01-START.json"
+    },
+    {
+      "id": "tool-1774982942429-vg70w5",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-05/SHOT-05-START.json"
+    },
+    {
+      "id": "tool-1774982942429-tkrtz2",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-03/SHOT-03-END.json"
+    },
+    {
+      "id": "tool-1774982942429-jbxosx",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-02/SHOT-02-END.json"
+    },
+    {
+      "id": "tool-1774982942429-2wtt3g",
+      "role": "tool",
+      "text": "Updated KEYFRAMES/SHOT-04/SHOT-04-END.json"
+    },
+    {
+      "id": "tool-1774982942438-psxojy",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942438-8v3abp",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942438-0hg4s2",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942438-7y762d",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942438-vwa61a",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942438-ayxjzi",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942438-h7p4mi",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942438-lnes74",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942438-3auvhh",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1774982942439-w1sdhf",
+      "role": "tool",
+      "text": "Completed writeWorkspaceArtifact"
+    },
+    {
+      "id": "assistant-1774982875294-eywm9f",
+      "role": "assistant",
+      "text": "Done — all 10 keyframe sidecar prompts are now prepared for the planned shots.\n\nWhat I locked in:\n- every keyframe follows the approved storyboard shot\n- each prompt is tuned for still-image generation, not motion\n- character consistency is anchored to the approved panda and psychologist sheets\n- the emotional shifts are subtle and continuous rather than over-acted\n- the storyboard board is referenced as the upstream composition guide for each shot\n\nThe shape is strong:\n- **SHOT-01** holds the room and relationship\n- **SHOT-02** lets the panda’s confession land sincerely\n- **SHOT-03** gives the psychologist calm, non-performative authority\n- **SHOT-04** captures the internal crack and honest admission\n- **SHOT-05** resolves into shared warmth without getting sentimental\n\nNext step: generate the keyframe stills and review them before moving into motion planning.\n\nWhen you review, look for:\n- **character continuity**: panda markings, psychologist face, proportions, wardrobe consistency\n- **shot continuity**: clean progression from wide to tighter coverage and back to shared frame\n- **performance accuracy**: vulnerable and restrained, never cartoony or sitcom-broad\n- **environment consistency**: same office language across all shots\n- **anchor contrast**: start/end frames should feel related but meaningfully different where needed\n\nOnce the stills are back, I can do a fast creative review and then turn the sequence into the shot plan and video prompts."
     }
   ],
-  "recentChanges": ["CHARACTERS/psychologist.json", "CHARACTERS/panda-patient.json"],
+  "recentChanges": [
+    "KEYFRAMES/SHOT-04/SHOT-04-END.json",
+    "KEYFRAMES/SHOT-02/SHOT-02-END.json",
+    "KEYFRAMES/SHOT-03/SHOT-03-END.json",
+    "KEYFRAMES/SHOT-05/SHOT-05-START.json",
+    "KEYFRAMES/SHOT-01/SHOT-01-START.json",
+    "KEYFRAMES/SHOT-03/SHOT-03-START.json",
+    "KEYFRAMES/SHOT-05/SHOT-05-END.json",
+    "KEYFRAMES/SHOT-04/SHOT-04-START.json"
+  ],
   "runtimeError": null
 }
