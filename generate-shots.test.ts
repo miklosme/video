@@ -357,10 +357,12 @@ test('planShotGenerationAssets prioritizes explicit user references ahead of der
     userReferences: [
       {
         path: 'workspace/REFERENCES/layout.png',
+        kind: 'user-reference',
         label: 'Layout',
       },
       {
         path: 'workspace/REFERENCES/light.png',
+        kind: 'user-reference',
         label: 'Light',
       },
     ],

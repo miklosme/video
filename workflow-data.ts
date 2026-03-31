@@ -9,25 +9,37 @@ export const FINAL_CUT_TRANSITION_TYPES = ['cut', 'fade'] as const
 export const SHOT_INCOMING_TRANSITION_TYPES = ['opening', 'continuity', 'scene-change'] as const
 export const ARTIFACT_TYPES = ['storyboard', 'character', 'keyframe', 'shot'] as const
 export const REFERENCE_SOURCES = ['user', 'system'] as const
+export const AUTHORED_REFERENCE_KINDS = [
+  'storyboard-template',
+  'storyboard',
+  'character-sheet',
+  'previous-shot-end-frame',
+  'start-frame',
+  'user-reference',
+] as const
 
 export type FrameType = (typeof FRAME_TYPES)[number]
 export type FinalCutTransitionType = (typeof FINAL_CUT_TRANSITION_TYPES)[number]
 export type ShotIncomingTransitionType = (typeof SHOT_INCOMING_TRANSITION_TYPES)[number]
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number]
 export type ReferenceSource = (typeof REFERENCE_SOURCES)[number]
+export type AuthoredReferenceKind = (typeof AUTHORED_REFERENCE_KINDS)[number]
 
 type JsonObject = Record<string, unknown>
 
-export interface ArtifactReferenceEntry {
+interface ArtifactReferenceDescriptor {
   path: string
   label?: string
-  role?: string
   notes?: string
 }
 
-export interface ResolvedArtifactReference extends ArtifactReferenceEntry {
+export interface ArtifactReferenceEntry extends ArtifactReferenceDescriptor {
+  kind: AuthoredReferenceKind
+}
+
+export interface ResolvedArtifactReference extends ArtifactReferenceDescriptor {
   source: ReferenceSource
-  kind?: GenerationReferenceKind
+  kind: GenerationReferenceKind
 }
 
 export interface StatusItem {
@@ -401,6 +413,20 @@ function parseOptionalString(value: unknown, context: string) {
   return expectString(value, context)
 }
 
+function expectAuthoredReferenceKind(value: unknown, context: string): AuthoredReferenceKind {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${context} must be one of: ${AUTHORED_REFERENCE_KINDS.join(', ')}.`)
+  }
+
+  const kind = value
+
+  if (!AUTHORED_REFERENCE_KINDS.includes(kind as AuthoredReferenceKind)) {
+    throw new Error(`${context} must be one of: ${AUTHORED_REFERENCE_KINDS.join(', ')}.`)
+  }
+
+  return kind as AuthoredReferenceKind
+}
+
 function parseArtifactReferenceEntry(value: unknown, context: string): ArtifactReferenceEntry {
   const object = expectObject(value, context)
 
@@ -409,8 +435,8 @@ function parseArtifactReferenceEntry(value: unknown, context: string): ArtifactR
       expectString(object.path, `${context}.path`),
       `${context}.path`,
     ),
+    kind: expectAuthoredReferenceKind(object.kind, `${context}.kind`),
     label: parseOptionalString(object.label, `${context}.label`),
-    role: parseOptionalString(object.role, `${context}.role`),
     notes: parseOptionalString(object.notes, `${context}.notes`),
   }
 }
@@ -545,7 +571,7 @@ export function parseCharacterSheetEntry(value: unknown, context: string): Chara
   }
 }
 
-function parseStoryboardSidecar(value: unknown): StoryboardSidecar {
+export function parseStoryboardSidecar(value: unknown): StoryboardSidecar {
   const object = expectObject(value, WORKFLOW_FILES.storyboardSidecar)
 
   return {

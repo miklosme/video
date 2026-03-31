@@ -259,6 +259,13 @@ async function main() {
     readFile(resolveWorkflowPath(WORKFLOW_FILES.storyboard), 'utf8'),
     loadStoryboardSidecar(),
   ])
+
+  if (!storyboardSidecar || (storyboardSidecar.references?.length ?? 0) === 0) {
+    throw new Error(
+      'workspace/STORYBOARD.json must declare explicit storyboard generation references.',
+    )
+  }
+
   await syncStoryboardGeneration({
     storyboardMarkdown,
     model: config.imageModel,

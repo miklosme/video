@@ -442,9 +442,8 @@ function createUserReferences(references: readonly ArtifactReferenceEntry[] = []
   return references.map<ResolvedArtifactReference>((reference) => ({
     path: normalizeRepoRelativePath(reference.path),
     source: 'user',
-    kind: 'user-reference',
+    kind: reference.kind,
     label: reference.label,
-    role: reference.role,
     notes: reference.notes,
   }))
 }
@@ -453,7 +452,7 @@ export function toGenerationReferences(
   references: readonly ResolvedArtifactReference[],
 ): GenerationReferenceEntry[] {
   return references.map((reference) => ({
-    kind: reference.kind ?? (reference.source === 'user' ? 'user-reference' : 'user-reference'),
+    kind: reference.kind,
     path: reference.path,
   }))
 }
@@ -461,13 +460,7 @@ export function toGenerationReferences(
 export function resolveStoryboardGenerationReferences(
   userReferences: readonly ArtifactReferenceEntry[] = [],
 ) {
-  const resolvedReferences = [
-    createSystemReference('storyboard-template', 'templates/STORYBOARD.template.png', {
-      label: 'Storyboard template',
-      notes: 'System template reference for board layout and framing.',
-    }),
-    ...createUserReferences(userReferences),
-  ]
+  const resolvedReferences = createUserReferences(userReferences)
 
   return {
     resolvedReferences,
@@ -531,59 +524,7 @@ export function resolveKeyframeGenerationReferences(
     )
   }
 
-  if (generation.frameType !== 'end' && generation.incomingTransition.type === 'continuity') {
-    const previousShot = getPreviousShot(shots, generation.shotId)
-
-    if (!previousShot) {
-      throw new Error(
-        `Cannot generate ${generation.keyframeId}; continuity requires a previous shot before "${generation.shotId}".`,
-      )
-    }
-
-    const previousEndKeyframe = keyframes.find(
-      (entry) => entry.shotId === previousShot.shotId && entry.frameType === 'end',
-    )
-
-    if (!previousEndKeyframe) {
-      throw new Error(
-        `Cannot generate ${generation.keyframeId}; previous shot "${previousShot.shotId}" is missing an end keyframe.`,
-      )
-    }
-
-    resolvedReferences.push(
-      createSystemReference('previous-shot-end-frame', previousEndKeyframe.imagePath, {
-        label: `Previous shot end frame (${previousShot.shotId})`,
-      }),
-    )
-  }
-
-  if (generation.frameType === 'end') {
-    const startKeyframe = keyframes.find(
-      (entry) => entry.shotId === generation.shotId && entry.frameType === 'start',
-    )
-
-    if (startKeyframe) {
-      resolvedReferences.push(
-        createSystemReference('start-frame', startKeyframe.imagePath, {
-          label: `Start frame (${generation.shotId})`,
-        }),
-      )
-    }
-  }
-
   resolvedReferences.push(...createUserReferences(options.userReferences))
-  resolvedReferences.push(
-    createSystemReference('storyboard', getStoryboardImagePath(), {
-      label: 'Storyboard board',
-    }),
-  )
-  resolvedReferences.push(
-    ...generation.characterIds.map((characterId) =>
-      createSystemReference('character-sheet', getCharacterSheetImagePath(characterId), {
-        label: `Character sheet (${characterId})`,
-      }),
-    ),
-  )
 
   return {
     resolvedReferences,
@@ -720,13 +661,13 @@ export function resolveShotGenerationAssets(
 }
 
 export function summarizeReference(reference: ResolvedArtifactReference) {
-  const primaryLabel = reference.label ?? reference.role ?? reference.kind ?? 'reference'
+  const primaryLabel = reference.label ?? reference.kind ?? 'reference'
 
   return {
     title: primaryLabel,
     subtitle: reference.path,
     detail:
       reference.notes ??
-      (reference.source === 'user' ? 'User-authored reference' : 'System-derived reference'),
+      (reference.source === 'user' ? 'Sidecar-authored reference' : 'System-derived reference'),
   }
 }

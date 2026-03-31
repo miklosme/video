@@ -265,8 +265,8 @@ test('artifact review server shows empty retained history for an existing charac
           referencesJson: JSON.stringify([
             {
               path: 'workspace/REFERENCES/pose.png',
+              kind: 'user-reference',
               label: 'Pose',
-              role: 'composition',
             },
           ]),
         }),
@@ -280,8 +280,8 @@ test('artifact review server shows empty retained history for an existing charac
       expect(sidecar.references).toEqual([
         {
           path: 'workspace/REFERENCES/pose.png',
+          kind: 'user-reference',
           label: 'Pose',
-          role: 'composition',
         },
       ])
     } finally {
@@ -301,6 +301,24 @@ test('artifact review server renders an approval preview for storyboard edits', 
       'workspace/STORYBOARD.md',
       '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
     )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          references: [
+            {
+              kind: 'storyboard-template',
+              path: 'templates/STORYBOARD.template.png',
+              label: 'Storyboard template',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'template-image')
     await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard-image')
 
     const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })

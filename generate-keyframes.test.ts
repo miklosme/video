@@ -223,6 +223,30 @@ test('selectPendingKeyframeGenerations supports one-anchor start-only and end-on
 test('planKeyframeGenerationReferences uses previous shot end for continuity and skips it for scene changes', () => {
   const shots = createShots()
   const keyframes = createKeyframes()
+  const continuityReferences = [
+    {
+      kind: 'previous-shot-end-frame' as const,
+      path: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
+    },
+    {
+      kind: 'storyboard' as const,
+      path: 'workspace/STORYBOARD.png',
+    },
+    {
+      kind: 'character-sheet' as const,
+      path: 'workspace/CHARACTERS/dog.png',
+    },
+  ]
+  const sceneChangeReferences = [
+    {
+      kind: 'storyboard' as const,
+      path: 'workspace/STORYBOARD.png',
+    },
+    {
+      kind: 'character-sheet' as const,
+      path: 'workspace/CHARACTERS/dog.png',
+    },
+  ]
 
   expect(
     planKeyframeGenerationReferences(
@@ -232,21 +256,11 @@ test('planKeyframeGenerationReferences uses previous shot end for continuity and
       },
       keyframes,
       shots,
+      {
+        userReferences: continuityReferences,
+      },
     ),
-  ).toEqual([
-    {
-      kind: 'previous-shot-end-frame',
-      path: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
-    },
-    {
-      kind: 'storyboard',
-      path: 'workspace/STORYBOARD.png',
-    },
-    {
-      kind: 'character-sheet',
-      path: 'workspace/CHARACTERS/dog.png',
-    },
-  ])
+  ).toEqual(continuityReferences)
 
   expect(
     planKeyframeGenerationReferences(
@@ -256,20 +270,14 @@ test('planKeyframeGenerationReferences uses previous shot end for continuity and
       },
       keyframes,
       shots,
+      {
+        userReferences: sceneChangeReferences,
+      },
     ),
-  ).toEqual([
-    {
-      kind: 'storyboard',
-      path: 'workspace/STORYBOARD.png',
-    },
-    {
-      kind: 'character-sheet',
-      path: 'workspace/CHARACTERS/dog.png',
-    },
-  ])
+  ).toEqual(sceneChangeReferences)
 })
 
-test('planKeyframeGenerationReferences does not require a same-shot start reference for end-only shots', () => {
+test('planKeyframeGenerationReferences preserves authored references for end-only shots', () => {
   const keyframes: KeyframeEntry[] = [
     {
       keyframeId: 'SHOT-04-END',
@@ -295,6 +303,16 @@ test('planKeyframeGenerationReferences does not require a same-shot start refere
       },
     },
   ]
+  const endOnlyReferences = [
+    {
+      kind: 'storyboard' as const,
+      path: 'workspace/STORYBOARD.png',
+    },
+    {
+      kind: 'character-sheet' as const,
+      path: 'workspace/CHARACTERS/dog.png',
+    },
+  ]
 
   expect(
     planKeyframeGenerationReferences(
@@ -304,17 +322,11 @@ test('planKeyframeGenerationReferences does not require a same-shot start refere
       },
       keyframes,
       shots,
+      {
+        userReferences: endOnlyReferences,
+      },
     ),
-  ).toEqual([
-    {
-      kind: 'storyboard',
-      path: 'workspace/STORYBOARD.png',
-    },
-    {
-      kind: 'character-sheet',
-      path: 'workspace/CHARACTERS/dog.png',
-    },
-  ])
+  ).toEqual(endOnlyReferences)
 })
 
 test('generate-keyframes fails for a continuity shot when the previous shot end image is missing', async () => {
@@ -359,6 +371,20 @@ test('generate-keyframes fails for a continuity shot when the previous shot end 
           model: 'image-test',
           prompt: 'Prompt for SHOT-02-START.',
           status: 'planned',
+          references: [
+            {
+              kind: 'previous-shot-end-frame',
+              path: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
+            },
+            {
+              kind: 'storyboard',
+              path: 'workspace/STORYBOARD.png',
+            },
+            {
+              kind: 'character-sheet',
+              path: 'workspace/CHARACTERS/dog.png',
+            },
+          ],
         },
         null,
         2,
@@ -423,6 +449,20 @@ test('generate-keyframes fails for an end keyframe when the same-shot start imag
           model: 'image-test',
           prompt: 'Prompt for SHOT-01-END.',
           status: 'planned',
+          references: [
+            {
+              kind: 'start-frame',
+              path: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+            },
+            {
+              kind: 'storyboard',
+              path: 'workspace/STORYBOARD.png',
+            },
+            {
+              kind: 'character-sheet',
+              path: 'workspace/CHARACTERS/dog.png',
+            },
+          ],
         },
         null,
         2,
@@ -458,6 +498,16 @@ test('syncKeyframeGenerations renders variantCount retained versions and selects
     outputPath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
     characterIds: ['dog'],
     incomingTransition: shots[0]!.incomingTransition,
+    userReferences: [
+      {
+        kind: 'storyboard' as const,
+        path: 'workspace/STORYBOARD.png',
+      },
+      {
+        kind: 'character-sheet' as const,
+        path: 'workspace/CHARACTERS/dog.png',
+      },
+    ],
   }
   const descriptor = getKeyframeArtifactDescriptor(generation)
 

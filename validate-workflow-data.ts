@@ -4,6 +4,7 @@ import path from 'node:path'
 import { resolveFinalCutProps } from './final-cut'
 import {
   getCharacterSheetImagePath,
+  getStoryboardImagePath,
   loadCharacterSheets,
   loadConfig,
   loadKeyframeArtifacts,
@@ -19,6 +20,7 @@ import {
   validateConfigAgainstModelOptions,
   WORKFLOW_FILES,
   workspacePathExists,
+  type ArtifactReferenceEntry,
   type CharacterSheetEntry,
   type FrameType,
   type KeyframeArtifactEntry,
@@ -53,10 +55,17 @@ async function requireRepoPath(fileName: string, label: string) {
 }
 
 async function validateArtifactReferencesExist(
-  references: { path: string }[] | undefined,
+  references: readonly ArtifactReferenceEntry[] | undefined,
   context: string,
 ) {
+  const seenPaths = new Set<string>()
+
   for (const reference of references ?? []) {
+    if (seenPaths.has(reference.path)) {
+      throw new Error(`${context} has duplicate reference path "${reference.path}".`)
+    }
+
+    seenPaths.add(reference.path)
     const absoluteReferencePath = resolveRepoPath(reference.path)
 
     try {
@@ -83,6 +92,127 @@ function groupByShotId<T extends { shotId: string }>(entries: T[]) {
 
 function summarizeFrameTypes(entries: { frameType: FrameType }[]) {
   return [...new Set(entries.map((entry) => entry.frameType))].sort().join(', ')
+}
+
+function getPreviousShot(shots: ShotEntry[], shotId: string) {
+  const shotIndex = shots.findIndex((entry) => entry.shotId === shotId)
+
+  if (shotIndex === -1) {
+    throw new Error(`Cannot find shot "${shotId}" in workspace/SHOTS.json.`)
+  }
+
+  return shotIndex === 0 ? null : shots[shotIndex - 1]!
+}
+
+function assertReferenceAtIndex(
+  references: readonly ArtifactReferenceEntry[],
+  index: number,
+  expected: Pick<ArtifactReferenceEntry, 'kind' | 'path'>,
+  context: string,
+) {
+  const actual = references[index]
+
+  if (actual?.kind === expected.kind && actual.path === expected.path) {
+    return
+  }
+
+  throw new Error(
+    `${context} reference ${index + 1} must be ${expected.kind} at "${expected.path}".`,
+  )
+}
+
+function buildExpectedKeyframeReferencePrefix(
+  keyframe: KeyframeEntry,
+  shot: ShotEntry,
+  keyframes: KeyframeEntry[],
+  shots: ShotEntry[],
+): ArtifactReferenceEntry[] {
+  const expectedReferences: ArtifactReferenceEntry[] = []
+
+  if (keyframe.frameType !== 'end' && shot.incomingTransition.type === 'continuity') {
+    const previousShot = getPreviousShot(shots, shot.shotId)
+
+    if (!previousShot) {
+      throw new Error(
+        `Keyframe artifact "${keyframe.keyframeId}" requires a previous shot because its incoming transition is "continuity".`,
+      )
+    }
+
+    const previousEndKeyframe = keyframes.find(
+      (entry) => entry.shotId === previousShot.shotId && entry.frameType === 'end',
+    )
+
+    if (!previousEndKeyframe) {
+      throw new Error(
+        `Keyframe artifact "${keyframe.keyframeId}" requires the previous shot "${previousShot.shotId}" to define an end keyframe.`,
+      )
+    }
+
+    expectedReferences.push({
+      kind: 'previous-shot-end-frame',
+      path: previousEndKeyframe.imagePath,
+    })
+  }
+
+  if (keyframe.frameType === 'end') {
+    const startKeyframe = keyframes.find(
+      (entry) => entry.shotId === keyframe.shotId && entry.frameType === 'start',
+    )
+
+    if (startKeyframe) {
+      expectedReferences.push({
+        kind: 'start-frame',
+        path: startKeyframe.imagePath,
+      })
+    }
+  }
+
+  expectedReferences.push({
+    kind: 'storyboard',
+    path: getStoryboardImagePath(),
+  })
+
+  for (const characterId of keyframe.characterIds) {
+    expectedReferences.push({
+      kind: 'character-sheet',
+      path: getCharacterSheetImagePath(characterId),
+    })
+  }
+
+  return expectedReferences
+}
+
+function validateKeyframeArtifactReferenceOrder(
+  keyframe: KeyframeEntry,
+  shot: ShotEntry,
+  artifact: KeyframeArtifactEntry,
+  keyframes: KeyframeEntry[],
+  shots: ShotEntry[],
+) {
+  const references = artifact.references ?? []
+  const context = `Keyframe artifact "${artifact.keyframeId}"`
+
+  if (references.length === 0) {
+    throw new Error(`${context} must declare explicit references in sidecar order.`)
+  }
+
+  const expectedPrefix = buildExpectedKeyframeReferencePrefix(keyframe, shot, keyframes, shots)
+
+  for (const [index, expectedReference] of expectedPrefix.entries()) {
+    assertReferenceAtIndex(references, index, expectedReference, context)
+  }
+
+  for (const [index, reference] of references.entries()) {
+    if (index < expectedPrefix.length) {
+      continue
+    }
+
+    if (reference.kind !== 'user-reference') {
+      throw new Error(
+        `${context} reference ${index + 1} must use kind "user-reference" after the required structural references.`,
+      )
+    }
+  }
 }
 
 async function validateKeyframes(
@@ -166,12 +296,28 @@ function validateKeyframeArtifacts(keyframes: KeyframeEntry[], artifacts: Keyfra
   }
 }
 
-async function validateKeyframeArtifactReferences(artifacts: KeyframeArtifactEntry[]) {
+export async function validateKeyframeArtifactReferences(
+  keyframes: KeyframeEntry[],
+  shots: ShotEntry[],
+  artifacts: KeyframeArtifactEntry[],
+) {
+  const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
+  const shotById = new Map(shots.map((entry) => [entry.shotId, entry]))
+
   for (const artifact of artifacts) {
     await validateArtifactReferencesExist(
       artifact.references,
       `Keyframe artifact "${artifact.keyframeId}"`,
     )
+
+    const keyframe = keyframeById.get(artifact.keyframeId)
+    const shot = shotById.get(artifact.shotId)
+
+    if (!keyframe || !shot) {
+      continue
+    }
+
+    validateKeyframeArtifactReferenceOrder(keyframe, shot, artifact, keyframes, shots)
   }
 }
 
@@ -218,8 +364,41 @@ async function validateShotArtifacts(shots: ShotEntry[], artifacts: ShotArtifact
   }
 }
 
-async function validateStoryboardSidecar(sidecar: StoryboardSidecar | null) {
-  await validateArtifactReferencesExist(sidecar?.references, 'workspace/STORYBOARD.json')
+export async function validateStoryboardSidecar(sidecar: StoryboardSidecar | null) {
+  if (!sidecar) {
+    throw new Error('workspace/STORYBOARD.json is required.')
+  }
+
+  const context = 'workspace/STORYBOARD.json'
+  const references = sidecar.references ?? []
+
+  await validateArtifactReferencesExist(references, context)
+
+  if (references.length === 0) {
+    throw new Error(`${context} must declare a storyboard-template reference.`)
+  }
+
+  assertReferenceAtIndex(
+    references,
+    0,
+    {
+      kind: 'storyboard-template',
+      path: 'templates/STORYBOARD.template.png',
+    },
+    context,
+  )
+
+  for (const [index, reference] of references.entries()) {
+    if (index === 0) {
+      continue
+    }
+
+    if (reference.kind !== 'user-reference') {
+      throw new Error(
+        `${context} reference ${index + 1} must use kind "user-reference" after the storyboard template reference.`,
+      )
+    }
+  }
 }
 
 export function validateShots(keyframes: KeyframeEntry[], shots: ShotEntry[]) {
@@ -292,6 +471,7 @@ async function main() {
   await requireWorkspacePath('IDEA.md', 'workspace/IDEA.md')
   await requireWorkspacePath(WORKFLOW_FILES.config, 'workspace/CONFIG.json')
   await requireWorkspacePath(WORKFLOW_FILES.status, 'workspace/STATUS.json')
+  await requireWorkspacePath(WORKFLOW_FILES.storyboardSidecar, 'workspace/STORYBOARD.json')
 
   const modelOptions = await loadModelOptions()
   const config = await loadConfig()
@@ -329,7 +509,7 @@ async function main() {
   await validateCharacterSheets(characterSheets)
   await validateKeyframes(keyframes, characterSheets)
   validateKeyframeArtifacts(keyframes, keyframeArtifacts)
-  await validateKeyframeArtifactReferences(keyframeArtifacts)
+  await validateKeyframeArtifactReferences(keyframes, shots, keyframeArtifacts)
   validateShots(keyframes, shots)
   await validateShotArtifacts(shots, shotArtifacts)
   await validateStoryboardSidecar(storyboardSidecar)

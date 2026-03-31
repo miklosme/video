@@ -657,7 +657,7 @@ test('loadWorkflowSummary distinguishes shot planning from shot preparation and 
   }
 })
 
-test('keyframe reference planning includes relevant character sheets and same-shot start frames', () => {
+test('keyframe reference planning preserves explicit authored reference order', () => {
   const keyframes: KeyframeEntry[] = [
     {
       keyframeId: 'SHOT-01-START',
@@ -702,6 +702,18 @@ test('keyframe reference planning includes relevant character sheets and same-sh
       },
       [...keyframes],
       [...shots],
+      {
+        userReferences: [
+          {
+            kind: 'storyboard',
+            path: 'workspace/STORYBOARD.png',
+          },
+          {
+            kind: 'character-sheet',
+            path: 'workspace/CHARACTERS/dog-01.png',
+          },
+        ],
+      },
     ),
   ).toEqual([
     {
@@ -722,6 +734,22 @@ test('keyframe reference planning includes relevant character sheets and same-sh
       },
       [...keyframes],
       [...shots],
+      {
+        userReferences: [
+          {
+            kind: 'start-frame',
+            path: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+          },
+          {
+            kind: 'storyboard',
+            path: 'workspace/STORYBOARD.png',
+          },
+          {
+            kind: 'character-sheet',
+            path: 'workspace/CHARACTERS/dog-01.png',
+          },
+        ],
+      },
     ),
   ).toEqual([
     {
@@ -765,6 +793,18 @@ test('keyframe reference planning includes relevant character sheets and same-sh
           },
         },
       ],
+      {
+        userReferences: [
+          {
+            kind: 'storyboard',
+            path: 'workspace/STORYBOARD.png',
+          },
+          {
+            kind: 'character-sheet',
+            path: 'workspace/CHARACTERS/dog-01.png',
+          },
+        ],
+      },
     ),
   ).toEqual([
     {

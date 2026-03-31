@@ -21,9 +21,10 @@ When a technical task depends on creative context, treat these as the source of 
   - `workspace/STORY.md`
   - `workspace/CHARACTERS.md`
   - `workspace/CHARACTERS/`
-  - `workspace/STORYBOARD.md`
-  - `workspace/KEYFRAMES.json`
-  - `workspace/KEYFRAMES/`
+- `workspace/STORYBOARD.md`
+- `workspace/STORYBOARD.json`
+- `workspace/KEYFRAMES.json`
+- `workspace/KEYFRAMES/`
   - `workspace/SHOTS.json`
   - `workspace/SHOTS/`
   - `workspace/FINAL-CUT.json`
@@ -41,12 +42,14 @@ Do not silently rewrite story canon, storyboard content, prompt content, or stru
 - When creating a missing workspace file, copy the matching file from `templates/` first and then replace the scaffold-only content.
 - Keep the placeholder convention consistent: `TBD` for unresolved creative content, `TODO` for coding-agent work.
 - Keep `templates/` and `workspace/` aligned: if a canonical workspace file's headings or schema changes, update the matching template in the same change.
+- For still-image generation sidecars, `references` are the source of truth for generation inputs. Do not silently append or infer storyboard, character, continuity, or other fresh-generation references at runtime.
 
 ## Coding-Agent Responsibilities
 
 - Make technical changes without breaking the simplified creative file structure.
 - Prefer updating repo files over leaving important technical decisions only in chat.
 - If you create tooling or scripts that interact with creative files, preserve the simplified file responsibilities, schemas, and naming conventions.
+- If a workflow requires storyboard, character, continuity, or other still-image references, make them explicit in the relevant sidecar instead of relying on runtime defaults.
 - If you change a canonical `workspace/` file's expected structure, update the matching template in the same change.
 - If a requested technical change conflicts with established creative content, stop and surface the conflict instead of guessing.
 - After finishing technical work, run the relevant QA scripts to validate correctness before handing off: `bun run validate:data` and `bun run typecheck`.

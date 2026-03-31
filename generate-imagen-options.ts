@@ -107,7 +107,6 @@ export function buildPromptText(
 
   if (references.length > 0) {
     promptLines.push('')
-    promptLines.push('Use the attached reference images in the provided order of priority.')
 
     for (const [index, reference] of references.entries()) {
       const referenceNumber = index + 1
@@ -115,42 +114,42 @@ export function buildPromptText(
       switch (reference.kind) {
         case 'start-frame':
           promptLines.push(
-            `Reference ${referenceNumber} is the same-shot start frame. Treat it as the strongest continuity reference for composition, setting, and subject identity while rendering the requested end beat.`,
+            `Reference ${referenceNumber} is the same-shot start frame. Preserve its subject identity, setting, and shot continuity while rendering the requested end beat.`,
           )
           break
         case 'end-frame':
           promptLines.push(
-            `Reference ${referenceNumber} is the same-shot end frame. Use it as the target continuity reference for the destination beat and final composition.`,
+            `Reference ${referenceNumber} is the same-shot end frame. Match it as the target destination beat and final composition.`,
           )
           break
         case 'previous-shot-end-frame':
           promptLines.push(
-            `Reference ${referenceNumber} is the previous shot end frame. Use it to preserve cross-shot continuity for screen direction, scene geography, and subject placement while still following the current shot brief.`,
+            `Reference ${referenceNumber} is the previous shot end frame. Preserve cross-shot continuity for screen direction, scene geography, and subject placement.`,
           )
           break
         case 'storyboard':
           promptLines.push(
-            `Reference ${referenceNumber} is the full-project storyboard board. Focus on the panel labeled "${shotId ?? 'current shot'}" for the intended shot composition and visual intent.`,
+            `Reference ${referenceNumber} is the full-project storyboard board. Follow the panel labeled "${shotId ?? 'current shot'}" for shot composition and visual intent.`,
           )
           break
         case 'storyboard-template':
           promptLines.push(
-            `Reference ${referenceNumber} is the storyboard template image. Follow its board layout, panel framing, border treatment, and review-friendly presentation style, but derive the actual shot content from the provided storyboard markdown and avoid copying dense template text blocks literally.`,
+            `Reference ${referenceNumber} is the storyboard template image. Match its board layout, panel framing, border treatment, and review-friendly presentation while deriving shot content from the storyboard markdown.`,
           )
           break
         case 'character-sheet':
           promptLines.push(
-            `Reference ${referenceNumber} is a character identity sheet. Preserve the same subject identity, markings, and silhouette.`,
+            `Reference ${referenceNumber} is a character identity sheet. Preserve the same subject identity, markings, silhouette, and stable wardrobe details.`,
           )
           break
         case 'selected-image':
           promptLines.push(
-            `Reference ${referenceNumber} is the currently selected artifact version. Treat it as the direct visual baseline and apply only the requested changes unless instructed otherwise.`,
+            `Reference ${referenceNumber} is the currently selected artifact version. Treat it as the direct visual baseline and apply only the requested changes.`,
           )
           break
         case 'user-reference':
           promptLines.push(
-            `Reference ${referenceNumber} is an additional user-supplied reference image. Use it only for the qualities implied by the request and preserve higher-priority continuity references when they conflict.`,
+            `Reference ${referenceNumber} is an additional user-supplied reference image. Use it only for the qualities implied by the request.`,
           )
           break
       }

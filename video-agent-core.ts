@@ -470,13 +470,13 @@ function buildRuntimeDirective(
     '- Avoid grid or collage layouts, split panels, extra subjects, scene clutter, dramatic lighting, text overlays, and non-canonical props in character-sheet prompts unless they are part of identity.',
   )
   lines.push(
-    '- Every KEYFRAMES.json entry must include characterIds listing only the characters visible in that frame, in reference priority order.',
+    '- Every KEYFRAMES.json entry must include characterIds listing only the characters visible in that frame, in the same order their character-sheet references should appear in the keyframe sidecar.',
   )
   lines.push(
-    '- Keyframe image generation should attach STORYBOARD.png as an upstream visual reference and tell the model to follow the panel labeled with the current shotId.',
+    '- Sidecar references are the source of truth for still-image generation inputs. Do not assume runtime will append storyboard, character, or continuity references for fresh generations.',
   )
   lines.push(
-    '- Character sidecar schema is { characterId, displayName, model, prompt, status, references? }.',
+    '- Character and keyframe sidecar references use the shape { path, kind, label?, notes? }. The references array order is the exact generation priority order.',
   )
   lines.push(
     '- Keyframe sidecar schema is { keyframeId, shotId, frameType, model, prompt, status, references? }.',

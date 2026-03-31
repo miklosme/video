@@ -45,6 +45,7 @@ import {
   selectPendingStoryboardGeneration,
 } from './generate-storyboard'
 import {
+  AUTHORED_REFERENCE_KINDS,
   getCharacterSheetImagePath,
   getShotVideoPath,
   getStoryboardImagePath,
@@ -919,7 +920,6 @@ function renderReferenceList(references: readonly ResolvedArtifactReference[]) {
               <div class="pill-row">
                 <span class="pill ${toneClass}">${escapeHtml(reference.source)}</span>
                 ${reference.kind ? `<span class="pill">${escapeHtml(reference.kind)}</span>` : ''}
-                ${reference.role ? `<span class="pill">${escapeHtml(reference.role)}</span>` : ''}
               </div>
               <div class="spacer"></div>
               <p class="reference-item-title">${escapeHtml(summary.title)}</p>
@@ -1154,7 +1154,7 @@ function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState 
             getArtifactReferencesActionPath(context.descriptor),
             context.sourceReferences,
             context.canEditReferences,
-            'Edit the source sidecar references as JSON. Use repo-relative paths and optional label, role, and notes fields.',
+            'Edit the source sidecar references as JSON. Use repo-relative paths, required kind, and optional label and notes fields.',
           )}
           ${renderEditComposer(context)}
         </div>
@@ -1449,10 +1449,16 @@ function parseReferenceEditorInput(rawValue: string) {
       throw new Error(`Reference ${index + 1} must include a non-empty path.`)
     }
 
+    if (typeof object.kind !== 'string' || !AUTHORED_REFERENCE_KINDS.includes(object.kind as any)) {
+      throw new Error(
+        `Reference ${index + 1} must include a kind from: ${AUTHORED_REFERENCE_KINDS.join(', ')}.`,
+      )
+    }
+
     return {
       path: normalizeRepoRelativePath(object.path, `Reference ${index + 1} path`),
+      kind: object.kind as ArtifactReferenceEntry['kind'],
       label: typeof object.label === 'string' ? object.label : undefined,
-      role: typeof object.role === 'string' ? object.role : undefined,
       notes: typeof object.notes === 'string' ? object.notes : undefined,
     } satisfies ArtifactReferenceEntry
   })

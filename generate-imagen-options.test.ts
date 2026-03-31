@@ -15,8 +15,9 @@ test('buildPromptText tells keyframe generation which storyboard panel to use', 
   )
 
   expect(prompt).toContain('Reference 1 is the full-project storyboard board.')
-  expect(prompt).toContain('Focus on the panel labeled "SHOT-02"')
+  expect(prompt).toContain('Follow the panel labeled "SHOT-02"')
   expect(prompt).toContain('Reference 2 is a character identity sheet.')
+  expect(prompt).not.toContain('provided order of priority')
 })
 
 test('buildPromptText explains previous-shot continuity references', () => {
@@ -29,7 +30,7 @@ test('buildPromptText explains previous-shot continuity references', () => {
   )
 
   expect(prompt).toContain('Reference 1 is the previous shot end frame.')
-  expect(prompt).toContain('preserve cross-shot continuity')
+  expect(prompt).toContain('Preserve cross-shot continuity')
 })
 
 test('buildPromptText explains storyboard template references', () => {
@@ -41,9 +42,8 @@ test('buildPromptText explains storyboard template references', () => {
   )
 
   expect(prompt).toContain('Reference 1 is the storyboard template image.')
-  expect(prompt).toContain('Follow its board layout, panel framing, border treatment')
-  expect(prompt).toContain('derive the actual shot content from the provided storyboard markdown')
-  expect(prompt).toContain('avoid copying dense template text blocks literally')
+  expect(prompt).toContain('Match its board layout, panel framing, border treatment')
+  expect(prompt).toContain('deriving shot content from the storyboard markdown')
 })
 
 test('buildPromptText includes the requested target image size when provided', () => {

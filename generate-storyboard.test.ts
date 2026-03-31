@@ -43,10 +43,16 @@ test('buildStoryboardPrompt keeps storyboard generation visual-first while prese
   expect(prompt).toContain(markdown.trim())
 })
 
-test('selectPendingStoryboardGeneration attaches the storyboard template reference', () => {
+test('selectPendingStoryboardGeneration preserves explicit storyboard sidecar references', () => {
   const generation = selectPendingStoryboardGeneration(
     '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
     'google/gemini-3.1-flash-image-preview',
+    [
+      {
+        kind: 'storyboard-template',
+        path: 'templates/STORYBOARD.template.png',
+      },
+    ],
   )
 
   expect(generation.references).toEqual([
@@ -78,6 +84,23 @@ test('generate-storyboard skips when the canonical storyboard image already exis
       'workspace/STORYBOARD.md',
       '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
     )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          references: [
+            {
+              kind: 'storyboard-template',
+              path: 'templates/STORYBOARD.template.png',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'template')
     await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'existing-png')
 
     const result = Bun.spawnSync({
@@ -102,11 +125,18 @@ test('syncStoryboardGeneration renders variantCount retained versions and select
 
   try {
     await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'template')
+    const storyboardReferences = [
+      {
+        kind: 'storyboard-template' as const,
+        path: 'templates/STORYBOARD.template.png',
+      },
+    ]
 
     const seeds: number[] = []
     const summary = await syncStoryboardGeneration({
       storyboardMarkdown: '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
       model: 'image-test',
+      userReferences: storyboardReferences,
       variantCount: 3,
       cwd: rootDir,
       generator: async (input) => {
