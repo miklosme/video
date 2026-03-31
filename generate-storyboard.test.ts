@@ -1,10 +1,15 @@
 import { expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { buildStoryboardPrompt, selectPendingStoryboardGeneration } from './generate-storyboard'
+import { getStoryboardArtifactDescriptor } from './artifact-control'
+import {
+  buildStoryboardPrompt,
+  selectPendingStoryboardGeneration,
+  syncStoryboardGeneration,
+} from './generate-storyboard'
 
 async function writeRepoFile(rootDir: string, relativePath: string, content: string) {
   const filePath = path.resolve(rootDir, relativePath)
@@ -62,6 +67,7 @@ test('generate-storyboard skips when the canonical storyboard image already exis
           agentModel: 'agent-test',
           imageModel: 'image-test',
           videoModel: 'video-test',
+          variantCount: 1,
         },
         null,
         2,
@@ -85,6 +91,65 @@ test('generate-storyboard skips when the canonical storyboard image already exis
     expect(new TextDecoder().decode(result.stdout)).toContain(
       'Skipping storyboard; image already exists at workspace/STORYBOARD.png',
     )
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('syncStoryboardGeneration renders variantCount retained versions and selects the last one', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-variants-'))
+  const descriptor = getStoryboardArtifactDescriptor()
+
+  try {
+    await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'template')
+
+    const seeds: number[] = []
+    const summary = await syncStoryboardGeneration({
+      storyboardMarkdown: '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
+      model: 'image-test',
+      variantCount: 3,
+      cwd: rootDir,
+      generator: async (input) => {
+        seeds.push(input.seed ?? -1)
+
+        if (!input.outputPath) {
+          throw new Error('Expected outputPath for storyboard generation test.')
+        }
+
+        await writeRepoFile(rootDir, input.outputPath, `storyboard:${input.seed}`)
+
+        return {
+          generationId: `gen-${input.seed}`,
+          model: input.model ?? 'image-test',
+          outputPaths: [path.resolve(rootDir, input.outputPath)],
+        }
+      },
+    })
+
+    expect(summary).toEqual({ generatedCount: 1, skippedCount: 0 })
+    expect(seeds).toEqual([1, 2, 3])
+    expect(await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.png'), 'utf8')).toBe(
+      'storyboard:3',
+    )
+
+    const history = JSON.parse(
+      await readFile(path.resolve(rootDir, descriptor.artifactControlPath), 'utf8'),
+    ) as {
+      latestVersionId: string
+      selectedVersionId: string
+    }
+    expect(history.latestVersionId).toBe('v3')
+    expect(history.selectedVersionId).toBe('v3')
+
+    const firstVariant = JSON.parse(
+      await readFile(path.resolve(rootDir, descriptor.historyDir, 'v1.json'), 'utf8'),
+    ) as { autoSelected: boolean; seed: number }
+    const lastVariant = JSON.parse(
+      await readFile(path.resolve(rootDir, descriptor.historyDir, 'v3.json'), 'utf8'),
+    ) as { autoSelected: boolean; seed: number }
+
+    expect(firstVariant).toMatchObject({ autoSelected: false, seed: 1 })
+    expect(lastVariant).toMatchObject({ autoSelected: true, seed: 3 })
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

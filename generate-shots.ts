@@ -7,6 +7,7 @@ import path from 'node:path'
 import {
   buildApprovedActionSummary,
   getShotArtifactDescriptor,
+  getVersionSeed,
   prepareStagedArtifactVersion,
   recordArtifactVersionFromStage,
   resolveShotGenerationAssets,
@@ -59,6 +60,7 @@ export interface GenerateShotVideoInput {
   lastFramePath: string | null
   referenceImagePaths: string[]
   durationSeconds: number
+  seed?: number
   cwd?: string
 }
 
@@ -72,7 +74,7 @@ export interface ShotGenerationSummary {
   skippedCount: number
 }
 
-type ShotVideoGenerator = (input: GenerateShotVideoInput) => Promise<GenerateShotVideoResult>
+export type ShotVideoGenerator = (input: GenerateShotVideoInput) => Promise<GenerateShotVideoResult>
 
 function resolvePath(maybeRelativePath: string, cwd = process.cwd()) {
   return path.resolve(cwd, maybeRelativePath)
@@ -274,6 +276,7 @@ export async function generateShotVideoWithGateway(
     },
     aspectRatio: DEFAULT_VIDEO_ASPECT_RATIO,
     duration: input.durationSeconds,
+    seed: input.seed,
     ...(providerOptions ? { providerOptions } : {}),
   })
 
@@ -310,6 +313,7 @@ export async function runShotGeneration(
     editInstruction?: string | null
     userReferences?: readonly ArtifactReferenceEntry[]
     outputPath?: string
+    seed?: number
   } = {},
 ) {
   const generator = options.generator ?? generateShotVideoWithGateway
@@ -352,6 +356,7 @@ export async function runShotGeneration(
       lastFramePath: assets.lastFramePath,
       referenceImagePaths: assets.referenceImagePaths,
       durationSeconds: generation.durationSeconds,
+      seed: options.seed,
       cwd,
     })
 
@@ -385,6 +390,7 @@ export async function runShotGeneration(
       prompt,
       settings: {
         videoCount: 1,
+        seed: options.seed,
         aspectRatio: DEFAULT_VIDEO_ASPECT_RATIO,
         durationSeconds: generation.durationSeconds,
         referenceImageCount: assets.referenceImagePaths.length,
@@ -425,11 +431,14 @@ export async function generateShotArtifactVersion(
     editInstruction?: string | null
     userReferences?: readonly ArtifactReferenceEntry[]
     baseVersionId?: string | null
+    seed?: number
+    autoSelect?: boolean
   } = {},
 ) {
   const descriptor = getShotArtifactDescriptor(generation.shotId)
   const cwd = options.cwd ?? process.cwd()
   const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
+  const seed = options.seed ?? getVersionSeed(stagedVersion.versionId)
 
   try {
     const result = await runShotGeneration(generation, keyframes, characterSheets, {
@@ -439,12 +448,14 @@ export async function generateShotArtifactVersion(
       editInstruction: options.editInstruction,
       userReferences: options.userReferences,
       outputPath: stagedVersion.stagedPath,
+      seed: seed ?? undefined,
     })
     const recorded = await recordArtifactVersionFromStage({
       descriptor,
       stagedPath: stagedVersion.stagedPath,
       baseVersionId: options.baseVersionId ?? null,
       generationId: result.generationId,
+      seed,
       editInstruction: options.editInstruction ?? null,
       approvedActionSummary: buildApprovedActionSummary({
         descriptor,
@@ -453,12 +464,14 @@ export async function generateShotArtifactVersion(
         references: result.resolvedReferences,
       }),
       references: result.resolvedReferences,
+      autoSelect: options.autoSelect,
       cwd,
     })
 
     return {
       ...result,
       descriptor,
+      seed,
       versionId: recorded.version.versionId,
     }
   } catch (error) {
@@ -476,6 +489,7 @@ export async function syncShotGenerations(
     generator?: ShotVideoGenerator
     logFile?: string
     cwd?: string
+    variantCount?: number
   } = {},
 ): Promise<ShotGenerationSummary> {
   const generator = options.generator ?? generateShotVideoWithGateway
@@ -495,11 +509,17 @@ export async function syncShotGenerations(
       continue
     }
 
-    await generateShotArtifactVersion(generation, keyframes, characterSheets, {
-      generator,
-      logFile,
-      cwd,
-    })
+    const variantCount = options.variantCount ?? 1
+
+    for (let variantIndex = 0; variantIndex < variantCount; variantIndex += 1) {
+      await generateShotArtifactVersion(generation, keyframes, characterSheets, {
+        generator,
+        logFile,
+        cwd,
+        autoSelect: variantIndex === variantCount - 1,
+      })
+    }
+
     generatedCount += 1
 
     if (options.firstOnly) {
@@ -519,7 +539,7 @@ export async function syncShotGenerations(
 
 async function main() {
   const filters = parseArgs()
-  await loadConfig()
+  const config = await loadConfig()
   const [shots, shotArtifacts, keyframes, characterSheets] = await Promise.all([
     loadShotPrompts(),
     loadShotArtifacts(),
@@ -538,6 +558,7 @@ async function main() {
 
   await syncShotGenerations(plannedGenerations, keyframes, characterSheets, {
     firstOnly: filters.firstOnly,
+    variantCount: config.variantCount,
   })
 }
 

@@ -32,6 +32,7 @@ export interface GenerateImagenOptionsInput {
   prompt: string
   model?: string
   n?: number
+  seed?: number
   size?: `${number}x${number}`
   aspectRatio?: string
   safetyFilterLevel?: string
@@ -187,6 +188,7 @@ async function generateImagesWithGateway(input: {
   prompt: string
   model: string
   n: number
+  seed?: number
   size?: `${number}x${number}`
   aspectRatio: string
   safetyFilterLevel: string
@@ -216,6 +218,7 @@ async function generateImagesWithGateway(input: {
               images: loadedReferences.map((reference) => reference.data),
             },
       n: input.n,
+      seed: input.seed,
       size: input.size,
       aspectRatio: input.aspectRatio as `${number}:${number}`,
     })
@@ -229,6 +232,7 @@ async function generateImagesWithGateway(input: {
   if (LANGUAGE_IMAGE_MODELS.has(input.model)) {
     const result = await generateText({
       model: gateway.languageModel(input.model),
+      seed: input.seed,
       messages: [
         {
           role: 'user',
@@ -283,6 +287,7 @@ export async function generateImagenOptions(
   const cwd = input.cwd ?? process.cwd()
   const model = input.model ?? DEFAULT_IMAGE_MODEL
   const imageCount = input.n ?? 1
+  const seed = input.seed
   const size = input.size
   const aspectRatio = input.aspectRatio ?? '16:9'
   const safetyFilterLevel = input.safetyFilterLevel ?? 'OFF'
@@ -306,6 +311,7 @@ export async function generateImagenOptions(
       prompt,
       model,
       n: imageCount,
+      seed,
       size,
       aspectRatio,
       safetyFilterLevel,
@@ -351,6 +357,7 @@ export async function generateImagenOptions(
       prompt,
       settings: {
         imageCount,
+        seed,
         size,
         aspectRatio,
         safetyFilterLevel,

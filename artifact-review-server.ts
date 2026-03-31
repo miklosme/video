@@ -25,6 +25,10 @@ import {
   selectPendingCharacterSheetGenerations,
   type PendingCharacterSheetGeneration,
 } from './generate-character-sheets'
+import type {
+  GenerateImagenOptionsInput,
+  GenerateImagenOptionsResult,
+} from './generate-imagen-options'
 import {
   generateKeyframeArtifactVersion,
   selectPendingKeyframeGenerations,
@@ -34,6 +38,7 @@ import {
   generateShotArtifactVersion,
   selectPendingShotGenerations,
   type PendingShotGeneration,
+  type ShotVideoGenerator,
 } from './generate-shots'
 import {
   generateStoryboardArtifactVersion,
@@ -86,6 +91,13 @@ interface ArtifactJobState {
   completedAt: string | null
   message: string
   versionId: string | null
+}
+
+type ImageGenerator = (input: GenerateImagenOptionsInput) => Promise<GenerateImagenOptionsResult>
+
+interface ApprovedActionGeneratorOverrides {
+  imageGenerator?: ImageGenerator
+  shotVideoGenerator?: ShotVideoGenerator
 }
 
 interface CharacterReviewCard {
@@ -2029,11 +2041,12 @@ async function buildShotPendingGeneration(
     : null
 }
 
-async function runApprovedAction(
+export async function runApprovedAction(
   pathname: string,
   cwd: string,
   baseVersionId: string,
   editInstruction: string,
+  overrides: ApprovedActionGeneratorOverrides = {},
 ) {
   if (pathname === '/storyboard') {
     const [config, storyboardMarkdown, storyboardSidecar] = await Promise.all([
@@ -2049,6 +2062,7 @@ async function runApprovedAction(
       userReferences: storyboardSidecar?.references ?? [],
       baseVersionId,
       cwd,
+      generator: overrides.imageGenerator,
     })
   }
 
@@ -2070,6 +2084,7 @@ async function runApprovedAction(
       baseVersionId,
       userReferences: generation.userReferences ?? [],
       cwd,
+      generator: overrides.imageGenerator,
     })
   }
 
@@ -2091,6 +2106,7 @@ async function runApprovedAction(
       baseVersionId,
       userReferences: pending.generation.userReferences ?? [],
       cwd,
+      generator: overrides.imageGenerator,
     })
   }
 
@@ -2113,6 +2129,7 @@ async function runApprovedAction(
         baseVersionId,
         userReferences: pending.generation.userReferences ?? [],
         cwd,
+        generator: overrides.shotVideoGenerator,
       },
     )
   }

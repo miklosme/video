@@ -13,6 +13,7 @@ import {
 } from './next-step-suggestions'
 import { posthogTelemetry, type PostHogTelemetry } from './posthog'
 import {
+  DEFAULT_VARIANT_COUNT,
   DEFAULT_VIDEO_DURATION_SECONDS,
   loadCharacterSheets,
   loadConfig,
@@ -291,6 +292,7 @@ function createDefaultConfigFromModelOptions(modelOptions: ModelOptionsData): Co
     agentModel,
     imageModel,
     videoModel,
+    variantCount: DEFAULT_VARIANT_COUNT,
   }
 }
 
@@ -300,6 +302,14 @@ function normalizeConfigValue(
   fallbackValue: string,
 ): string {
   if (typeof value === 'string' && allowedValues.includes(value)) {
+    return value
+  }
+
+  return fallbackValue
+}
+
+function normalizePositiveIntegerConfigValue(value: unknown, fallbackValue: number): number {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 1) {
     return value
   }
 
@@ -326,6 +336,10 @@ function normalizeConfigData(value: unknown, modelOptions: ModelOptionsData): Co
       object.videoModel,
       modelOptions.videoModels,
       defaultConfig.videoModel,
+    ),
+    variantCount: normalizePositiveIntegerConfigValue(
+      object.variantCount,
+      defaultConfig.variantCount,
     ),
   }
 }

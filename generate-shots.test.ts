@@ -3,6 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import { getShotArtifactDescriptor } from './artifact-control'
 import {
   planShotGenerationAssets,
   selectPendingShotGenerations,
@@ -512,6 +513,112 @@ test('syncShotGenerations fails fast and logs provider errors', async () => {
         message: 'provider rejected combined request',
       },
     })
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('syncShotGenerations renders variantCount retained versions, selects the last one, and logs seeds', async () => {
+  const repo = await createTestRepo()
+  const descriptor = getShotArtifactDescriptor('SHOT-01')
+
+  try {
+    const keyframes: KeyframeEntry[] = [
+      {
+        keyframeId: 'SHOT-01-START',
+        shotId: 'SHOT-01',
+        frameType: 'start',
+        title: 'Start frame',
+        goal: 'Open the shot.',
+        status: 'planned',
+        imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+        characterIds: ['dog'],
+      },
+      {
+        keyframeId: 'SHOT-01-END',
+        shotId: 'SHOT-01',
+        frameType: 'end',
+        title: 'End frame',
+        goal: 'Close the shot.',
+        status: 'planned',
+        imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
+        characterIds: ['dog'],
+      },
+    ]
+
+    await writeRepoFile(repo.rootDir, 'workspace/CHARACTERS/dog.png', 'png')
+    await writeRepoFile(repo.rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png', 'png')
+    await writeRepoFile(repo.rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png', 'png')
+
+    const seeds: number[] = []
+    const summary = await syncShotGenerations(
+      [
+        {
+          shotId: 'SHOT-01',
+          model: 'video-test',
+          prompt: 'First shot.',
+          outputPath: 'workspace/SHOTS/SHOT-01.mp4',
+          keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+          durationSeconds: 5,
+        },
+      ],
+      keyframes,
+      [
+        {
+          characterId: 'dog',
+          displayName: 'Dog',
+          model: 'image-test',
+          prompt: 'Dog sheet.',
+          status: 'planned',
+        },
+      ],
+      {
+        variantCount: 3,
+        cwd: repo.rootDir,
+        logFile: 'workspace/test-log.jsonl',
+        generator: async (input) => {
+          seeds.push(input.seed ?? -1)
+          return {
+            data: new TextEncoder().encode(`video:${input.seed}`),
+            mediaType: 'video/mp4',
+          }
+        },
+      },
+    )
+
+    expect(summary).toEqual({ generatedCount: 1, skippedCount: 0 })
+    expect(seeds).toEqual([1, 2, 3])
+    expect(await readFile(path.resolve(repo.rootDir, 'workspace/SHOTS/SHOT-01.mp4'), 'utf8')).toBe(
+      'video:3',
+    )
+
+    const history = JSON.parse(
+      await readFile(path.resolve(repo.rootDir, descriptor.artifactControlPath), 'utf8'),
+    ) as {
+      latestVersionId: string
+      selectedVersionId: string
+    }
+    expect(history.latestVersionId).toBe('v3')
+    expect(history.selectedVersionId).toBe('v3')
+
+    const firstVariant = JSON.parse(
+      await readFile(path.resolve(repo.rootDir, descriptor.historyDir, 'v1.json'), 'utf8'),
+    ) as { autoSelected: boolean; seed: number }
+    const lastVariant = JSON.parse(
+      await readFile(path.resolve(repo.rootDir, descriptor.historyDir, 'v3.json'), 'utf8'),
+    ) as { autoSelected: boolean; seed: number }
+
+    expect(firstVariant).toMatchObject({ autoSelected: false, seed: 1 })
+    expect(lastVariant).toMatchObject({ autoSelected: true, seed: 3 })
+
+    const logEntries = (
+      await readFile(path.resolve(repo.rootDir, 'workspace/test-log.jsonl'), 'utf8')
+    )
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as { settings: { seed?: number } })
+
+    expect(logEntries.map((entry) => entry.settings.seed)).toEqual([1, 2, 3])
   } finally {
     await repo.cleanup()
   }

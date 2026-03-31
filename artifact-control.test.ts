@@ -41,6 +41,7 @@ test('artifact history bootstraps from an existing public artifact and supports 
       stagedPath: staged.stagedPath,
       baseVersionId: 'v1',
       generationId: 'gen-v2',
+      seed: 2,
       editInstruction: 'Refresh the silhouette.',
       approvedActionSummary: 'Refresh the silhouette.',
       references: [],
@@ -62,6 +63,11 @@ test('artifact history bootstraps from an existing public artifact and supports 
     )
     expect(history.latestVersionId).toBe('v2')
     expect(history.selectedVersionId).toBe('v1')
+
+    const secondVersion = JSON.parse(
+      await readFile(path.resolve(rootDir, descriptor.historyDir, 'v2.json'), 'utf8'),
+    ) as { seed: number; autoSelected: boolean }
+    expect(secondVersion).toMatchObject({ seed: 2, autoSelected: true })
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

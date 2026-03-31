@@ -62,6 +62,7 @@ function createValidConfig() {
       agentModel: 'agent-test',
       imageModel: 'image-test',
       videoModel: 'video-test',
+      variantCount: 1,
     },
     null,
     2,
@@ -138,6 +139,7 @@ test('writeWorkspaceFile rolls back invalid writes', async () => {
             agentModel: 'unknown-model',
             imageModel: 'image-test',
             videoModel: 'video-test',
+            variantCount: 1,
           },
           null,
           2,
@@ -825,6 +827,7 @@ test('loadWorkflowSummary normalizes removed image models to the first supported
           agentModel: 'agent-test',
           imageModel: 'google/imagen-4.0-fast-generate-001',
           videoModel: 'video-test',
+          variantCount: 2,
         },
         null,
         2,
@@ -836,6 +839,61 @@ test('loadWorkflowSummary normalizes removed image models to the first supported
     const workflow = await runtime.loadWorkflowSummary()
 
     expect(workflow.config.imageModel).toBe('image-reference-default')
+    expect(workflow.config.variantCount).toBe(2)
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('loadWorkflowSummary bootstraps CONFIG.json with variantCount set to 1', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/STATUS.json', createWorkflowStatus([]))
+
+    const runtime = createVideoAgentRuntime({ rootDir: repo.rootDir, creativePrompt: 'test' })
+    const workflow = await runtime.loadWorkflowSummary()
+
+    expect(workflow.config.variantCount).toBe(1)
+
+    const persistedConfig = JSON.parse(
+      await readFile(path.resolve(repo.rootDir, 'workspace/CONFIG.json'), 'utf8'),
+    ) as { variantCount?: number }
+    expect(persistedConfig.variantCount).toBe(1)
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('loadWorkflowSummary normalizes invalid variantCount back to 1', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/CONFIG.json',
+      `${JSON.stringify(
+        {
+          agentModel: 'agent-test',
+          imageModel: 'image-test',
+          videoModel: 'video-test',
+          variantCount: 0,
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(repo.rootDir, 'workspace/STATUS.json', createWorkflowStatus([]))
+
+    const runtime = createVideoAgentRuntime({ rootDir: repo.rootDir, creativePrompt: 'test' })
+    const workflow = await runtime.loadWorkflowSummary()
+
+    expect(workflow.config.variantCount).toBe(1)
+
+    const persistedConfig = JSON.parse(
+      await readFile(path.resolve(repo.rootDir, 'workspace/CONFIG.json'), 'utf8'),
+    ) as { variantCount?: number }
+    expect(persistedConfig.variantCount).toBe(1)
   } finally {
     await repo.cleanup()
   }

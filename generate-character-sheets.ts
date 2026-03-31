@@ -7,15 +7,21 @@ import {
   assertResolvedReferencesExist,
   buildApprovedActionSummary,
   getCharacterArtifactDescriptor,
+  getVersionSeed,
   prepareStagedArtifactVersion,
   recordArtifactVersionFromStage,
   resolveCharacterGenerationReferences,
 } from './artifact-control'
-import { generateImagenOptions } from './generate-imagen-options'
+import {
+  generateImagenOptions,
+  type GenerateImagenOptionsInput,
+  type GenerateImagenOptionsResult,
+} from './generate-imagen-options'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import {
   getCharacterSheetImagePath,
   loadCharacterSheets,
+  loadConfig,
   type ArtifactReferenceEntry,
   type CharacterSheetEntry,
 } from './workflow-data'
@@ -32,6 +38,13 @@ export interface PendingCharacterSheetGeneration {
   outputPath: string
   userReferences?: ArtifactReferenceEntry[]
 }
+
+export interface CharacterSheetGenerationSummary {
+  generatedCount: number
+  skippedCount: number
+}
+
+type ImageGenerator = (input: GenerateImagenOptionsInput) => Promise<GenerateImagenOptionsResult>
 
 function parseArgs(): GenerateCharacterSheetsArgs {
   const args = arg({
@@ -92,6 +105,8 @@ export async function runCharacterSheetGeneration(
     userReferences?: readonly ArtifactReferenceEntry[]
     logFile?: string
     cwd?: string
+    seed?: number
+    generator?: ImageGenerator
   } = {},
 ) {
   const { resolvedReferences, references } = resolveCharacterGenerationReferences({
@@ -101,13 +116,15 @@ export async function runCharacterSheetGeneration(
   await assertResolvedReferencesExist(resolvedReferences, options.cwd)
 
   const prompt = applyCharacterEditInstruction(generation.prompt, options.editInstruction)
-  const result = await generateImagenOptions({
+  const generator = options.generator ?? generateImagenOptions
+  const result = await generator({
     prompt,
     model: generation.model,
     outputPath: options.outputPath ?? generation.outputPath,
     references,
     logFile: options.logFile,
     cwd: options.cwd,
+    seed: options.seed,
     artifactType: 'character',
     artifactId: generation.characterId,
   })
@@ -129,11 +146,15 @@ export async function generateCharacterSheetArtifactVersion(
     userReferences?: readonly ArtifactReferenceEntry[]
     logFile?: string
     cwd?: string
+    seed?: number
+    autoSelect?: boolean
+    generator?: ImageGenerator
   } = {},
 ) {
   const descriptor = getCharacterArtifactDescriptor(generation.characterId)
   const cwd = options.cwd ?? process.cwd()
   const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
+  const seed = options.seed ?? getVersionSeed(stagedVersion.versionId)
 
   try {
     const result = await runCharacterSheetGeneration(generation, {
@@ -143,12 +164,15 @@ export async function generateCharacterSheetArtifactVersion(
       userReferences: options.userReferences,
       logFile: options.logFile,
       cwd,
+      seed: seed ?? undefined,
+      generator: options.generator,
     })
     const recorded = await recordArtifactVersionFromStage({
       descriptor,
       stagedPath: stagedVersion.stagedPath,
       baseVersionId: options.baseVersionId ?? null,
       generationId: result.generationId,
+      seed,
       editInstruction: options.editInstruction ?? null,
       approvedActionSummary: buildApprovedActionSummary({
         descriptor,
@@ -157,12 +181,14 @@ export async function generateCharacterSheetArtifactVersion(
         references: result.resolvedReferences,
       }),
       references: result.resolvedReferences,
+      autoSelect: options.autoSelect,
       cwd,
     })
 
     return {
       ...result,
       descriptor,
+      seed,
       versionId: recorded.version.versionId,
     }
   } catch (error) {
@@ -171,9 +197,72 @@ export async function generateCharacterSheetArtifactVersion(
   }
 }
 
+export async function syncCharacterSheetGenerations(
+  plannedGenerations: PendingCharacterSheetGeneration[],
+  options: {
+    variantCount?: number
+    logFile?: string
+    cwd?: string
+    generator?: ImageGenerator
+  } = {},
+): Promise<CharacterSheetGenerationSummary> {
+  const cwd = options.cwd ?? process.cwd()
+  let generatedCount = 0
+  let skippedCount = 0
+
+  for (const generation of plannedGenerations) {
+    const absoluteOutputPath = path.resolve(cwd, generation.outputPath)
+
+    if (await fileExists(absoluteOutputPath)) {
+      console.log(
+        `Skipping ${generation.characterId} with model ${generation.model}; image already exists at ${generation.outputPath}`,
+      )
+      skippedCount += 1
+      continue
+    }
+
+    const variantCount = options.variantCount ?? 1
+
+    for (let variantIndex = 0; variantIndex < variantCount; variantIndex += 1) {
+      if (variantCount === 1) {
+        console.log(
+          `Generating ${generation.characterId} with model ${generation.model} -> ${generation.outputPath}`,
+        )
+      } else {
+        console.log(
+          `Generating ${generation.characterId} variant ${variantIndex + 1}/${variantCount} with model ${generation.model} -> ${generation.outputPath}`,
+        )
+      }
+
+      await generateCharacterSheetArtifactVersion(generation, {
+        logFile: options.logFile,
+        cwd,
+        autoSelect: variantIndex === variantCount - 1,
+        generator: options.generator,
+      })
+
+      captureWorkflowEvent('character_sheet_generated', {
+        characterId: generation.characterId,
+        model: generation.model,
+      })
+    }
+
+    generatedCount += 1
+  }
+
+  console.log(
+    `Character sheet sync complete. Generated ${generatedCount}; skipped ${skippedCount} existing image${skippedCount === 1 ? '' : 's'}.`,
+  )
+
+  return {
+    generatedCount,
+    skippedCount,
+  }
+}
+
 async function main() {
   const filters = parseArgs()
-  const characterSheets = await loadCharacterSheets()
+  const [config, characterSheets] = await Promise.all([loadConfig(), loadCharacterSheets()])
   const plannedGenerations = selectPendingCharacterSheetGenerations(characterSheets, filters)
 
   if (plannedGenerations.length === 0) {
@@ -184,36 +273,9 @@ async function main() {
     )
   }
 
-  let generatedCount = 0
-  let skippedCount = 0
-
-  for (const generation of plannedGenerations) {
-    const absoluteOutputPath = path.resolve(process.cwd(), generation.outputPath)
-
-    if (await fileExists(absoluteOutputPath)) {
-      console.log(
-        `Skipping ${generation.characterId} with model ${generation.model}; image already exists at ${generation.outputPath}`,
-      )
-      skippedCount += 1
-      continue
-    }
-
-    console.log(
-      `Generating ${generation.characterId} with model ${generation.model} -> ${generation.outputPath}`,
-    )
-
-    await generateCharacterSheetArtifactVersion(generation)
-
-    captureWorkflowEvent('character_sheet_generated', {
-      characterId: generation.characterId,
-      model: generation.model,
-    })
-    generatedCount += 1
-  }
-
-  console.log(
-    `Character sheet sync complete. Generated ${generatedCount}; skipped ${skippedCount} existing image${skippedCount === 1 ? '' : 's'}.`,
-  )
+  await syncCharacterSheetGenerations(plannedGenerations, {
+    variantCount: config.variantCount,
+  })
 }
 
 if (import.meta.main) {

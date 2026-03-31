@@ -62,6 +62,7 @@ export interface ArtifactVersionMetadata {
   sourceArtifactId: string
   baseVersionId: string | null
   generationId: string | null
+  seed: number | null
   autoSelected: boolean
   editInstruction: string | null
   approvedActionSummary: string | null
@@ -97,6 +98,7 @@ interface RecordArtifactVersionInput {
   createdAt?: string
   baseVersionId: string | null
   generationId: string | null
+  seed: number | null
   editInstruction: string | null
   approvedActionSummary: string | null
   references: ResolvedArtifactReference[]
@@ -236,6 +238,7 @@ function parseArtifactVersionMetadata(
       typeof value.sourceArtifactId === 'string' ? value.sourceArtifactId : descriptor.artifactId,
     baseVersionId: typeof value.baseVersionId === 'string' ? value.baseVersionId : null,
     generationId: typeof value.generationId === 'string' ? value.generationId : null,
+    seed: typeof value.seed === 'number' && Number.isInteger(value.seed) ? value.seed : null,
     autoSelected: value.autoSelected !== false,
     editInstruction: typeof value.editInstruction === 'string' ? value.editInstruction : null,
     approvedActionSummary:
@@ -268,6 +271,16 @@ function compareVersionIds(left: string, right: string) {
   }
 
   return Number(leftMatch[1]) - Number(rightMatch[1])
+}
+
+export function getVersionSeed(versionId: string): number | null {
+  const match = /^v(\d+)$/.exec(versionId)
+
+  if (!match) {
+    return null
+  }
+
+  return Number(match[1])
 }
 
 function getNextVersionId(history: ArtifactHistory | null) {
@@ -551,7 +564,8 @@ export async function loadArtifactHistoryState(
   } = {},
 ): Promise<ArtifactHistoryState> {
   const history = await loadArtifactHistory(descriptor, cwd, { bootstrap: options.bootstrap })
-  const activeVersionId = options.activeVersionId ?? history?.selectedVersionId ?? null
+  const activeVersionId =
+    options.activeVersionId ?? history?.selectedVersionId ?? history?.latestVersionId ?? null
   const versions = history
     ? (
         await Promise.all(
@@ -606,6 +620,11 @@ export async function ensureArtifactHistoryInitialized(
     sourceArtifactId: descriptor.artifactId,
     baseVersionId: null,
     generationId: matchedLogEntry?.generationId ?? null,
+    seed:
+      typeof matchedLogEntry?.settings.seed === 'number' &&
+      Number.isInteger(matchedLogEntry.settings.seed)
+        ? matchedLogEntry.settings.seed
+        : getVersionSeed('v1'),
     autoSelected: true,
     editInstruction: null,
     approvedActionSummary: null,
@@ -673,6 +692,7 @@ export async function recordArtifactVersionFromStage(input: RecordArtifactVersio
     sourceArtifactId: input.descriptor.artifactId,
     baseVersionId: input.baseVersionId,
     generationId: input.generationId,
+    seed: input.seed,
     autoSelected: autoSelect,
     editInstruction: input.editInstruction,
     approvedActionSummary: input.approvedActionSummary,
@@ -688,8 +708,6 @@ export async function recordArtifactVersionFromStage(input: RecordArtifactVersio
   nextHistory.latestVersionId = versionId
 
   if (autoSelect) {
-    nextHistory.selectedVersionId = versionId
-  } else if (!nextHistory.selectedVersionId) {
     nextHistory.selectedVersionId = versionId
   }
 

@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-import { startArtifactReviewServer } from './artifact-review-server'
+import { runApprovedAction, startArtifactReviewServer } from './artifact-review-server'
 
 async function writeRepoFile(rootDir: string, relativePath: string, content: string | Uint8Array) {
   const filePath = path.resolve(rootDir, relativePath)
@@ -279,6 +279,69 @@ test('artifact review server renders an approval preview for storyboard edits', 
     } finally {
       await server.stop()
     }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('runApprovedAction stays single-variant even when CONFIG.json.variantCount is greater than 1', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/CONFIG.json',
+      `${JSON.stringify(
+        {
+          agentModel: 'agent-test',
+          imageModel: 'image-test',
+          videoModel: 'video-test',
+          variantCount: 3,
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.md',
+      '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
+    )
+    await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'template')
+    await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard-image')
+
+    const seeds: number[] = []
+    await runApprovedAction('/storyboard', rootDir, 'v1', 'Tighten the panel spacing.', {
+      imageGenerator: async (input) => {
+        seeds.push(input.seed ?? -1)
+
+        if (!input.outputPath) {
+          throw new Error('Expected outputPath for approved storyboard generation test.')
+        }
+
+        await writeRepoFile(rootDir, input.outputPath, `storyboard:${input.seed}`)
+
+        return {
+          generationId: `gen-${input.seed}`,
+          model: input.model ?? 'image-test',
+          outputPaths: [path.resolve(rootDir, input.outputPath)],
+        }
+      },
+    })
+
+    expect(seeds).toEqual([2])
+
+    const history = JSON.parse(
+      await readFile(path.resolve(rootDir, 'workspace/HISTORY/STORYBOARD/artifact.json'), 'utf8'),
+    ) as {
+      latestVersionId: string
+      selectedVersionId: string
+      versions: Array<{ versionId: string }>
+    }
+
+    expect(history.latestVersionId).toBe('v2')
+    expect(history.selectedVersionId).toBe('v2')
+    expect(history.versions.map((entry) => entry.versionId)).toEqual(['v1', 'v2'])
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

@@ -5,11 +5,16 @@ import {
   assertResolvedReferencesExist,
   buildApprovedActionSummary,
   getStoryboardArtifactDescriptor,
+  getVersionSeed,
   prepareStagedArtifactVersion,
   recordArtifactVersionFromStage,
   resolveStoryboardGenerationReferences,
 } from './artifact-control'
-import { generateImagenOptions } from './generate-imagen-options'
+import {
+  generateImagenOptions,
+  type GenerateImagenOptionsInput,
+  type GenerateImagenOptionsResult,
+} from './generate-imagen-options'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import {
   getStoryboardImagePath,
@@ -25,6 +30,13 @@ export interface PendingStoryboardGeneration {
   outputPath: string
   references: ReturnType<typeof resolveStoryboardGenerationReferences>['references']
 }
+
+export interface StoryboardGenerationSummary {
+  generatedCount: number
+  skippedCount: number
+}
+
+type ImageGenerator = (input: GenerateImagenOptionsInput) => Promise<GenerateImagenOptionsResult>
 
 async function fileExists(filePath: string) {
   try {
@@ -104,6 +116,8 @@ export async function runStoryboardGeneration(options: {
   userReferences?: Parameters<typeof resolveStoryboardGenerationReferences>[0]
   logFile?: string
   cwd?: string
+  seed?: number
+  generator?: ImageGenerator
 }) {
   const { resolvedReferences, references } = resolveStoryboardGenerationReferences(
     options.userReferences,
@@ -114,13 +128,15 @@ export async function runStoryboardGeneration(options: {
     buildStoryboardPrompt(options.storyboardMarkdown),
     options.editInstruction,
   )
-  const result = await generateImagenOptions({
+  const generator = options.generator ?? generateImagenOptions
+  const result = await generator({
     prompt,
     model: options.model,
     outputPath: options.outputPath,
     references,
     logFile: options.logFile,
     cwd: options.cwd,
+    seed: options.seed,
     artifactType: 'storyboard',
     artifactId: 'STORYBOARD',
   })
@@ -141,10 +157,14 @@ export async function generateStoryboardArtifactVersion(options: {
   baseVersionId?: string | null
   logFile?: string
   cwd?: string
+  seed?: number
+  autoSelect?: boolean
+  generator?: ImageGenerator
 }) {
   const descriptor = getStoryboardArtifactDescriptor()
   const cwd = options.cwd ?? process.cwd()
   const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
+  const seed = options.seed ?? getVersionSeed(stagedVersion.versionId)
 
   try {
     const result = await runStoryboardGeneration({
@@ -155,12 +175,15 @@ export async function generateStoryboardArtifactVersion(options: {
       userReferences: options.userReferences,
       logFile: options.logFile,
       cwd,
+      seed: seed ?? undefined,
+      generator: options.generator,
     })
     const recorded = await recordArtifactVersionFromStage({
       descriptor,
       stagedPath: stagedVersion.stagedPath,
       baseVersionId: options.baseVersionId ?? null,
       generationId: result.generationId,
+      seed,
       editInstruction: options.editInstruction ?? null,
       approvedActionSummary: buildApprovedActionSummary({
         descriptor,
@@ -169,17 +192,76 @@ export async function generateStoryboardArtifactVersion(options: {
         references: result.resolvedReferences,
       }),
       references: result.resolvedReferences,
+      autoSelect: options.autoSelect,
       cwd,
     })
 
     return {
       ...result,
       descriptor,
+      seed,
       versionId: recorded.version.versionId,
     }
   } catch (error) {
     await rm(path.resolve(cwd, stagedVersion.stagedPath), { force: true }).catch(() => undefined)
     throw error
+  }
+}
+
+export async function syncStoryboardGeneration(options: {
+  storyboardMarkdown: string
+  model: string
+  userReferences?: Parameters<typeof resolveStoryboardGenerationReferences>[0]
+  variantCount?: number
+  logFile?: string
+  cwd?: string
+  generator?: ImageGenerator
+}): Promise<StoryboardGenerationSummary> {
+  const cwd = options.cwd ?? process.cwd()
+  const generation = selectPendingStoryboardGeneration(
+    options.storyboardMarkdown,
+    options.model,
+    options.userReferences ?? [],
+  )
+  const absoluteOutputPath = path.resolve(cwd, generation.outputPath)
+
+  if (await fileExists(absoluteOutputPath)) {
+    console.log(`Skipping storyboard; image already exists at ${generation.outputPath}`)
+    console.log('Storyboard sync complete. Generated 0; skipped 1 existing image.')
+    return { generatedCount: 0, skippedCount: 1 }
+  }
+
+  const variantCount = options.variantCount ?? 1
+
+  for (let variantIndex = 0; variantIndex < variantCount; variantIndex += 1) {
+    if (variantCount === 1) {
+      console.log(
+        `Generating storyboard with model ${generation.model} -> ${generation.outputPath}`,
+      )
+    } else {
+      console.log(
+        `Generating storyboard variant ${variantIndex + 1}/${variantCount} with model ${generation.model} -> ${generation.outputPath}`,
+      )
+    }
+
+    await generateStoryboardArtifactVersion({
+      storyboardMarkdown: options.storyboardMarkdown,
+      model: generation.model,
+      userReferences: options.userReferences ?? [],
+      logFile: options.logFile,
+      cwd,
+      autoSelect: variantIndex === variantCount - 1,
+      generator: options.generator,
+    })
+
+    captureWorkflowEvent('storyboard_generated', { model: generation.model })
+  }
+
+  console.log('Storyboard sync complete. Generated 1; skipped 0 existing images.')
+
+  return {
+    generatedCount: 1,
+    skippedCount: 0,
   }
 }
 
@@ -189,30 +271,12 @@ async function main() {
     readFile(resolveWorkflowPath(WORKFLOW_FILES.storyboard), 'utf8'),
     loadStoryboardSidecar(),
   ])
-
-  const generation = selectPendingStoryboardGeneration(
+  await syncStoryboardGeneration({
     storyboardMarkdown,
-    config.imageModel,
-    storyboardSidecar?.references ?? [],
-  )
-  const absoluteOutputPath = path.resolve(process.cwd(), generation.outputPath)
-
-  if (await fileExists(absoluteOutputPath)) {
-    console.log(`Skipping storyboard; image already exists at ${generation.outputPath}`)
-    console.log('Storyboard sync complete. Generated 0; skipped 1 existing image.')
-    return
-  }
-
-  console.log(`Generating storyboard with model ${generation.model} -> ${generation.outputPath}`)
-
-  await generateStoryboardArtifactVersion({
-    storyboardMarkdown,
-    model: generation.model,
+    model: config.imageModel,
     userReferences: storyboardSidecar?.references ?? [],
+    variantCount: config.variantCount,
   })
-
-  captureWorkflowEvent('storyboard_generated', { model: generation.model })
-  console.log('Storyboard sync complete. Generated 1; skipped 0 existing images.')
 }
 
 if (import.meta.main) {

@@ -1,12 +1,14 @@
 import { expect, test } from 'bun:test'
-import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { getKeyframeArtifactDescriptor } from './artifact-control'
 import {
   planKeyframeGenerationReferences,
   selectPendingKeyframeGenerations,
+  syncKeyframeGenerations,
 } from './generate-keyframes'
 import type { KeyframeArtifactEntry, KeyframeEntry, ShotEntry } from './workflow-data'
 
@@ -201,6 +203,20 @@ test('generate-keyframes fails for a continuity shot when the previous shot end 
   try {
     await writeRepoFile(
       rootDir,
+      'workspace/CONFIG.json',
+      `${JSON.stringify(
+        {
+          agentModel: 'agent-test',
+          imageModel: 'image-test',
+          videoModel: 'video-test',
+          variantCount: 1,
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
       'workspace/SHOTS.json',
       `${JSON.stringify(createShots().slice(0, 2), null, 2)}\n`,
     )
@@ -251,6 +267,20 @@ test('generate-keyframes fails for an end keyframe when the same-shot start imag
   try {
     await writeRepoFile(
       rootDir,
+      'workspace/CONFIG.json',
+      `${JSON.stringify(
+        {
+          agentModel: 'agent-test',
+          imageModel: 'image-test',
+          videoModel: 'video-test',
+          variantCount: 1,
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
       'workspace/SHOTS.json',
       `${JSON.stringify(createShots().slice(0, 1), null, 2)}\n`,
     )
@@ -289,6 +319,79 @@ test('generate-keyframes fails for an end keyframe when the same-shot start imag
     expect(new TextDecoder().decode(result.stderr)).toContain(
       'required start-frame reference is missing at workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
     )
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('syncKeyframeGenerations renders variantCount retained versions and selects the last one', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-keyframe-variants-'))
+  const keyframes = createKeyframes()
+  const shots = createShots()
+  const generation = {
+    keyframeId: 'SHOT-01-START',
+    shotId: 'SHOT-01',
+    frameType: 'start' as const,
+    model: 'image-test',
+    prompt: 'Prompt for SHOT-01-START.',
+    outputPath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+    characterIds: ['dog'],
+    incomingTransition: shots[0]!.incomingTransition,
+  }
+  const descriptor = getKeyframeArtifactDescriptor(generation)
+
+  try {
+    await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard')
+    await writeRepoFile(rootDir, 'workspace/CHARACTERS/dog.png', 'dog')
+
+    const seeds: number[] = []
+    const summary = await syncKeyframeGenerations([generation], keyframes, shots, {
+      variantCount: 3,
+      cwd: rootDir,
+      generator: async (input) => {
+        seeds.push(input.seed ?? -1)
+
+        if (!input.outputPath) {
+          throw new Error('Expected outputPath for keyframe generation test.')
+        }
+
+        await writeRepoFile(rootDir, input.outputPath, `keyframe:${input.seed}`)
+
+        return {
+          generationId: `gen-${input.seed}`,
+          model: input.model ?? 'image-test',
+          outputPaths: [path.resolve(rootDir, input.outputPath)],
+        }
+      },
+    })
+
+    expect(summary).toEqual({ generatedCount: 1, skippedCount: 0 })
+    expect(seeds).toEqual([1, 2, 3])
+    expect(
+      await readFile(
+        path.resolve(rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png'),
+        'utf8',
+      ),
+    ).toBe('keyframe:3')
+
+    const history = JSON.parse(
+      await readFile(path.resolve(rootDir, descriptor.artifactControlPath), 'utf8'),
+    ) as {
+      latestVersionId: string
+      selectedVersionId: string
+    }
+    expect(history.latestVersionId).toBe('v3')
+    expect(history.selectedVersionId).toBe('v3')
+
+    const firstVariant = JSON.parse(
+      await readFile(path.resolve(rootDir, descriptor.historyDir, 'v1.json'), 'utf8'),
+    ) as { autoSelected: boolean; seed: number }
+    const lastVariant = JSON.parse(
+      await readFile(path.resolve(rootDir, descriptor.historyDir, 'v3.json'), 'utf8'),
+    ) as { autoSelected: boolean; seed: number }
+
+    expect(firstVariant).toMatchObject({ autoSelected: false, seed: 1 })
+    expect(lastVariant).toMatchObject({ autoSelected: true, seed: 3 })
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

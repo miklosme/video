@@ -6,13 +6,19 @@ import arg from 'arg'
 import {
   buildApprovedActionSummary,
   getKeyframeArtifactDescriptor,
+  getVersionSeed,
   prepareStagedArtifactVersion,
   recordArtifactVersionFromStage,
   resolveKeyframeGenerationReferences,
 } from './artifact-control'
-import { generateImagenOptions } from './generate-imagen-options'
+import {
+  generateImagenOptions,
+  type GenerateImagenOptionsInput,
+  type GenerateImagenOptionsResult,
+} from './generate-imagen-options'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import {
+  loadConfig,
   loadKeyframeArtifacts,
   loadKeyframes,
   loadShotPrompts,
@@ -43,6 +49,13 @@ export interface PendingKeyframeGeneration {
   incomingTransition: ShotIncomingTransitionEntry
   userReferences?: ArtifactReferenceEntry[]
 }
+
+export interface KeyframeGenerationSummary {
+  generatedCount: number
+  skippedCount: number
+}
+
+type ImageGenerator = (input: GenerateImagenOptionsInput) => Promise<GenerateImagenOptionsResult>
 
 function parseArgs(): GenerateKeyframesArgs {
   const args = arg({
@@ -227,6 +240,8 @@ export async function runKeyframeGeneration(
     userReferences?: readonly ArtifactReferenceEntry[]
     logFile?: string
     cwd?: string
+    seed?: number
+    generator?: ImageGenerator
   } = {},
 ) {
   const { resolvedReferences, references } = resolveKeyframeGenerationReferences(
@@ -244,7 +259,8 @@ export async function runKeyframeGeneration(
     resolveKeyframeGenerationPrompt(generation),
     options.editInstruction,
   )
-  const result = await generateImagenOptions({
+  const generator = options.generator ?? generateImagenOptions
+  const result = await generator({
     prompt,
     model: generation.model,
     size: DEFAULT_KEYFRAME_IMAGE_SIZE,
@@ -255,6 +271,7 @@ export async function runKeyframeGeneration(
     references,
     logFile: options.logFile,
     cwd: options.cwd,
+    seed: options.seed,
     artifactType: 'keyframe',
     artifactId: generation.keyframeId,
   })
@@ -278,11 +295,15 @@ export async function generateKeyframeArtifactVersion(
     userReferences?: readonly ArtifactReferenceEntry[]
     logFile?: string
     cwd?: string
+    seed?: number
+    autoSelect?: boolean
+    generator?: ImageGenerator
   } = {},
 ) {
   const descriptor = getKeyframeArtifactDescriptor(generation)
   const cwd = options.cwd ?? process.cwd()
   const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
+  const seed = options.seed ?? getVersionSeed(stagedVersion.versionId)
 
   try {
     const result = await runKeyframeGeneration(generation, keyframes, shots, {
@@ -292,12 +313,15 @@ export async function generateKeyframeArtifactVersion(
       userReferences: options.userReferences,
       logFile: options.logFile,
       cwd,
+      seed: seed ?? undefined,
+      generator: options.generator,
     })
     const recorded = await recordArtifactVersionFromStage({
       descriptor,
       stagedPath: stagedVersion.stagedPath,
       baseVersionId: options.baseVersionId ?? null,
       generationId: result.generationId,
+      seed,
       editInstruction: options.editInstruction ?? null,
       approvedActionSummary: buildApprovedActionSummary({
         descriptor,
@@ -306,12 +330,14 @@ export async function generateKeyframeArtifactVersion(
         references: result.resolvedReferences,
       }),
       references: result.resolvedReferences,
+      autoSelect: options.autoSelect,
       cwd,
     })
 
     return {
       ...result,
       descriptor,
+      seed,
       versionId: recorded.version.versionId,
     }
   } catch (error) {
@@ -320,9 +346,80 @@ export async function generateKeyframeArtifactVersion(
   }
 }
 
+export async function syncKeyframeGenerations(
+  plannedGenerations: PendingKeyframeGeneration[],
+  keyframes: KeyframeEntry[],
+  shots: ShotEntry[],
+  options: {
+    variantCount?: number
+    logFile?: string
+    cwd?: string
+    generator?: ImageGenerator
+  } = {},
+): Promise<KeyframeGenerationSummary> {
+  const cwd = options.cwd ?? process.cwd()
+  let generatedCount = 0
+  let skippedCount = 0
+
+  for (const generation of plannedGenerations) {
+    const absoluteOutputPath = path.resolve(cwd, generation.outputPath)
+
+    if (await fileExists(absoluteOutputPath)) {
+      console.log(
+        `Skipping ${generation.keyframeId} with model ${generation.model}; image already exists at ${generation.outputPath}`,
+      )
+      captureWorkflowEvent('keyframe_generation_skipped', {
+        keyframeId: generation.keyframeId,
+        shotId: generation.shotId,
+      })
+      skippedCount += 1
+      continue
+    }
+
+    const variantCount = options.variantCount ?? 1
+
+    for (let variantIndex = 0; variantIndex < variantCount; variantIndex += 1) {
+      if (variantCount === 1) {
+        console.log(
+          `Generating ${generation.keyframeId} with model ${generation.model} -> ${generation.outputPath}`,
+        )
+      } else {
+        console.log(
+          `Generating ${generation.keyframeId} variant ${variantIndex + 1}/${variantCount} with model ${generation.model} -> ${generation.outputPath}`,
+        )
+      }
+
+      await generateKeyframeArtifactVersion(generation, keyframes, shots, {
+        logFile: options.logFile,
+        cwd,
+        autoSelect: variantIndex === variantCount - 1,
+        generator: options.generator,
+      })
+
+      captureWorkflowEvent('keyframe_generated', {
+        keyframeId: generation.keyframeId,
+        shotId: generation.shotId,
+        model: generation.model,
+      })
+    }
+
+    generatedCount += 1
+  }
+
+  console.log(
+    `Keyframe sync complete. Generated ${generatedCount}; skipped ${skippedCount} existing image${skippedCount === 1 ? '' : 's'}.`,
+  )
+
+  return {
+    generatedCount,
+    skippedCount,
+  }
+}
+
 async function main() {
   const filters = parseArgs()
-  const [keyframes, artifacts, shots] = await Promise.all([
+  const [config, keyframes, artifacts, shots] = await Promise.all([
+    loadConfig(),
     loadKeyframes(),
     loadKeyframeArtifacts(),
     loadShotPrompts(),
@@ -341,41 +438,9 @@ async function main() {
     )
   }
 
-  let generatedCount = 0
-  let skippedCount = 0
-
-  for (const generation of plannedGenerations) {
-    const absoluteOutputPath = path.resolve(process.cwd(), generation.outputPath)
-
-    if (await fileExists(absoluteOutputPath)) {
-      console.log(
-        `Skipping ${generation.keyframeId} with model ${generation.model}; image already exists at ${generation.outputPath}`,
-      )
-      captureWorkflowEvent('keyframe_generation_skipped', {
-        keyframeId: generation.keyframeId,
-        shotId: generation.shotId,
-      })
-      skippedCount += 1
-      continue
-    }
-
-    console.log(
-      `Generating ${generation.keyframeId} with model ${generation.model} -> ${generation.outputPath}`,
-    )
-
-    await generateKeyframeArtifactVersion(generation, keyframes, shots)
-
-    captureWorkflowEvent('keyframe_generated', {
-      keyframeId: generation.keyframeId,
-      shotId: generation.shotId,
-      model: generation.model,
-    })
-    generatedCount += 1
-  }
-
-  console.log(
-    `Keyframe sync complete. Generated ${generatedCount}; skipped ${skippedCount} existing image${skippedCount === 1 ? '' : 's'}.`,
-  )
+  await syncKeyframeGenerations(plannedGenerations, keyframes, shots, {
+    variantCount: config.variantCount,
+  })
 }
 
 if (import.meta.main) {

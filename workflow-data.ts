@@ -3,6 +3,7 @@ import path from 'node:path'
 
 export const FRAME_TYPES = ['start', 'end', 'single'] as const
 export const DEFAULT_VIDEO_DURATION_SECONDS = 4
+export const DEFAULT_VARIANT_COUNT = 1
 export const FINAL_CUT_VERSION = 1
 export const FINAL_CUT_TRANSITION_TYPES = ['cut', 'fade'] as const
 export const SHOT_INCOMING_TRANSITION_TYPES = ['opening', 'continuity', 'scene-change'] as const
@@ -132,6 +133,7 @@ export interface ConfigData {
   agentModel: string
   imageModel: string
   videoModel: string
+  variantCount: number
 }
 
 export interface ModelOptionsData {
@@ -155,6 +157,7 @@ export interface GenerationLogEntry {
     safetyFilterLevel?: string
     durationSeconds?: number
     referenceImageCount?: number
+    seed?: number
   }
   outputDir: string
   outputPaths: string[]
@@ -358,6 +361,19 @@ function expectNonNegativeInteger(value: unknown, context: string): number {
     value < 0
   ) {
     throw new Error(`${context} must be a non-negative integer.`)
+  }
+
+  return value
+}
+
+function expectPositiveInteger(value: unknown, context: string): number {
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 1
+  ) {
+    throw new Error(`${context} must be a positive integer.`)
   }
 
   return value
@@ -672,11 +688,16 @@ function parseFinalCutData(value: unknown): FinalCutData {
 
 function parseConfigData(value: unknown): ConfigData {
   const object = expectObject(value, 'CONFIG.json')
+  const variantCount =
+    object.variantCount === undefined
+      ? DEFAULT_VARIANT_COUNT
+      : expectPositiveInteger(object.variantCount, 'CONFIG.json.variantCount')
 
   return {
     agentModel: expectConcreteString(object.agentModel, 'CONFIG.json.agentModel'),
     imageModel: expectConcreteString(object.imageModel, 'CONFIG.json.imageModel'),
     videoModel: expectConcreteString(object.videoModel, 'CONFIG.json.videoModel'),
+    variantCount,
   }
 }
 
@@ -846,4 +867,6 @@ export function validateConfigAgainstModelOptions(
       )
     }
   }
+
+  expectPositiveInteger(config.variantCount, 'CONFIG.json.variantCount')
 }

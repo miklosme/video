@@ -15,6 +15,7 @@ import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
 import { startArtifactReviewServer, type ArtifactReviewServer } from './artifact-review-server'
+import { buildConfigSavePayload } from './config-utils'
 import { getEditorStatus } from './editor-status'
 import {
   clearBufferedNextStepSuggestions,
@@ -730,11 +731,11 @@ function App({
     }
 
     const nextConfigDraft = nextConfigOverride ?? configDraft
-    const nextConfig = {
+    const nextConfig = buildConfigSavePayload(workflow.config, {
       agentModel: nextConfigDraft.agentModel,
       imageModel: nextConfigDraft.imageModel,
       videoModel: nextConfigDraft.videoModel,
-    }
+    })
 
     setRuntimeErrorState(null)
     setIsSavingConfig(true)

@@ -29,7 +29,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 
 - Start from `workspace/IDEA.md`.
 - When a canonical workspace file is missing, copy the matching template first.
-- `workspace/CONFIG.json` stores the active agent, image, and video model cards for the current project.
+- `workspace/CONFIG.json` stores the active agent, image, and video model cards plus the default visual `variantCount` for the current project.
 - `workspace/STATUS.json` is a flat array of visible creative milestones, ordered from first step to last step.
 - Keep harness setup and other bookkeeping out of `workspace/STATUS.json`.
 - `workspace/CHARACTERS.md` stores textual character definitions, and each character section should include a stable `Character ID:`.
@@ -49,10 +49,10 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 ## Tooling Notes
 
 - `bun validate-workflow-data.ts` validates required workflow files, optional sidecar `references`, and the simplified JSON schemas.
-- `bun generate-character-sheets.ts` syncs missing `workspace/CHARACTERS/*.png` files from their sidecar JSON files, retains new versions under `workspace/CHARACTERS/HISTORY/`, and keeps the selected version copied back to the stable public PNG path.
-- `bun generate-storyboard.ts` syncs the missing `workspace/STORYBOARD.png` review board from `workspace/STORYBOARD.md`, reads optional storyboard-sidecar `references`, and retains successful versions under `workspace/HISTORY/STORYBOARD/`.
-- `bun generate-keyframes.ts` syncs missing `workspace/KEYFRAMES/**/*.png` files from their sidecar JSON files, `workspace/KEYFRAMES.json`, and `workspace/SHOTS.json`, attaching the storyboard review board for all keyframes, the relevant character sheets, the previous shot end frame first for continuity start frames, and the same-shot start frame first for end-frame generation, while retaining successful versions under artifact-local `HISTORY/` folders.
-- `bun generate-shots.ts` syncs missing `workspace/SHOTS/*.mp4` files from `workspace/SHOTS.json` and `workspace/SHOTS/*.json`, using the start frame as the image-to-video input, the end frame as the last-frame control when present, explicit user references first, then up to the remaining character-sheet references within the 3-image budget, and each shot's `durationSeconds` value for the requested clip length.
+- `bun generate-character-sheets.ts` syncs missing `workspace/CHARACTERS/*.png` files from their sidecar JSON files, renders `workspace/CONFIG.json.variantCount` retained variants in sequence when a stable selected PNG is missing, and keeps only the last new variant selected at the public PNG path.
+- `bun generate-storyboard.ts` syncs the missing `workspace/STORYBOARD.png` review board from `workspace/STORYBOARD.md`, reads optional storyboard-sidecar `references`, renders `workspace/CONFIG.json.variantCount` retained variants in sequence when the stable selected board is missing, and keeps only the last new variant selected at the public PNG path.
+- `bun generate-keyframes.ts` syncs missing `workspace/KEYFRAMES/**/*.png` files from their sidecar JSON files, `workspace/KEYFRAMES.json`, and `workspace/SHOTS.json`, attaches the storyboard review board plus continuity references, renders `workspace/CONFIG.json.variantCount` retained variants in sequence when a stable selected keyframe is missing, and keeps only the last new variant selected at the public PNG path.
+- `bun generate-shots.ts` syncs missing `workspace/SHOTS/*.mp4` files from `workspace/SHOTS.json` and `workspace/SHOTS/*.json`, uses the start frame as the image-to-video input, the end frame as the last-frame control when present, renders `workspace/CONFIG.json.variantCount` retained variants in sequence when a stable selected shot is missing, and keeps only the last new variant selected at the public MP4 path.
 - `bun run remotion:studio` bootstraps `workspace/FINAL-CUT.json` when needed, serves repo media to Remotion Studio, and opens the stock Studio against the saved final-cut manifest.
 - `bun run remotion:render` uses the same `workspace/FINAL-CUT.json` manifest to render the `final-cut` composition to `outputs/final.mp4` by default.
 - `artifact-review-server.ts` is now the lightweight artifact-control surface for retained history, selected-vs-latest state, source reference editing, approval, and manual reselection.
