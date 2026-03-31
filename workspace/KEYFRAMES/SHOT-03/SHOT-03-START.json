@@ -1,0 +1,18 @@
+{
+  "keyframeId": "SHOT-03-START",
+  "shotId": "SHOT-03",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the adult male psychologist in a calm therapy office, medium close-up reverse shot following the panel labeled SHOT-03 in the storyboard. He listens attentively to the panda with open posture, grounded stillness, and a thoughtful, nonjudgmental expression. Understated professional wardrobe in muted tones, soft office background, warm naturalistic light, realistic skin texture, restrained therapeutic atmosphere. Keep him fully consistent with his approved reference sheet. No smugness, no comedy emphasis, no text overlays.",
+  "status": "draft",
+  "references": [
+    {
+      "path": "workspace/STORYBOARD.png",
+      "role": "storyboard panel reference for SHOT-03 composition"
+    },
+    {
+      "path": "workspace/CHARACTERS/psychologist.png",
+      "role": "character reference for psychologist"
+    }
+  ]
+}

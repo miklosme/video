@@ -1,0 +1,22 @@
+{
+  "keyframeId": "SHOT-01-START",
+  "shotId": "SHOT-01",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of a warm minimalist psychologist's office, wide establishing shot, following the panel labeled SHOT-01 in the storyboard. An adult female panda patient sits slightly slumped in the patient chair or couch, facing an adult male psychologist across from her. Calm therapy-room geography, safe orderly space, soft naturalistic window light, muted neutral palette, tasteful uncluttered decor, stillness before dialogue, emotionally heavy but contained mood. Keep both characters clearly readable and consistent with their approved reference sheets. No comedy gag staging, no text overlays.",
+  "status": "draft",
+  "references": [
+    {
+      "path": "workspace/STORYBOARD.png",
+      "role": "storyboard panel reference for SHOT-01 composition"
+    },
+    {
+      "path": "workspace/CHARACTERS/panda-patient.png",
+      "role": "character reference for panda-patient"
+    },
+    {
+      "path": "workspace/CHARACTERS/psychologist.png",
+      "role": "character reference for psychologist"
+    }
+  ]
+}

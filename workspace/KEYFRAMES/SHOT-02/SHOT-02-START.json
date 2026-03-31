@@ -1,0 +1,18 @@
+{
+  "keyframeId": "SHOT-02-START",
+  "shotId": "SHOT-02",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the adult female panda patient in a psychologist's office, medium shot following the panel labeled SHOT-02 in the storyboard. She is seated, facing slightly toward the unseen psychologist, beginning to open up. Vulnerable, tired, earnest expression; paws resting softly in her lap or making a minimal restrained gesture. Soft unobtrusive office background, shallow but readable depth, warm neutral tones, naturalistic therapy-room light. Keep the panda fully consistent with her approved reference sheet and avoid cartoon exaggeration, comedy mugging, or dramatic stylization. No text overlays.",
+  "status": "draft",
+  "references": [
+    {
+      "path": "workspace/STORYBOARD.png",
+      "role": "storyboard panel reference for SHOT-02 composition"
+    },
+    {
+      "path": "workspace/CHARACTERS/panda-patient.png",
+      "role": "character reference for panda-patient"
+    }
+  ]
+}

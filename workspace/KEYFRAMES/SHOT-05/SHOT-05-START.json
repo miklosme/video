@@ -1,0 +1,22 @@
+{
+  "keyframeId": "SHOT-05-START",
+  "shotId": "SHOT-05",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of an intimate shared therapy-office composition, following the panel labeled SHOT-05 in the storyboard. The adult male psychologist and the adult female panda patient are both visible in frame, reunited after the shot-reverse-shot pattern. The psychologist holds a calm, supportive presence while the panda listens in silence. Warm minimalist office, soft naturalistic light, gentle depth, muted palette, steady compassionate mood. Keep both characters fully consistent with their approved reference sheets and preserve a believable seated relationship in the room. No sentimentality overload, no comedy emphasis, no text overlays.",
+  "status": "draft",
+  "references": [
+    {
+      "path": "workspace/STORYBOARD.png",
+      "role": "storyboard panel reference for SHOT-05 composition"
+    },
+    {
+      "path": "workspace/CHARACTERS/psychologist.png",
+      "role": "character reference for psychologist"
+    },
+    {
+      "path": "workspace/CHARACTERS/panda-patient.png",
+      "role": "character reference for panda-patient"
+    }
+  ]
+}

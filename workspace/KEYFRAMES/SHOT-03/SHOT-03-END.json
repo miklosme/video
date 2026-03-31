@@ -1,0 +1,18 @@
+{
+  "keyframeId": "SHOT-03-END",
+  "shotId": "SHOT-03",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the adult male psychologist in the same therapy-office medium close-up, matched to the panel labeled SHOT-03 in the storyboard. He has just asked a gentle, precise question, and the expression carries calm curiosity, warmth, and clinical clarity rather than cleverness. Preserve continuity of framing, posture, muted wardrobe, soft background, and warm naturalistic light. Slight conversational activation in the face, otherwise restrained. Keep him consistent with his approved reference sheet. No text overlays.",
+  "status": "draft",
+  "references": [
+    {
+      "path": "workspace/STORYBOARD.png",
+      "role": "storyboard panel reference for SHOT-03 composition"
+    },
+    {
+      "path": "workspace/CHARACTERS/psychologist.png",
+      "role": "character reference for psychologist"
+    }
+  ]
+}

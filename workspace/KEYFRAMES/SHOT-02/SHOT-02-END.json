@@ -1,0 +1,18 @@
+{
+  "keyframeId": "SHOT-02-END",
+  "shotId": "SHOT-02",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the adult female panda patient in the same psychologist's office medium shot, matched to the panel labeled SHOT-02 in the storyboard. She has finished the confession and now holds the emotional truth of the line in her face: sincere, wounded, quietly exposed rather than punchline-driven. Preserve continuity of angle, wardrobe-free natural panda appearance, background softness, warm neutral palette, and restrained therapy setting. A subtle increase in emotional weight, not a large pose change. Keep the panda consistent with her approved reference sheet. No text overlays.",
+  "status": "draft",
+  "references": [
+    {
+      "path": "workspace/STORYBOARD.png",
+      "role": "storyboard panel reference for SHOT-02 composition"
+    },
+    {
+      "path": "workspace/CHARACTERS/panda-patient.png",
+      "role": "character reference for panda-patient"
+    }
+  ]
+}
