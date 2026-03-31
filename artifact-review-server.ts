@@ -73,7 +73,6 @@ import {
 const FRAME_ORDER: Record<FrameType, number> = {
   start: 0,
   end: 1,
-  single: 2,
 }
 
 const HTML_HEADERS = {
@@ -115,9 +114,10 @@ interface KeyframeReviewSlot {
   title: string
   goal: string
   status: string
+  href: string | null
   imageUrl: string
   imageExists: boolean
-  missingLabel: string | null
+  placeholderLabel: string | null
 }
 
 interface KeyframeReviewShot {
@@ -1232,43 +1232,48 @@ function renderCharactersSummary(cards: CharacterReviewCard[]) {
   )
 }
 
-function buildMissingSlot(
+function buildOmittedSlot(
   shotId: string,
   frameType: Extract<FrameType, 'start' | 'end'>,
 ): KeyframeReviewSlot {
   return {
     keyframeId: `${shotId}-${frameType.toUpperCase()}`,
     frameType,
-    title: `${frameType === 'start' ? 'Start' : 'End'} keyframe missing`,
+    title: `No ${frameType} keyframe planned`,
     goal: '',
-    status: 'missing',
+    status: 'omitted',
+    href: null,
     imageUrl: '',
     imageExists: false,
-    missingLabel: `Missing ${frameType} frame`,
+    placeholderLabel: `No ${frameType} keyframe planned`,
   }
 }
 
 function renderKeyframeSlot(slot: KeyframeReviewSlot) {
-  return `
-    <a class="slot slot-link" href="/keyframes/${encodeURIComponent(slot.keyframeId)}">
-      <div class="slot-visual">
-        ${
-          slot.imageUrl
-            ? renderMediaBlock({
-                mediaType: 'image',
-                mediaUrl: slot.imageUrl,
-                mediaExists: slot.imageExists,
-                alt: slot.keyframeId,
-                placeholder: slot.missingLabel ?? 'No image',
-                className: '',
-              })
-            : `<div class="placeholder">${escapeHtml(slot.missingLabel ?? 'No image')}</div>`
-        }
-      </div>
-      <p class="title">${escapeHtml(slot.title)}</p>
-      ${slot.goal ? `<p class="small">${escapeHtml(slot.goal)}</p>` : ''}
-    </a>
+  const content = `
+    <div class="slot-visual">
+      ${
+        slot.imageUrl
+          ? renderMediaBlock({
+              mediaType: 'image',
+              mediaUrl: slot.imageUrl,
+              mediaExists: slot.imageExists,
+              alt: slot.keyframeId,
+              placeholder: slot.placeholderLabel ?? 'No image',
+              className: '',
+            })
+          : `<div class="placeholder">${escapeHtml(slot.placeholderLabel ?? 'No image')}</div>`
+      }
+    </div>
+    <p class="title">${escapeHtml(slot.title)}</p>
+    ${slot.goal ? `<p class="small">${escapeHtml(slot.goal)}</p>` : ''}
   `
+
+  if (!slot.href) {
+    return `<div class="slot">${content}</div>`
+  }
+
+  return `<a class="slot slot-link" href="${slot.href}">${content}</a>`
 }
 
 function renderKeyframeShot(shot: KeyframeReviewShot) {
@@ -1514,27 +1519,18 @@ async function buildReviewShots(cwd: string): Promise<KeyframeReviewShot[]> {
           title: entry.title,
           goal: entry.goal,
           status: entry.status,
+          href: `/keyframes/${encodeURIComponent(entry.keyframeId)}`,
           imageUrl: `/${encodeAssetUrl(entry.imagePath)}`,
           imageExists: await fileExists(resolveRepoPath(entry.imagePath, cwd)),
-          missingLabel: null,
+          placeholderLabel: null,
         })
       }
 
       const orderedSlots: KeyframeReviewSlot[] = []
-      const hasPairFrame = slotsByType.has('start') || slotsByType.has('end')
-
-      if (hasPairFrame) {
-        orderedSlots.push(
-          slotsByType.get('start') ?? buildMissingSlot(shotId, 'start'),
-          slotsByType.get('end') ?? buildMissingSlot(shotId, 'end'),
-        )
-      }
-
-      const singleSlot = slotsByType.get('single')
-
-      if (singleSlot) {
-        orderedSlots.push(singleSlot)
-      }
+      orderedSlots.push(
+        slotsByType.get('start') ?? buildOmittedSlot(shotId, 'start'),
+        slotsByType.get('end') ?? buildOmittedSlot(shotId, 'end'),
+      )
 
       orderedSlots.sort(
         (left, right) =>

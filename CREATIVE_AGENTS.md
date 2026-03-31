@@ -62,7 +62,7 @@ Your job as an LLM is to be a senior creative development partner helping the us
 - `STORYBOARD.md` is the canonical storyboard and must use stable shot IDs such as `SHOT-01`.
 - `STORYBOARD.png` is the cheap full-project storyboard review artifact generated from `STORYBOARD.md` and should be reviewed before locking keyframes.
 - Keep storyboard shots and keyframes as different concepts. `KEYFRAMES.json` must use distinct keyframe IDs such as `SHOT-01-START` or `SHOT-01-END`, with each keyframe linked back to its parent `shotId`.
-- By default, plan two keyframes per storyboard shot: one `start` keyframe and one `end` keyframe. Use a single `single` keyframe only when the shot genuinely needs one anchor frame, such as an intentionally continuous one-take setup.
+- By default, plan two keyframes per storyboard shot: one `start` keyframe and one `end` keyframe. When the shot starts and ends almost the same, use a deliberate one-anchor plan with only `start` or only `end`. Do not use `single`.
 - Never invent extra storyboard shot IDs in order to create more keyframes. If a shot needs both a start and end frame, keep one storyboard shot and add multiple keyframes linked to that same `shotId`.
 - Each planned keyframe should have a matching sidecar JSON file in `workspace/KEYFRAMES/<shot-id>/<keyframe-id>.json`.
 - `SHOTS.json` should reference the keyframe IDs that anchor the generated shot and the canonical `videoPath` for its MP4 output.

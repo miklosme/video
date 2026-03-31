@@ -855,17 +855,13 @@ export function resolveKeyframeGenerationReferences(
       (entry) => entry.shotId === generation.shotId && entry.frameType === 'start',
     )
 
-    if (!startKeyframe) {
-      throw new Error(
-        `Cannot generate ${generation.keyframeId}; shot "${generation.shotId}" is missing a start keyframe.`,
+    if (startKeyframe) {
+      resolvedReferences.push(
+        createSystemReference('start-frame', startKeyframe.imagePath, {
+          label: `Start frame (${generation.shotId})`,
+        }),
       )
     }
-
-    resolvedReferences.push(
-      createSystemReference('start-frame', startKeyframe.imagePath, {
-        label: `Start frame (${generation.shotId})`,
-      }),
-    )
   }
 
   resolvedReferences.push(...createUserReferences(options.userReferences))
@@ -893,45 +889,64 @@ function getShotAnchorKeyframes(
   keyframes: KeyframeEntry[],
 ) {
   const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
-  const anchors = generation.keyframeIds.map((keyframeId) => {
+  const missingKeyframeIds = generation.keyframeIds.filter(
+    (keyframeId) => !keyframeById.has(keyframeId),
+  )
+  const anchors = generation.keyframeIds.flatMap((keyframeId) => {
     const anchor = keyframeById.get(keyframeId)
 
-    if (!anchor) {
-      throw new Error(`Shot "${generation.shotId}" references missing keyframe "${keyframeId}".`)
-    }
-
-    return anchor
+    return anchor ? [anchor] : []
   })
+
+  if (generation.keyframeIds.length === 0) {
+    throw new Error(`Shot "${generation.shotId}" must reference at least one keyframe.`)
+  }
+
+  if (anchors.length === 0) {
+    throw new Error(
+      `Shot "${generation.shotId}" cannot be generated because all referenced keyframes are missing from workspace/KEYFRAMES.json.`,
+    )
+  }
+
+  if (missingKeyframeIds.length > 0) {
+    throw new Error(
+      `Shot "${generation.shotId}" references missing keyframe${missingKeyframeIds.length === 1 ? '' : 's'} ${missingKeyframeIds.map((keyframeId) => `"${keyframeId}"`).join(', ')}.`,
+    )
+  }
 
   if (anchors.some((anchor) => anchor.shotId !== generation.shotId)) {
     throw new Error(`Shot "${generation.shotId}" must only reference same-shot keyframes.`)
   }
 
   if (anchors.length === 1) {
-    if (anchors[0]?.frameType !== 'single') {
+    if (anchors[0]?.frameType !== 'start' && anchors[0]?.frameType !== 'end') {
       throw new Error(
-        `Shot "${generation.shotId}" references one keyframe, so it must use frameType "single".`,
+        `Shot "${generation.shotId}" references one keyframe, so it must use frameType "start" or "end".`,
       )
     }
 
     return {
-      startOrSingle: anchors[0],
+      inputAnchor: anchors[0],
       end: null,
       anchors,
     }
   }
 
+  if (anchors.length > 2) {
+    throw new Error(`Shot "${generation.shotId}" must not reference more than two keyframes.`)
+  }
+
   const start = anchors.find((anchor) => anchor.frameType === 'start')
   const end = anchors.find((anchor) => anchor.frameType === 'end')
 
-  if (!start || !end || anchors.some((anchor) => anchor.frameType === 'single')) {
+  if (!start || !end) {
     throw new Error(
       `Shot "${generation.shotId}" must reference one "start" and one "end" keyframe.`,
     )
   }
 
   return {
-    startOrSingle: start,
+    inputAnchor: start,
     end,
     anchors,
   }
@@ -944,7 +959,7 @@ export function resolveShotGenerationAssets(
     userReferences?: readonly ArtifactReferenceEntry[]
   } = {},
 ): ResolvedShotGenerationAssets {
-  const { startOrSingle, end, anchors } = getShotAnchorKeyframes(generation, keyframes)
+  const { inputAnchor, end, anchors } = getShotAnchorKeyframes(generation, keyframes)
   const characterIds: string[] = []
   const seenCharacterIds = new Set<string>()
 
@@ -969,9 +984,13 @@ export function resolveShotGenerationAssets(
   const chosenReferenceImages = referenceImageCandidates.slice(0, 3)
   const droppedReferences = referenceImageCandidates.slice(3)
   const resolvedReferences: ResolvedArtifactReference[] = [
-    createSystemReference('start-frame', startOrSingle.imagePath, {
-      label: `Start frame (${generation.shotId})`,
-    }),
+    createSystemReference(
+      inputAnchor.frameType === 'start' ? 'start-frame' : 'end-frame',
+      inputAnchor.imagePath,
+      {
+        label: `${inputAnchor.frameType === 'start' ? 'Start' : 'End'} frame (${generation.shotId})`,
+      },
+    ),
     ...(end
       ? [
           createSystemReference('end-frame', end.imagePath, {
@@ -983,7 +1002,7 @@ export function resolveShotGenerationAssets(
   ]
 
   return {
-    inputImagePath: startOrSingle.imagePath,
+    inputImagePath: inputAnchor.imagePath,
     lastFramePath: end?.imagePath ?? null,
     characterIds,
     referenceImagePaths: chosenReferenceImages.map((reference) => reference.path),

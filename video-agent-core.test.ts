@@ -486,7 +486,7 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
       {
         keyframeId: 'ORPHAN-FRAME',
         shotId: 'SHOT-99',
-        frameType: 'single',
+        frameType: 'end',
         model: 'image-test',
         prompt: 'Unused.',
         status: 'planned',
@@ -741,9 +741,9 @@ test('keyframe reference planning includes relevant character sheets and same-sh
   expect(
     planKeyframeGenerationReferences(
       {
-        keyframeId: 'SHOT-02-SINGLE',
+        keyframeId: 'SHOT-02-END',
         shotId: 'SHOT-02',
-        frameType: 'single',
+        frameType: 'end',
         characterIds: ['dog-01'],
         incomingTransition: {
           type: 'scene-change',
@@ -757,7 +757,7 @@ test('keyframe reference planning includes relevant character sheets and same-sh
           shotId: 'SHOT-02',
           status: 'planned',
           videoPath: 'workspace/SHOTS/SHOT-02.mp4',
-          keyframeIds: ['SHOT-02-SINGLE'],
+          keyframeIds: ['SHOT-02-END'],
           durationSeconds: 4,
           incomingTransition: {
             type: 'scene-change',

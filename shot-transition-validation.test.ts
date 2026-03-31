@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 
 import { validateShots } from './validate-workflow-data'
-import { loadShotPrompts, type KeyframeEntry, type ShotEntry } from './workflow-data'
+import { loadKeyframes, loadShotPrompts, type KeyframeEntry, type ShotEntry } from './workflow-data'
 
 async function writeRepoFile(rootDir: string, relativePath: string, content: string) {
   const filePath = path.resolve(rootDir, relativePath)
@@ -170,4 +170,103 @@ test('validateShots rejects opening on later shots', () => {
   expect(() => validateShots(createKeyframes(), shots)).toThrow(
     'Shot "SHOT-02" may not use incomingTransition.type "opening" unless it is the first SHOTS.json entry.',
   )
+})
+
+test('validateShots allows a start-only shot', () => {
+  const shots: ShotEntry[] = [
+    {
+      shotId: 'SHOT-01',
+      status: 'planned',
+      videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+      keyframeIds: ['SHOT-01-START'],
+      durationSeconds: 4,
+      incomingTransition: {
+        type: 'opening',
+        notes: 'Open the sequence.',
+      },
+    },
+  ]
+
+  expect(() =>
+    validateShots(
+      createKeyframes().filter((entry) => entry.keyframeId === 'SHOT-01-START'),
+      shots,
+    ),
+  ).not.toThrow()
+})
+
+test('validateShots allows an end-only shot', () => {
+  const shots: ShotEntry[] = [
+    {
+      shotId: 'SHOT-01',
+      status: 'planned',
+      videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+      keyframeIds: ['SHOT-01-END'],
+      durationSeconds: 4,
+      incomingTransition: {
+        type: 'opening',
+        notes: 'Open the sequence.',
+      },
+    },
+  ]
+
+  expect(() =>
+    validateShots(
+      createKeyframes().filter((entry) => entry.keyframeId === 'SHOT-01-END'),
+      shots,
+    ),
+  ).not.toThrow()
+})
+
+test('validateShots rejects a shot with zero keyframes', () => {
+  const shots: ShotEntry[] = [
+    {
+      shotId: 'SHOT-01',
+      status: 'planned',
+      videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+      keyframeIds: [],
+      durationSeconds: 4,
+      incomingTransition: {
+        type: 'opening',
+        notes: 'Open the sequence.',
+      },
+    },
+  ]
+
+  expect(() => validateShots(createKeyframes(), shots)).toThrow(
+    'Shot "SHOT-01" must reference either one anchor keyframe or a start/end pair.',
+  )
+})
+
+test('loadKeyframes rejects legacy single frame types with a clear error', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-shot-transition-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/KEYFRAMES.json',
+      `${JSON.stringify(
+        [
+          {
+            keyframeId: 'SHOT-01-SINGLE',
+            shotId: 'SHOT-01',
+            frameType: 'single',
+            title: 'Legacy single',
+            goal: 'Old schema entry.',
+            status: 'planned',
+            imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-SINGLE.png',
+            characterIds: ['dog'],
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    await expect(loadKeyframes(rootDir)).rejects.toThrow(
+      'KEYFRAMES.json[0].frameType must be one of: start, end.',
+    )
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
 })

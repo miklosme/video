@@ -482,7 +482,13 @@ function buildRuntimeDirective(
     '- Keyframe sidecar schema is { keyframeId, shotId, frameType, model, prompt, status, references? }.',
   )
   lines.push(
+    '- frameType must be "start" or "end". By default plan both; when the shot begins and ends nearly the same, a deliberate one-anchor shot may use only one of them.',
+  )
+  lines.push(
     '- SHOTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, keyframeIds, durationSeconds, incomingTransition: { type, notes } }.',
+  )
+  lines.push(
+    '- SHOTS.json.keyframeIds should match the planned anchors in KEYFRAMES.json: either one anchor id or one start/end pair.',
   )
   lines.push(
     `- Each SHOTS.json entry should include durationSeconds for the target clip length; default to ${DEFAULT_VIDEO_DURATION_SECONDS} when the user has not specified one.`,
@@ -1546,7 +1552,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         readWorkspaceArtifact: tool({
           description:
-            'Read one JSON sidecar artifact or list one canonical workspace folder such as CHARACTERS/, KEYFRAMES/, or SHOTS/. Character sidecars use { characterId, displayName, model, prompt, status, references? }. Keyframe sidecars use { keyframeId, shotId, frameType, model, prompt, status, references? }. Shot sidecars use { shotId, model, prompt, status, references? }.',
+            'Read one JSON sidecar artifact or list one canonical workspace folder such as CHARACTERS/, KEYFRAMES/, or SHOTS/. Character sidecars use { characterId, displayName, model, prompt, status, references? }. Keyframe sidecars use { keyframeId, shotId, frameType, model, prompt, status, references? }, where frameType is "start" or "end". Shot sidecars use { shotId, model, prompt, status, references? }.',
           inputSchema: z.object({
             artifactPath: z
               .string()
@@ -1594,7 +1600,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         writeWorkspaceArtifact: tool({
           description:
-            'Write one JSON sidecar artifact in CHARACTERS/, KEYFRAMES/, or SHOTS/ while keeping model fields aligned to workspace/CONFIG.json. CHARACTERS/<id>.json must contain characterId, displayName, model, prompt, status, and optional references; its prompt should target a clean single-subject reference image for downstream video consistency rather than a stylized hero scene. KEYFRAMES/<shot-id>/<keyframe-id>.json must contain keyframeId, shotId, frameType, model, prompt, status, and optional references. SHOTS/<shot-id>.json must contain shotId, model, prompt, status, and optional references.',
+            'Write one JSON sidecar artifact in CHARACTERS/, KEYFRAMES/, or SHOTS/ while keeping model fields aligned to workspace/CONFIG.json. CHARACTERS/<id>.json must contain characterId, displayName, model, prompt, status, and optional references; its prompt should target a clean single-subject reference image for downstream video consistency rather than a stylized hero scene. KEYFRAMES/<shot-id>/<keyframe-id>.json must contain keyframeId, shotId, frameType, model, prompt, status, and optional references, where frameType is "start" or "end". SHOTS/<shot-id>.json must contain shotId, model, prompt, status, and optional references.',
           inputSchema: z.object({
             artifactPath: z
               .string()

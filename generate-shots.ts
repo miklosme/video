@@ -198,7 +198,7 @@ async function assertReferenceFilesExist(
   cwd = process.cwd(),
 ) {
   const requiredPaths = [
-    { kind: 'start frame', path: assets.inputImagePath },
+    { kind: 'input frame', path: assets.inputImagePath },
     ...(assets.lastFramePath ? [{ kind: 'end frame', path: assets.lastFramePath }] : []),
     ...assets.referenceImagePaths.map((referencePath) => ({
       kind: 'reference image',

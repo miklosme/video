@@ -121,13 +121,13 @@ async function validateKeyframes(
   for (const [shotId, entries] of groupByShotId(keyframes)) {
     const frameTypes = new Set(entries.map((entry) => entry.frameType))
 
-    if (entries.length === 1 && frameTypes.has('single')) {
+    if (entries.length === 1 && (frameTypes.has('start') || frameTypes.has('end'))) {
       continue
     }
 
     if (entries.length !== 2 || !frameTypes.has('start') || !frameTypes.has('end')) {
       throw new Error(
-        `Shot "${shotId}" must have either one "single" keyframe or exactly one "start" and one "end" keyframe. Found ${entries.length} entry/entries with frame types: ${summarizeFrameTypes(entries)}.`,
+        `Shot "${shotId}" must have either one anchor keyframe ("start" or "end") or exactly one "start" and one "end" keyframe. Found ${entries.length} entry/entries with frame types: ${summarizeFrameTypes(entries)}.`,
       )
     }
   }
@@ -247,7 +247,7 @@ export function validateShots(keyframes: KeyframeEntry[], shots: ShotEntry[]) {
 
     if (shot.keyframeIds.length === 0 || shot.keyframeIds.length > 2) {
       throw new Error(
-        `Shot "${shot.shotId}" must reference either one single keyframe or a start/end pair.`,
+        `Shot "${shot.shotId}" must reference either one anchor keyframe or a start/end pair.`,
       )
     }
 
@@ -270,16 +270,16 @@ export function validateShots(keyframes: KeyframeEntry[], shots: ShotEntry[]) {
     const frameTypes = new Set(anchors.map((anchor) => anchor.frameType))
 
     if (anchors.length === 1) {
-      if (!frameTypes.has('single')) {
+      if (!frameTypes.has('start') && !frameTypes.has('end')) {
         throw new Error(
-          `Shot "${shot.shotId}" references one keyframe, so it must use frameType "single".`,
+          `Shot "${shot.shotId}" references one keyframe, so it must use frameType "start" or "end".`,
         )
       }
 
       continue
     }
 
-    if (!frameTypes.has('start') || !frameTypes.has('end') || frameTypes.has('single')) {
+    if (!frameTypes.has('start') || !frameTypes.has('end')) {
       throw new Error(
         `Shot "${shot.shotId}" must reference one "start" and one "end" keyframe when using two anchors. Found frame types: ${summarizeFrameTypes(anchors)}.`,
       )

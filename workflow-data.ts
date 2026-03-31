@@ -1,7 +1,7 @@
 import { access, readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 
-export const FRAME_TYPES = ['start', 'end', 'single'] as const
+export const FRAME_TYPES = ['start', 'end'] as const
 export const DEFAULT_VIDEO_DURATION_SECONDS = 4
 export const DEFAULT_VARIANT_COUNT = 1
 export const FINAL_CUT_VERSION = 1

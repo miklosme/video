@@ -138,20 +138,28 @@ function orderShotKeyframesForGeneration(
     return keyframe
   })
 
+  if (shotKeyframes.length === 0) {
+    throw new Error(`Shot "${shot.shotId}" must reference at least one keyframe for generation.`)
+  }
+
   if (shotKeyframes.length === 1) {
-    if (shotKeyframes[0]?.frameType !== 'single') {
+    if (shotKeyframes[0]?.frameType !== 'start' && shotKeyframes[0]?.frameType !== 'end') {
       throw new Error(
-        `Shot "${shot.shotId}" references one keyframe, so it must use frameType "single".`,
+        `Shot "${shot.shotId}" references one keyframe, so it must use frameType "start" or "end".`,
       )
     }
 
     return shotKeyframes
   }
 
+  if (shotKeyframes.length > 2) {
+    throw new Error(`Shot "${shot.shotId}" must not reference more than two keyframes.`)
+  }
+
   const start = shotKeyframes.find((entry) => entry.frameType === 'start')
   const end = shotKeyframes.find((entry) => entry.frameType === 'end')
 
-  if (!start || !end || shotKeyframes.some((entry) => entry.frameType === 'single')) {
+  if (!start || !end) {
     throw new Error(
       `Shot "${shot.shotId}" must reference one "start" and one "end" keyframe for generation.`,
     )

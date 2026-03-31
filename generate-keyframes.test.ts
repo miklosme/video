@@ -147,6 +147,79 @@ test('selectPendingKeyframeGenerations follows SHOTS order and start-before-end 
   ])
 })
 
+test('selectPendingKeyframeGenerations supports one-anchor start-only and end-only shots', () => {
+  const shots: ShotEntry[] = [
+    {
+      shotId: 'SHOT-01',
+      status: 'planned',
+      videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+      keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+      durationSeconds: 4,
+      incomingTransition: {
+        type: 'opening',
+        notes: 'Open the sequence.',
+      },
+    },
+    {
+      shotId: 'SHOT-02',
+      status: 'planned',
+      videoPath: 'workspace/SHOTS/SHOT-02.mp4',
+      keyframeIds: ['SHOT-02-END'],
+      durationSeconds: 4,
+      incomingTransition: {
+        type: 'scene-change',
+        notes: 'Reset the composition.',
+      },
+    },
+    {
+      shotId: 'SHOT-03',
+      status: 'planned',
+      videoPath: 'workspace/SHOTS/SHOT-03.mp4',
+      keyframeIds: ['SHOT-03-START'],
+      durationSeconds: 4,
+      incomingTransition: {
+        type: 'scene-change',
+        notes: 'Open a fresh setup.',
+      },
+    },
+  ]
+  const keyframes: KeyframeEntry[] = [
+    ...createKeyframes().slice(0, 2),
+    {
+      keyframeId: 'SHOT-02-END',
+      shotId: 'SHOT-02',
+      frameType: 'end',
+      title: 'Land the single anchor',
+      goal: 'Use one closing frame only.',
+      status: 'planned',
+      imagePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png',
+      characterIds: ['dog'],
+    },
+    {
+      keyframeId: 'SHOT-03-START',
+      shotId: 'SHOT-03',
+      frameType: 'start',
+      title: 'Open the single anchor',
+      goal: 'Use one opening frame only.',
+      status: 'planned',
+      imagePath: 'workspace/KEYFRAMES/SHOT-03/SHOT-03-START.png',
+      characterIds: ['dog'],
+    },
+  ]
+  const artifacts: KeyframeArtifactEntry[] = keyframes.map((entry) => ({
+    keyframeId: entry.keyframeId,
+    shotId: entry.shotId,
+    frameType: entry.frameType,
+    model: 'image-test',
+    prompt: `Prompt for ${entry.keyframeId}.`,
+    status: 'planned',
+  }))
+
+  expect(
+    selectPendingKeyframeGenerations(keyframes, artifacts, shots).map((entry) => entry.keyframeId),
+  ).toEqual(['SHOT-01-START', 'SHOT-01-END', 'SHOT-02-END', 'SHOT-03-START'])
+})
+
 test('planKeyframeGenerationReferences uses previous shot end for continuity and skips it for scene changes', () => {
   const shots = createShots()
   const keyframes = createKeyframes()
@@ -180,6 +253,54 @@ test('planKeyframeGenerationReferences uses previous shot end for continuity and
       {
         ...keyframes[4]!,
         incomingTransition: shots[2]!.incomingTransition,
+      },
+      keyframes,
+      shots,
+    ),
+  ).toEqual([
+    {
+      kind: 'storyboard',
+      path: 'workspace/STORYBOARD.png',
+    },
+    {
+      kind: 'character-sheet',
+      path: 'workspace/CHARACTERS/dog.png',
+    },
+  ])
+})
+
+test('planKeyframeGenerationReferences does not require a same-shot start reference for end-only shots', () => {
+  const keyframes: KeyframeEntry[] = [
+    {
+      keyframeId: 'SHOT-04-END',
+      shotId: 'SHOT-04',
+      frameType: 'end',
+      title: 'Single end anchor',
+      goal: 'Use one closing anchor only.',
+      status: 'planned',
+      imagePath: 'workspace/KEYFRAMES/SHOT-04/SHOT-04-END.png',
+      characterIds: ['dog'],
+    },
+  ]
+  const shots: ShotEntry[] = [
+    {
+      shotId: 'SHOT-04',
+      status: 'planned',
+      videoPath: 'workspace/SHOTS/SHOT-04.mp4',
+      keyframeIds: ['SHOT-04-END'],
+      durationSeconds: 4,
+      incomingTransition: {
+        type: 'scene-change',
+        notes: 'Reset the composition for a fresh setup.',
+      },
+    },
+  ]
+
+  expect(
+    planKeyframeGenerationReferences(
+      {
+        ...keyframes[0]!,
+        incomingTransition: shots[0]!.incomingTransition,
       },
       keyframes,
       shots,

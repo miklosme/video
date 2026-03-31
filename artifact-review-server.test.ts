@@ -60,6 +60,49 @@ test('artifact review server renders an empty keyframes placeholder when KEYFRAM
   }
 })
 
+test('artifact review server renders a neutral placeholder for an omitted keyframe anchor', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/KEYFRAMES.json',
+      `${JSON.stringify(
+        [
+          {
+            keyframeId: 'SHOT-01-END',
+            shotId: 'SHOT-01',
+            frameType: 'end',
+            title: 'Closing anchor',
+            goal: 'Hold on the final frame only.',
+            status: 'planned',
+            imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
+            characterIds: [],
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/keyframes', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('Closing anchor')
+      expect(html).toContain('No start keyframe planned')
+      expect(html).not.toContain('Missing start frame')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('artifact review server renders the shots tab with prompt metadata and a missing-video placeholder', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 

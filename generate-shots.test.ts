@@ -251,6 +251,101 @@ test('planShotGenerationAssets uses start and end anchors and caps deduped chara
   })
 })
 
+test('planShotGenerationAssets uses a lone start anchor as input without a last-frame control', () => {
+  const generation: PendingShotGeneration = {
+    shotId: 'SHOT-START-ONLY',
+    model: 'video-test',
+    prompt: 'A concise motion prompt.',
+    outputPath: 'workspace/SHOTS/SHOT-START-ONLY.mp4',
+    keyframeIds: ['SHOT-START-ONLY-START'],
+    durationSeconds: 4,
+  }
+  const keyframes: KeyframeEntry[] = [
+    {
+      keyframeId: 'SHOT-START-ONLY-START',
+      shotId: 'SHOT-START-ONLY',
+      frameType: 'start',
+      title: 'Start-only frame',
+      goal: 'Open the shot.',
+      status: 'planned',
+      imagePath: 'workspace/KEYFRAMES/SHOT-START-ONLY/SHOT-START-ONLY-START.png',
+      characterIds: ['dog'],
+    },
+  ]
+
+  expect(planShotGenerationAssets(generation, keyframes)).toEqual({
+    inputImagePath: 'workspace/KEYFRAMES/SHOT-START-ONLY/SHOT-START-ONLY-START.png',
+    lastFramePath: null,
+    characterIds: ['dog'],
+    referenceImagePaths: ['workspace/CHARACTERS/dog.png'],
+    references: [
+      {
+        kind: 'start-frame',
+        path: 'workspace/KEYFRAMES/SHOT-START-ONLY/SHOT-START-ONLY-START.png',
+      },
+      {
+        kind: 'character-sheet',
+        path: 'workspace/CHARACTERS/dog.png',
+      },
+    ],
+  })
+})
+
+test('planShotGenerationAssets uses a lone end anchor as input without a last-frame control', () => {
+  const generation: PendingShotGeneration = {
+    shotId: 'SHOT-END-ONLY',
+    model: 'video-test',
+    prompt: 'A concise motion prompt.',
+    outputPath: 'workspace/SHOTS/SHOT-END-ONLY.mp4',
+    keyframeIds: ['SHOT-END-ONLY-END'],
+    durationSeconds: 4,
+  }
+  const keyframes: KeyframeEntry[] = [
+    {
+      keyframeId: 'SHOT-END-ONLY-END',
+      shotId: 'SHOT-END-ONLY',
+      frameType: 'end',
+      title: 'End-only frame',
+      goal: 'Anchor the whole shot from the end pose.',
+      status: 'planned',
+      imagePath: 'workspace/KEYFRAMES/SHOT-END-ONLY/SHOT-END-ONLY-END.png',
+      characterIds: ['dog'],
+    },
+  ]
+
+  expect(planShotGenerationAssets(generation, keyframes)).toEqual({
+    inputImagePath: 'workspace/KEYFRAMES/SHOT-END-ONLY/SHOT-END-ONLY-END.png',
+    lastFramePath: null,
+    characterIds: ['dog'],
+    referenceImagePaths: ['workspace/CHARACTERS/dog.png'],
+    references: [
+      {
+        kind: 'end-frame',
+        path: 'workspace/KEYFRAMES/SHOT-END-ONLY/SHOT-END-ONLY-END.png',
+      },
+      {
+        kind: 'character-sheet',
+        path: 'workspace/CHARACTERS/dog.png',
+      },
+    ],
+  })
+})
+
+test('planShotGenerationAssets errors when all referenced anchors are missing from KEYFRAMES.json', () => {
+  const generation: PendingShotGeneration = {
+    shotId: 'SHOT-404',
+    model: 'video-test',
+    prompt: 'A concise motion prompt.',
+    outputPath: 'workspace/SHOTS/SHOT-404.mp4',
+    keyframeIds: ['SHOT-404-START', 'SHOT-404-END'],
+    durationSeconds: 4,
+  }
+
+  expect(() => planShotGenerationAssets(generation, [])).toThrow(
+    'Shot "SHOT-404" cannot be generated because all referenced keyframes are missing from workspace/KEYFRAMES.json.',
+  )
+})
+
 test('planShotGenerationAssets prioritizes explicit user references ahead of derived character sheets', () => {
   const generation: PendingShotGeneration = {
     shotId: 'SHOT-02',
