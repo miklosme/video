@@ -11,14 +11,9 @@ import {
   getStoryboardArtifactDescriptor,
   loadArtifactHistoryState,
   promoteArtifactVersion,
-  resolveCharacterGenerationReferences,
-  resolveKeyframeGenerationReferences,
-  resolveShotGenerationAssets,
-  resolveStoryboardGenerationReferences,
   summarizeReference,
   type ArtifactDescriptor,
   type ArtifactHistoryState,
-  type ResolvedShotGenerationAssets,
 } from './artifact-control'
 import {
   generateCharacterSheetArtifactVersion,
@@ -40,10 +35,7 @@ import {
   type PendingShotGeneration,
   type ShotVideoGenerator,
 } from './generate-shots'
-import {
-  generateStoryboardArtifactVersion,
-  selectPendingStoryboardGeneration,
-} from './generate-storyboard'
+import { generateStoryboardArtifactVersion } from './generate-storyboard'
 import {
   AUTHORED_REFERENCE_KINDS,
   getCharacterSheetImagePath,
@@ -63,12 +55,9 @@ import {
   type ArtifactReferenceEntry,
   type CharacterSheetEntry,
   type FrameType,
-  type KeyframeArtifactEntry,
   type KeyframeEntry,
   type ResolvedArtifactReference,
-  type ShotArtifactEntry,
   type ShotEntry,
-  type StoryboardSidecar,
 } from './workflow-data'
 
 const FRAME_ORDER: Record<FrameType, number> = {
@@ -128,12 +117,6 @@ interface KeyframeReviewShot {
   slots: KeyframeReviewSlot[]
 }
 
-interface StoryboardReviewState {
-  imageUrl: string
-  imageExists: boolean
-  markdown: string | null
-}
-
 interface ShotReviewCard {
   shotId: string
   status: string
@@ -145,14 +128,15 @@ interface ShotReviewCard {
   videoExists: boolean
 }
 
-interface ApprovalPreview {
-  descriptor: ArtifactDescriptor
-  activeTab: Tab
-  baseVersionId: string
-  editInstruction: string
-  references: ResolvedArtifactReference[]
-  droppedReferences: ResolvedArtifactReference[]
-  title: string
+interface VersionRailItem {
+  versionId: string
+  label: string
+  href: string
+  mediaUrl: string | null
+  mediaExists: boolean
+  createdAtLabel: string
+  isActive: boolean
+  isCurrent: boolean
 }
 
 interface ArtifactDetailContext {
@@ -432,7 +416,6 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
       .detail-layout,
       .panel,
       .storyboard-panel,
-      .approval-panel,
       .job-banner {
         border: 1px solid var(--line);
         border-radius: 18px;
@@ -449,7 +432,6 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
 
       .panel,
       .summary-card,
-      .approval-panel,
       .job-banner {
         padding: 18px;
       }
@@ -528,8 +510,7 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
 
       .card-copy,
       .meta-stack,
-      .storyboard-copy,
-      .approval-copy {
+      .storyboard-copy {
         display: flex;
         flex-direction: column;
         gap: 10px;
@@ -654,6 +635,121 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
         line-height: 1.6;
       }
 
+      .artifact-meta-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 16px 18px;
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 16px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
+          rgba(255,255,255,0.015);
+      }
+
+      .artifact-meta-main {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .artifact-title-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .artifact-title {
+        font-size: clamp(24px, 2.8vw, 34px);
+        line-height: 1.02;
+        letter-spacing: -0.04em;
+      }
+
+      .version-rail-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .version-rail-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+      }
+
+      .version-rail {
+        display: flex;
+        gap: 14px;
+        overflow-x: auto;
+        overscroll-behavior-x: contain;
+        padding-bottom: 6px;
+        scrollbar-width: thin;
+      }
+
+      .version-tile {
+        flex: 0 0 212px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.06);
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
+          rgba(255,255,255,0.02);
+        text-decoration: none;
+        transition:
+          transform 120ms ease,
+          border-color 120ms ease,
+          background-color 120ms ease;
+      }
+
+      .version-tile:hover {
+        transform: translateY(-1px);
+        border-color: rgba(125,211,252,0.34);
+      }
+
+      .version-tile-active {
+        border-color: rgba(159,232,112,0.42);
+        background:
+          linear-gradient(180deg, rgba(159,232,112,0.14), rgba(255,255,255,0.02)),
+          rgba(255,255,255,0.025);
+      }
+
+      .version-tile-current {
+        box-shadow: inset 0 0 0 1px rgba(125,211,252,0.12);
+      }
+
+      .version-visual {
+        position: relative;
+        aspect-ratio: 16 / 9;
+        border-radius: 12px;
+        border: 1px solid rgba(255,255,255,0.05);
+        background: var(--panel-strong);
+        overflow: hidden;
+      }
+
+      .version-media {
+        object-fit: contain;
+        background: #080a0d;
+      }
+
+      .version-tile-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .version-tile-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text);
+      }
+
       .shot {
         display: grid;
         grid-template-columns: 90px 1fr;
@@ -723,27 +819,17 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
         color: var(--soft);
       }
 
-      .history-list,
       .reference-list {
         display: flex;
         flex-direction: column;
         gap: 10px;
       }
 
-      .history-item,
       .reference-item {
         padding: 14px;
         border-radius: 14px;
         border: 1px solid rgba(255,255,255,0.05);
         background: rgba(255,255,255,0.02);
-      }
-
-      .history-item-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        gap: 12px;
-        margin-bottom: 10px;
       }
 
       .reference-item-title {
@@ -781,7 +867,6 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
         line-height: 1.55;
       }
 
-      .approval-panel,
       .job-banner {
         display: flex;
         flex-direction: column;
@@ -817,6 +902,12 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
           border-left: none;
           border-top: 1px solid var(--line);
         }
+
+        .artifact-meta-bar,
+        .artifact-title-row,
+        .version-rail-header {
+          flex-direction: column;
+        }
       }
 
       @media (max-width: 720px) {
@@ -825,6 +916,7 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
         .shot { grid-template-columns: 1fr; }
         .shot-id { text-align: left; }
         .character-grid { grid-template-columns: 1fr 1fr; }
+        .version-tile { flex-basis: 176px; }
       }
     </style>
   </head>
@@ -903,6 +995,97 @@ function buildReferenceEditorValue(references: ArtifactReferenceEntry[]) {
   return `${JSON.stringify(references, null, 2)}`
 }
 
+function buildVersionRailItems(context: ArtifactDetailContext): VersionRailItem[] {
+  return [
+    {
+      versionId: CURRENT_BASE_VERSION_ID,
+      label: 'Current',
+      href: getArtifactDetailPath(context.descriptor),
+      mediaUrl: getCanonicalMediaUrl(context.descriptor),
+      mediaExists: context.historyState.currentExists,
+      createdAtLabel: context.historyState.currentExists
+        ? 'Public artifact'
+        : 'Current artifact missing',
+      isActive: context.historyState.isViewingCurrent,
+      isCurrent: true,
+    },
+    ...context.historyState.versions.map((version) => ({
+      versionId: version.versionId,
+      label: version.versionId,
+      href: `${getArtifactDetailPath(context.descriptor)}?version=${encodeURIComponent(version.versionId)}`,
+      mediaUrl: getArtifactVersionMediaUrl(context.descriptor, version.versionId),
+      mediaExists: true,
+      createdAtLabel: version.createdAt,
+      isActive: context.historyState.activeVersionId === version.versionId,
+      isCurrent: false,
+    })),
+  ]
+}
+
+function renderVersionRailMedia(context: ArtifactDetailContext, item: VersionRailItem) {
+  if (!item.mediaUrl || !item.mediaExists) {
+    return `<div class="placeholder">${escapeHtml(context.mediaPlaceholder)}</div>`
+  }
+
+  if (context.mediaType === 'video') {
+    return `<video class="version-media" src="${item.mediaUrl}" muted autoplay loop playsinline preload="metadata"></video>`
+  }
+
+  return `<img class="version-media" src="${item.mediaUrl}" alt="${escapeHtml(`${context.title} ${item.label}`)}" loading="lazy">`
+}
+
+function renderVersionRail(context: ArtifactDetailContext) {
+  const items = buildVersionRailItems(context)
+  const railNote =
+    context.historyState.versions.length === 0
+      ? 'Current artifact only for now. Retained versions will appear here after regeneration.'
+      : 'Current artifact first, then retained versions in descending order.'
+
+  return `
+    <section class="panel version-rail-shell">
+      <div class="version-rail-header">
+        <div class="meta-stack">
+          <p class="section-title">Version History</p>
+          <p class="small">${escapeHtml(railNote)}</p>
+        </div>
+      </div>
+      <div class="version-rail">
+        ${items
+          .map((item) => {
+            const tileClass = [
+              'version-tile',
+              item.isActive ? 'version-tile-active' : '',
+              item.isCurrent ? 'version-tile-current' : '',
+            ]
+              .filter(Boolean)
+              .join(' ')
+
+            return `
+              <a
+                class="${tileClass}"
+                href="${item.href}"
+                data-version-id="${escapeHtml(item.versionId)}"
+              >
+                <div class="version-visual">
+                  ${renderVersionRailMedia(context, item)}
+                </div>
+                <div class="version-tile-copy">
+                  <div class="pill-row">
+                    <span class="pill ${item.isCurrent ? 'pill-info' : ''}">${escapeHtml(item.label)}</span>
+                    ${item.isActive ? '<span class="pill pill-accent">Viewing</span>' : ''}
+                  </div>
+                  <p class="version-tile-title">${escapeHtml(item.isCurrent ? 'Public artifact' : 'Retained version')}</p>
+                  <p class="small">${escapeHtml(item.createdAtLabel)}</p>
+                </div>
+              </a>
+            `
+          })
+          .join('')}
+      </div>
+    </section>
+  `
+}
+
 function renderReferenceList(references: readonly ResolvedArtifactReference[]) {
   if (references.length === 0) {
     return '<div class="empty-state">No retained references recorded for this version yet.</div>'
@@ -953,41 +1136,23 @@ function renderReferenceEditor(
   `
 }
 
-function renderHistoryList(context: ArtifactDetailContext) {
-  if (context.historyState.versions.length === 0) {
-    return '<div class="empty-state">No retained versions yet. Once this artifact has been generated, its history will appear here.</div>'
-  }
+function renderArtifactMeta(context: ArtifactDetailContext) {
+  const activeVersionLabel = context.historyState.isViewingCurrent
+    ? 'Current'
+    : (context.historyState.activeVersion?.versionId ?? 'Current')
+  const showSummaryAction = context.summaryHref !== getArtifactDetailPath(context.descriptor)
 
   return `
-    <div class="history-list">
-      ${context.historyState.versions
-        .map((version) => {
-          const isActive = context.historyState.activeVersionId === version.versionId
-          const detailUrl = `${getArtifactDetailPath(context.descriptor)}?version=${encodeURIComponent(version.versionId)}`
-
-          return `
-            <div class="history-item">
-              <div class="history-item-header">
-                <div class="meta-stack">
-                  <p class="title">${escapeHtml(version.versionId)}</p>
-                  <p class="small">${escapeHtml(version.createdAt)}</p>
-                </div>
-                <div class="pill-row">
-                  ${isActive ? '<span class="pill pill-info">Viewing</span>' : ''}
-                </div>
-              </div>
-              <div class="version-actions">
-                <a class="button button-secondary" href="${detailUrl}">View</a>
-                <form method="post" action="${getArtifactSelectActionPath(context.descriptor)}">
-                  <input type="hidden" name="versionId" value="${escapeHtml(version.versionId)}">
-                  <button type="submit">Make current</button>
-                </form>
-              </div>
-            </div>
-          `
-        })
-        .join('')}
-    </div>
+    <section class="artifact-meta-bar">
+      <div class="artifact-meta-main">
+        <p class="muted">${escapeHtml(context.subtitle)}</p>
+      </div>
+      ${
+        showSummaryAction
+          ? `<a class="button button-secondary" href="${context.summaryHref}">${escapeHtml(context.summaryLabel)}</a>`
+          : ''
+      }
+    </section>
   `
 }
 
@@ -1011,120 +1176,61 @@ function renderJobBanner(job: ArtifactJobState | null) {
   `
 }
 
+function renderHistoricalVersionActions(context: ArtifactDetailContext) {
+  const activeVersion = context.historyState.activeVersion
+
+  if (!activeVersion || context.historyState.isViewingCurrent) {
+    return ''
+  }
+
+  return `
+    <section class="panel">
+      <p class="section-title">Historical Version</p>
+      <p class="form-note">You are viewing retained ${escapeHtml(activeVersion.versionId)} from ${escapeHtml(activeVersion.createdAt)}. Promote it to the public artifact or return to the current selection.</p>
+      <div class="version-actions">
+        <form method="post" action="${getArtifactSelectActionPath(context.descriptor)}">
+          <input type="hidden" name="versionId" value="${escapeHtml(activeVersion.versionId)}">
+          <button class="button-primary" type="submit">Make current</button>
+        </form>
+        <a class="button button-secondary" href="${getArtifactDetailPath(context.descriptor)}">Go to current</a>
+      </div>
+    </section>
+  `
+}
+
 function renderEditComposer(context: ArtifactDetailContext) {
   if (!context.canEdit) {
     return `
       <section class="panel">
-        <p class="section-title">Edit Request</p>
-        <div class="empty-state">A current or retained artifact is required before browser-driven edits can be approved.</div>
+        <p class="section-title">Regenerate</p>
+        <div class="empty-state">A current or retained artifact is required before regeneration can start.</div>
       </section>
     `
   }
 
   return `
     <section class="panel">
-      <p class="section-title">Edit Request</p>
-      <p class="form-note">The raw edit text is stored as written. Approval will show the base artifact preview and the exact resolved reference stack before generation starts.</p>
-      <form method="post" action="${getArtifactApproveActionPath(context.descriptor)}">
+      <p class="section-title">Regenerate</p>
+      <p class="form-note">Regeneration starts immediately from the version you are viewing. The raw edit text is passed through as written.</p>
+      <form method="post" action="${getArtifactGenerateActionPath(context.descriptor)}">
         <input type="hidden" name="baseVersionId" value="${escapeHtml(context.historyState.activeVersionId ?? CURRENT_BASE_VERSION_ID)}">
         <textarea name="editInstruction" placeholder="Describe the precise change you want from the version you are viewing." required></textarea>
         <div class="form-actions">
-          <button class="button-primary" type="submit">Review approval</button>
+          <button class="button-primary" type="submit">Regenerate</button>
         </div>
       </form>
     </section>
   `
 }
 
-function renderApprovalPreview(
-  activeTab: Tab,
-  preview: ApprovalPreview,
-  mediaType: 'image' | 'video',
-  mediaUrl: string | null,
-  mediaExists: boolean,
-) {
-  const backHref = getBaseVersionBackHref(preview.descriptor, preview.baseVersionId)
-  const confirmationForm = `
-    <form method="post" action="${getArtifactGenerateActionPath(preview.descriptor)}">
-      <input type="hidden" name="baseVersionId" value="${escapeHtml(preview.baseVersionId)}">
-      <input type="hidden" name="editInstruction" value="${escapeHtml(preview.editInstruction)}">
-      <div class="form-actions">
-        <button class="button-primary" type="submit">Approve and generate</button>
-        <a class="button button-secondary" href="${backHref}">Cancel</a>
-      </div>
-    </form>
-  `
-
-  return new Response(
-    renderPage(
-      activeTab,
-      `<div class="stack">
-        ${renderHero(preview.title, 'Final check before the approved action starts.', 'Approval')}
-        <section class="detail-layout">
-          <div class="detail-main">
-            <div class="detail-visual">
-              ${renderMediaBlock({
-                mediaType,
-                mediaUrl,
-                mediaExists,
-                alt: preview.title,
-                placeholder: 'Base version preview unavailable',
-                className: '',
-              })}
-            </div>
-            <section class="approval-panel">
-              <p class="section-title">Approved Action</p>
-              <div class="pill-row">
-                <span class="pill pill-accent">${escapeHtml(formatBaseVersionLabel(preview.baseVersionId))}</span>
-                <span class="pill">${escapeHtml(preview.descriptor.displayName)}</span>
-              </div>
-              <p class="muted">${escapeHtml(preview.editInstruction)}</p>
-              ${confirmationForm}
-            </section>
-          </div>
-          <div class="detail-side">
-            <section class="panel">
-              <p class="section-title">Resolved References</p>
-              ${renderReferenceList(preview.references)}
-            </section>
-            <section class="panel">
-              <p class="section-title">Dropped References</p>
-              ${
-                preview.droppedReferences.length === 0
-                  ? '<div class="empty-state">No references were dropped for this generation.</div>'
-                  : renderReferenceList(preview.droppedReferences)
-              }
-            </section>
-          </div>
-        </section>
-      </div>`,
-    ),
-    {
-      headers: HTML_HEADERS,
-    },
-  )
-}
-
 function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState | null) {
-  const activeVersion = context.historyState.activeVersion
-  const activeBadges = `
-    <div class="pill-row">
-      <span class="pill pill-info">${escapeHtml(context.historyState.isViewingCurrent ? 'Current' : (activeVersion?.versionId ?? 'Current'))}</span>
-      ${context.sourceStatus ? `<span class="pill">${escapeHtml(context.sourceStatus)}</span>` : ''}
-    </div>
-  `
-
   const content = `
     <div class="stack">
-      ${renderHero(
-        context.title,
-        context.subtitle,
-        'Artifact Detail',
-        `<div class="summary-actions"><a class="button button-secondary" href="${context.summaryHref}">${escapeHtml(context.summaryLabel)}</a></div>`,
-      )}
+      ${renderVersionRail(context)}
       ${renderJobBanner(job)}
       <section class="detail-layout">
         <div class="detail-main">
+          ${renderArtifactMeta(context)}
           <div class="detail-visual">
             ${renderMediaBlock({
               mediaType: context.mediaType,
@@ -1135,7 +1241,6 @@ function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState 
               className: '',
             })}
           </div>
-          ${activeBadges}
           <section class="panel">
             <p class="section-title">Source Prompt</p>
             <div class="meta-stack">
@@ -1146,17 +1251,14 @@ function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState 
           ${context.notesHtml}
         </div>
         <div class="detail-side">
-          <section class="panel">
-            <p class="section-title">Retained History</p>
-            ${renderHistoryList(context)}
-          </section>
+          ${renderHistoricalVersionActions(context)}
+          ${renderEditComposer(context)}
           ${renderReferenceEditor(
             getArtifactReferencesActionPath(context.descriptor),
             context.sourceReferences,
             context.canEditReferences,
             'Edit the source sidecar references as JSON. Use repo-relative paths, required kind, and optional label and notes fields.',
           )}
-          ${renderEditComposer(context)}
         </div>
       </section>
     </div>
@@ -1271,7 +1373,7 @@ function renderKeyframesSummary(shots: KeyframeReviewShot[]) {
     renderPage(
       'keyframes',
       `<div class="stack">
-        ${renderHero('Keyframes', 'Each keyframe opens into its own control page with retained versions, references, and edit approval.', 'Review Surface')}
+        ${renderHero('Keyframes', 'Each keyframe opens into its own control page with retained versions, references, and direct regenerate controls.', 'Review Surface')}
         ${shots.length === 0 ? '<div class="empty-state">No keyframes yet.</div>' : shots.map(renderKeyframeShot).join('')}
       </div>`,
     ),
@@ -1286,7 +1388,7 @@ function renderShotsSummary(cards: ShotReviewCard[]) {
     renderPage(
       'shots',
       `<div class="stack">
-        ${renderHero('Shots', 'Open a shot to inspect the current cut, retained versions, sidecar references, and approval flow.', 'Review Surface')}
+        ${renderHero('Shots', 'Open a shot to inspect the current cut, retained versions, sidecar references, and direct regenerate flow.', 'Review Surface')}
         ${
           cards.length === 0
             ? '<div class="empty-state">No shots yet.</div>'
@@ -1334,40 +1436,6 @@ function renderShotsSummary(cards: ShotReviewCard[]) {
   )
 }
 
-function renderStoryboardSummary(review: StoryboardReviewState) {
-  return new Response(
-    renderPage(
-      'storyboard',
-      `<div class="stack">
-        ${renderHero('Storyboard', 'The storyboard board is both the summary page and the artifact detail route for retained history, references, and approval.', 'Review Surface')}
-        <section class="storyboard-panel">
-          <div class="storyboard-visual">
-            ${renderMediaBlock({
-              mediaType: 'image',
-              mediaUrl: review.imageUrl,
-              mediaExists: review.imageExists,
-              alt: 'Storyboard',
-              placeholder: 'No storyboard image yet',
-              className: '',
-            })}
-          </div>
-          <div class="storyboard-copy">
-            <p class="section-title">Source Storyboard</p>
-            ${
-              review.markdown
-                ? `<pre class="storyboard-markdown">${escapeHtml(review.markdown.trim())}</pre>`
-                : '<div class="empty-state">No storyboard markdown yet.</div>'
-            }
-          </div>
-        </section>
-      </div>`,
-    ),
-    {
-      headers: HTML_HEADERS,
-    },
-  )
-}
-
 function getArtifactDetailPath(descriptor: ArtifactDescriptor) {
   switch (descriptor.artifactType) {
     case 'storyboard':
@@ -1383,10 +1451,6 @@ function getArtifactDetailPath(descriptor: ArtifactDescriptor) {
 
 function getArtifactReferencesActionPath(descriptor: ArtifactDescriptor) {
   return `${getArtifactDetailPath(descriptor)}/references`
-}
-
-function getArtifactApproveActionPath(descriptor: ArtifactDescriptor) {
-  return `${getArtifactDetailPath(descriptor)}/approve`
 }
 
 function getArtifactGenerateActionPath(descriptor: ArtifactDescriptor) {
@@ -1407,22 +1471,6 @@ function getCanonicalMediaUrl(descriptor: ArtifactDescriptor) {
 
 function isCurrentBaseVersionId(versionId: string) {
   return versionId === CURRENT_BASE_VERSION_ID
-}
-
-function formatBaseVersionLabel(versionId: string) {
-  return isCurrentBaseVersionId(versionId) ? 'Current' : versionId
-}
-
-function getBaseVersionBackHref(descriptor: ArtifactDescriptor, versionId: string) {
-  return isCurrentBaseVersionId(versionId)
-    ? getArtifactDetailPath(descriptor)
-    : `${getArtifactDetailPath(descriptor)}?version=${encodeURIComponent(versionId)}`
-}
-
-function getBaseVersionMediaUrl(descriptor: ArtifactDescriptor, versionId: string) {
-  return isCurrentBaseVersionId(versionId)
-    ? getCanonicalMediaUrl(descriptor)
-    : getArtifactVersionMediaUrl(descriptor, versionId)
 }
 
 function getBaseVersionMediaPath(descriptor: ArtifactDescriptor, versionId: string) {
@@ -1555,20 +1603,6 @@ async function buildReviewShots(cwd: string): Promise<KeyframeReviewShot[]> {
       } satisfies KeyframeReviewShot
     }),
   )
-}
-
-async function buildStoryboardReviewState(cwd: string): Promise<StoryboardReviewState> {
-  const imagePath = getStoryboardImagePath()
-  const markdown = await readFile(
-    resolveWorkflowPath(WORKFLOW_FILES.storyboard, cwd),
-    'utf8',
-  ).catch(() => null)
-
-  return {
-    imageUrl: `/${encodeAssetUrl(imagePath)}`,
-    imageExists: await fileExists(resolveRepoPath(imagePath, cwd)),
-    markdown,
-  }
 }
 
 async function buildShotReviewCards(cwd: string) {
@@ -1797,184 +1831,22 @@ async function getDetailContext(pathname: string, cwd: string, requestedVersionI
   return null
 }
 
-async function buildApprovalPreview(
-  pathname: string,
+async function assertBaseVersionExists(
+  descriptor: ArtifactDescriptor,
   cwd: string,
   baseVersionId: string,
-  editInstruction: string,
 ) {
-  if (pathname === '/storyboard') {
-    const [storyboardMarkdown, storyboardSidecar] = await Promise.all([
-      readFile(resolveWorkflowPath(WORKFLOW_FILES.storyboard, cwd), 'utf8'),
-      loadStoryboardSidecar(cwd),
-    ])
-    const descriptor = getStoryboardArtifactDescriptor()
-    const state = await loadArtifactHistoryState(descriptor, cwd, {
-      activeVersionId: isCurrentBaseVersionId(baseVersionId) ? null : baseVersionId,
-    })
+  const state = await loadArtifactHistoryState(descriptor, cwd, {
+    activeVersionId: isCurrentBaseVersionId(baseVersionId) ? null : baseVersionId,
+  })
 
-    if (isCurrentBaseVersionId(baseVersionId) ? !state.currentExists : !state.activeVersion) {
-      throw new Error('The selected storyboard base version does not exist.')
-    }
-
-    const { resolvedReferences } = resolveStoryboardGenerationReferences(
-      storyboardSidecar?.references ?? [],
-    )
-
-    return {
-      descriptor,
-      activeTab: 'storyboard' as const,
-      baseVersionId,
-      editInstruction,
-      references: resolvedReferences,
-      droppedReferences: [],
-      title: 'Approve storyboard edit',
-      mediaType: 'image' as const,
-      mediaUrl: getBaseVersionMediaUrl(descriptor, baseVersionId),
-      mediaExists: true,
-    }
+  if (isCurrentBaseVersionId(baseVersionId) ? state.currentExists : state.activeVersion) {
+    return
   }
 
-  const characterMatch = /^\/characters\/([^/]+)$/.exec(pathname)
-
-  if (characterMatch) {
-    const characterId = decodeURIComponent(characterMatch[1]!)
-    const character = (await loadCharacterSheetsOrEmpty(cwd)).find(
-      (entry) => entry.characterId === characterId,
-    )
-
-    if (!character) {
-      throw new Error(`Character "${characterId}" is missing its sidecar.`)
-    }
-
-    const descriptor = getCharacterArtifactDescriptor(characterId)
-    const state = await loadArtifactHistoryState(descriptor, cwd, {
-      activeVersionId: isCurrentBaseVersionId(baseVersionId) ? null : baseVersionId,
-    })
-
-    if (isCurrentBaseVersionId(baseVersionId) ? !state.currentExists : !state.activeVersion) {
-      throw new Error('The selected character base version does not exist.')
-    }
-
-    const { resolvedReferences } = resolveCharacterGenerationReferences({
-      selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
-      userReferences: character.references ?? [],
-    })
-
-    return {
-      descriptor,
-      activeTab: 'characters' as const,
-      baseVersionId,
-      editInstruction,
-      references: resolvedReferences,
-      droppedReferences: [],
-      title: `Approve character edit for ${character.displayName}`,
-      mediaType: 'image' as const,
-      mediaUrl: getBaseVersionMediaUrl(descriptor, baseVersionId),
-      mediaExists: true,
-    }
-  }
-
-  const keyframeMatch = /^\/keyframes\/([^/]+)$/.exec(pathname)
-
-  if (keyframeMatch) {
-    const keyframeId = decodeURIComponent(keyframeMatch[1]!)
-    const [keyframes, artifacts, shots] = await Promise.all([
-      loadKeyframesOrEmpty(cwd),
-      loadKeyframeArtifactsOrEmpty(cwd),
-      loadShotPromptsOrEmpty(cwd),
-    ])
-    const keyframe = keyframes.find((entry) => entry.keyframeId === keyframeId)
-    const artifact = artifacts.find((entry) => entry.keyframeId === keyframeId)
-
-    if (!keyframe || !artifact) {
-      throw new Error(`Keyframe "${keyframeId}" is missing its source sidecar.`)
-    }
-
-    const descriptor = getKeyframeArtifactDescriptor(keyframe)
-    const state = await loadArtifactHistoryState(descriptor, cwd, {
-      activeVersionId: isCurrentBaseVersionId(baseVersionId) ? null : baseVersionId,
-    })
-
-    if (isCurrentBaseVersionId(baseVersionId) ? !state.currentExists : !state.activeVersion) {
-      throw new Error('The selected keyframe base version does not exist.')
-    }
-
-    const { resolvedReferences } = resolveKeyframeGenerationReferences(
-      {
-        ...keyframe,
-        incomingTransition: shots.find((entry) => entry.shotId === keyframe.shotId)
-          ?.incomingTransition ?? {
-          type: 'scene-change',
-          notes: '',
-        },
-      },
-      keyframes,
-      shots,
-      {
-        selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
-        userReferences: artifact.references ?? [],
-      },
-    )
-
-    return {
-      descriptor,
-      activeTab: 'keyframes' as const,
-      baseVersionId,
-      editInstruction,
-      references: resolvedReferences,
-      droppedReferences: [],
-      title: `Approve keyframe edit for ${keyframe.title}`,
-      mediaType: 'image' as const,
-      mediaUrl: getBaseVersionMediaUrl(descriptor, baseVersionId),
-      mediaExists: true,
-    }
-  }
-
-  const shotMatch = /^\/shots\/([^/]+)$/.exec(pathname)
-
-  if (shotMatch) {
-    const shotId = decodeURIComponent(shotMatch[1]!)
-    const [shots, artifacts, keyframes] = await Promise.all([
-      loadShotPromptsOrEmpty(cwd),
-      loadShotArtifactsOrEmpty(cwd),
-      loadKeyframesOrEmpty(cwd),
-    ])
-    const shot = shots.find((entry) => entry.shotId === shotId)
-    const artifact = artifacts.find((entry) => entry.shotId === shotId)
-
-    if (!shot || !artifact) {
-      throw new Error(`Shot "${shotId}" is missing its source sidecar.`)
-    }
-
-    const descriptor = getShotArtifactDescriptor(shotId)
-    const state = await loadArtifactHistoryState(descriptor, cwd, {
-      activeVersionId: isCurrentBaseVersionId(baseVersionId) ? null : baseVersionId,
-    })
-
-    if (isCurrentBaseVersionId(baseVersionId) ? !state.currentExists : !state.activeVersion) {
-      throw new Error('The selected shot base version does not exist.')
-    }
-
-    const assets = resolveShotGenerationAssets(shot, keyframes, {
-      userReferences: artifact.references ?? [],
-    })
-
-    return {
-      descriptor,
-      activeTab: 'shots' as const,
-      baseVersionId,
-      editInstruction,
-      references: assets.resolvedReferences,
-      droppedReferences: assets.droppedReferences,
-      title: `Approve shot edit for ${shotId}`,
-      mediaType: 'video' as const,
-      mediaUrl: getBaseVersionMediaUrl(descriptor, baseVersionId),
-      mediaExists: true,
-    }
-  }
-
-  throw new Error('Unsupported approval route.')
+  throw new Error(
+    `${descriptor.displayName} is missing the selected base version ${baseVersionId}.`,
+  )
 }
 
 async function buildCharacterPendingGeneration(
@@ -2289,26 +2161,6 @@ async function handleReferenceSave(pathname: string, request: Request, cwd: stri
   return redirectTo(getArtifactDetailPath(detail.descriptor))
 }
 
-async function handleApproval(pathname: string, request: Request, cwd: string) {
-  const formData = await request.formData()
-  const baseVersionId = String(formData.get('baseVersionId') ?? '').trim()
-  const editInstruction = String(formData.get('editInstruction') ?? '').trim()
-
-  if (baseVersionId.length === 0 || editInstruction.length === 0) {
-    throw new Error('Base version and edit instruction are required.')
-  }
-
-  const preview = await buildApprovalPreview(pathname, cwd, baseVersionId, editInstruction)
-
-  return renderApprovalPreview(
-    preview.activeTab,
-    preview,
-    preview.mediaType,
-    preview.mediaUrl,
-    preview.mediaExists,
-  )
-}
-
 async function handleGenerate(
   pathname: string,
   request: Request,
@@ -2327,6 +2179,8 @@ async function handleGenerate(
   if (baseVersionId.length === 0 || editInstruction.length === 0) {
     throw new Error('Base version and edit instruction are required.')
   }
+
+  await assertBaseVersionExists(detail.descriptor, cwd, baseVersionId)
 
   startArtifactJob(jobs, detail.descriptor, async () => {
     const result = await runApprovedAction(pathname, cwd, baseVersionId, editInstruction)
@@ -2515,10 +2369,6 @@ export function startArtifactReviewServer(options: { cwd?: string; preferredPort
 
           if (request.method === 'POST' && /\/references$/.test(url.pathname)) {
             return handleReferenceSave(url.pathname.replace(/\/references$/, ''), request, cwd)
-          }
-
-          if (request.method === 'POST' && /\/approve$/.test(url.pathname)) {
-            return handleApproval(url.pathname.replace(/\/approve$/, ''), request, cwd)
           }
 
           if (request.method === 'POST' && /\/generate$/.test(url.pathname)) {

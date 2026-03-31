@@ -11,6 +11,27 @@ async function writeRepoFile(rootDir: string, relativePath: string, content: str
   await writeFile(filePath, content)
 }
 
+async function writeCharacterArtifactFixture(rootDir: string) {
+  await writeRepoFile(
+    rootDir,
+    'workspace/CHARACTERS/hero.json',
+    `${JSON.stringify(
+      {
+        characterId: 'hero',
+        displayName: 'Hero',
+        model: 'image-test',
+        prompt: 'A clean character reference.',
+        status: 'ready',
+      },
+      null,
+      2,
+    )}\n`,
+  )
+  await writeRepoFile(rootDir, 'workspace/CHARACTERS/hero.png', 'hero-current-image')
+  await writeRepoFile(rootDir, 'workspace/CHARACTERS/HISTORY/hero/v1.png', 'hero-v1-image')
+  await writeRepoFile(rootDir, 'workspace/CHARACTERS/HISTORY/hero/v2.png', 'hero-v2-image')
+}
+
 test('artifact review server renders the storyboard tab with a placeholder and raw markdown', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
@@ -228,26 +249,11 @@ test('artifact review server serves the canonical shot video', async () => {
   }
 })
 
-test('artifact review server shows empty retained history for an existing character and saves reference edits', async () => {
+test('artifact review server shows version history for an existing character and saves reference edits', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
-    await writeRepoFile(
-      rootDir,
-      'workspace/CHARACTERS/hero.json',
-      `${JSON.stringify(
-        {
-          characterId: 'hero',
-          displayName: 'Hero',
-          model: 'image-test',
-          prompt: 'A clean character reference.',
-          status: 'ready',
-        },
-        null,
-        2,
-      )}\n`,
-    )
-    await writeRepoFile(rootDir, 'workspace/CHARACTERS/hero.png', 'hero-image')
+    await writeCharacterArtifactFixture(rootDir)
 
     const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
 
@@ -256,8 +262,10 @@ test('artifact review server shows empty retained history for an existing charac
       const detailHtml = await detailResponse.text()
 
       expect(detailResponse.status).toBe(200)
-      expect(detailHtml).toContain('Retained History')
-      expect(detailHtml).toContain('No retained versions yet.')
+      expect(detailHtml).toContain('Version History')
+      expect(detailHtml).toContain('data-version-id="current"')
+      expect(detailHtml).toContain('data-version-id="v2"')
+      expect(detailHtml).toContain('data-version-id="v1"')
 
       const saveResponse = await fetch(new URL('/characters/hero/references', server.url), {
         method: 'POST',
@@ -292,7 +300,70 @@ test('artifact review server shows empty retained history for an existing charac
   }
 })
 
-test('artifact review server renders an approval preview for storyboard edits', async () => {
+test('artifact review server renders the version rail current first, then retained versions newest first, with direct regenerate controls', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeCharacterArtifactFixture(rootDir)
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/characters/hero', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      const currentIndex = html.indexOf('data-version-id="current"')
+      const v2Index = html.indexOf('data-version-id="v2"')
+      const v1Index = html.indexOf('data-version-id="v1"')
+
+      expect(currentIndex).toBeGreaterThan(-1)
+      expect(v2Index).toBeGreaterThan(-1)
+      expect(v1Index).toBeGreaterThan(-1)
+      expect(currentIndex).toBeLessThan(v2Index)
+      expect(v2Index).toBeLessThan(v1Index)
+      expect(html).toContain('Regenerate')
+      expect(html).not.toContain('Edit Request')
+      expect(html).toContain('action="/characters/hero/generate"')
+      expect(html).not.toContain('/characters/hero/approve')
+      expect(html).toContain('name="baseVersionId" value="current"')
+      expect(html).not.toContain('Go to current')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server shows historical actions and regenerates from the viewed retained version', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeCharacterArtifactFixture(rootDir)
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/characters/hero?version=v2', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('Historical Version')
+      expect(html).toContain('Make current')
+      expect(html).toContain('Go to current')
+      expect(html).toContain('name="baseVersionId" value="v2"')
+      expect(html).toContain('data-version-id="v2"')
+      expect(html).toContain('Viewing')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server no longer exposes the approval preview route', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
@@ -301,24 +372,6 @@ test('artifact review server renders an approval preview for storyboard edits', 
       'workspace/STORYBOARD.md',
       '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
     )
-    await writeRepoFile(
-      rootDir,
-      'workspace/STORYBOARD.json',
-      `${JSON.stringify(
-        {
-          references: [
-            {
-              kind: 'storyboard-template',
-              path: 'templates/STORYBOARD.template.png',
-              label: 'Storyboard template',
-            },
-          ],
-        },
-        null,
-        2,
-      )}\n`,
-    )
-    await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'template-image')
     await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard-image')
 
     const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
@@ -328,15 +381,77 @@ test('artifact review server renders an approval preview for storyboard edits', 
         method: 'POST',
         body: new URLSearchParams({
           baseVersionId: 'current',
-          editInstruction: 'Tighten the panel spacing and simplify the captions.',
+          editInstruction: 'Tighten the panel spacing.',
         }),
       })
+
+      expect(response.status).toBe(404)
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server uses silent video thumbnails in the version rail while keeping controls on the main shot viewer', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'ready',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS/SHOT-01.json',
+      `${JSON.stringify(
+        {
+          shotId: 'SHOT-01',
+          model: 'video-test',
+          prompt: 'The camera glides from the start frame into the end frame.',
+          status: 'ready',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'workspace/SHOTS/SHOT-01.mp4', 'current-shot-video')
+    await writeRepoFile(rootDir, 'workspace/SHOTS/HISTORY/SHOT-01/v1.mp4', 'retained-shot-video')
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/shots/SHOT-01', server.url))
       const html = await response.text()
 
       expect(response.status).toBe(200)
-      expect(html).toContain('Approve storyboard edit')
-      expect(html).toContain('Tighten the panel spacing and simplify the captions.')
-      expect(html).toContain('Storyboard template')
+      expect(html).toContain(
+        'class="version-media" src="/workspace/SHOTS/SHOT-01.mp4" muted autoplay loop playsinline preload="metadata"></video>',
+      )
+      expect(html).toContain(
+        'class="version-media" src="/shots/SHOT-01/versions/v1/media" muted autoplay loop playsinline preload="metadata"></video>',
+      )
+      expect(html).toContain(
+        '<video class="" src="/workspace/SHOTS/SHOT-01.mp4" controls preload="metadata" playsinline></video>',
+      )
     } finally {
       await server.stop()
     }
