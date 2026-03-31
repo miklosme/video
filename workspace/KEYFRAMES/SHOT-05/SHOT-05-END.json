@@ -1,0 +1,22 @@
+{
+  "keyframeId": "SHOT-05-END",
+  "shotId": "SHOT-05",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the same intimate two-shot in the psychologist's office held for the closing line, adult male psychologist offering grounded warmth while the adult female panda absorbs the first hint of healing in silence, both characters relaxed but emotionally present, soft balanced lighting, uncluttered therapy-room background, realistic understated style, quiet hopeful mood. Follow the storyboard panel labeled SHOT-05 as the visual reference and preserve continuity from the start of the shot while ending on compassionate stillness.",
+  "status": "planned",
+  "references": [
+    {
+      "path": "workspace/STORYBOARD.png",
+      "role": "storyboard"
+    },
+    {
+      "path": "workspace/CHARACTERS/panda-patient.png",
+      "role": "character"
+    },
+    {
+      "path": "workspace/CHARACTERS/psychologist.png",
+      "role": "character"
+    }
+  ]
+}

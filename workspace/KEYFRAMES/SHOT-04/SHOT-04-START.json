@@ -1,0 +1,18 @@
+{
+  "keyframeId": "SHOT-04-START",
+  "shotId": "SHOT-04",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the adult female panda patient in a tighter close medium shot in the psychologist's office, caught by the therapist's question, eyes shifting with surprise and inward reflection, posture small and slightly guarded, readable black-and-white face markings and soft fur detail, background softer than before, realistic therapy-scene lighting, quiet tense vulnerability. Follow the storyboard panel labeled SHOT-04 as the visual reference and mark a clear step closer than SHOT-02 to emphasize the internal turn.",
+  "status": "planned",
+  "references": [
+    {
+      "path": "workspace/STORYBOARD.png",
+      "role": "storyboard"
+    },
+    {
+      "path": "workspace/CHARACTERS/panda-patient.png",
+      "role": "character"
+    }
+  ]
+}

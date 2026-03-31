@@ -1,0 +1,22 @@
+{
+  "keyframeId": "SHOT-01-END",
+  "shotId": "SHOT-01",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the same warm minimalist psychologist's office in the same composed wide shot, adult female panda patient and adult male psychologist holding their positions across from each other, the panda settled into a heavier quiet beat just before speaking, subtle tension in posture, calm readable therapy-room layout, soft even daylight, realistic restrained visual language, intimate but observational mood. Follow the storyboard panel labeled SHOT-01 as the visual reference and keep continuity with the opening establish while adding a slight pre-confession stillness.",
+  "status": "planned",
+  "references": [
+    {
+      "path": "workspace/STORYBOARD.png",
+      "role": "storyboard"
+    },
+    {
+      "path": "workspace/CHARACTERS/panda-patient.png",
+      "role": "character"
+    },
+    {
+      "path": "workspace/CHARACTERS/psychologist.png",
+      "role": "character"
+    }
+  ]
+}

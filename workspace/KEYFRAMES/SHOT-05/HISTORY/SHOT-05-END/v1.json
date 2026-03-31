@@ -1,0 +1,54 @@
+{
+  "versionId": "v1",
+  "createdAt": "2026-03-30T20:39:03.131Z",
+  "sourceArtifactId": "SHOT-05-END",
+  "baseVersionId": null,
+  "generationId": "8bfbd600-d47b-42ac-a2f6-ac0a2416d6f6",
+  "autoSelected": true,
+  "editInstruction": null,
+  "approvedActionSummary": "Keyframe SHOT-05-END from no prior version with 7 references (initial generation)",
+  "references": [
+    {
+      "path": "workspace/KEYFRAMES/SHOT-05/SHOT-05-START.png",
+      "source": "system",
+      "kind": "start-frame",
+      "label": "Start frame (SHOT-05)"
+    },
+    {
+      "path": "workspace/STORYBOARD.png",
+      "source": "user",
+      "kind": "user-reference",
+      "role": "storyboard"
+    },
+    {
+      "path": "workspace/CHARACTERS/panda-patient.png",
+      "source": "user",
+      "kind": "user-reference",
+      "role": "character"
+    },
+    {
+      "path": "workspace/CHARACTERS/psychologist.png",
+      "source": "user",
+      "kind": "user-reference",
+      "role": "character"
+    },
+    {
+      "path": "workspace/STORYBOARD.png",
+      "source": "system",
+      "kind": "storyboard",
+      "label": "Storyboard board"
+    },
+    {
+      "path": "workspace/CHARACTERS/panda-patient.png",
+      "source": "system",
+      "kind": "character-sheet",
+      "label": "Character sheet (panda-patient)"
+    },
+    {
+      "path": "workspace/CHARACTERS/psychologist.png",
+      "source": "system",
+      "kind": "character-sheet",
+      "label": "Character sheet (psychologist)"
+    }
+  ]
+}

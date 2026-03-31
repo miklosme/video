@@ -1,0 +1,42 @@
+{
+  "versionId": "v1",
+  "createdAt": "2026-03-30T20:37:09.538Z",
+  "sourceArtifactId": "SHOT-03-START",
+  "baseVersionId": null,
+  "generationId": "bb4e40b5-bab6-44c2-a9eb-23e6026fe090",
+  "autoSelected": true,
+  "editInstruction": null,
+  "approvedActionSummary": "Keyframe SHOT-03-START from no prior version with 5 references (initial generation)",
+  "references": [
+    {
+      "path": "workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png",
+      "source": "system",
+      "kind": "previous-shot-end-frame",
+      "label": "Previous shot end frame (SHOT-02)"
+    },
+    {
+      "path": "workspace/STORYBOARD.png",
+      "source": "user",
+      "kind": "user-reference",
+      "role": "storyboard"
+    },
+    {
+      "path": "workspace/CHARACTERS/psychologist.png",
+      "source": "user",
+      "kind": "user-reference",
+      "role": "character"
+    },
+    {
+      "path": "workspace/STORYBOARD.png",
+      "source": "system",
+      "kind": "storyboard",
+      "label": "Storyboard board"
+    },
+    {
+      "path": "workspace/CHARACTERS/psychologist.png",
+      "source": "system",
+      "kind": "character-sheet",
+      "label": "Character sheet (psychologist)"
+    }
+  ]
+}

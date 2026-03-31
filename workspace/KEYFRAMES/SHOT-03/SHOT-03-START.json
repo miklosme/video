@@ -1,0 +1,18 @@
+{
+  "keyframeId": "SHOT-03-START",
+  "shotId": "SHOT-03",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the adult male psychologist in a medium close-up reverse shot inside the same office, seated with open posture and attentive stillness, calm thoughtful face receiving the panda's confession without judgment, understated professional wardrobe in muted tones, soft office background, realistic therapy-scene naturalism, gentle even lighting, composed compassionate mood. Follow the storyboard panel labeled SHOT-03 as the visual reference and preserve the conversational geography from the previous panda shot.",
+  "status": "planned",
+  "references": [
+    {
+      "path": "workspace/STORYBOARD.png",
+      "role": "storyboard"
+    },
+    {
+      "path": "workspace/CHARACTERS/psychologist.png",
+      "role": "character"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "artifactId": "SHOT-05-END",
+  "artifactType": "keyframe",
+  "publicPath": "workspace/KEYFRAMES/SHOT-05/SHOT-05-END.png",
+  "latestVersionId": "v1",
+  "selectedVersionId": "v1",
+  "versions": [
+    {
+      "versionId": "v1",
+      "path": "workspace/KEYFRAMES/SHOT-05/HISTORY/SHOT-05-END/v1.png",
+      "metadataPath": "workspace/KEYFRAMES/SHOT-05/HISTORY/SHOT-05-END/v1.json",
+      "createdAt": "2026-03-30T20:39:03.131Z",
+      "baseVersionId": null,
+      "generationId": "8bfbd600-d47b-42ac-a2f6-ac0a2416d6f6",
+      "editInstruction": null
+    }
+  ]
+}

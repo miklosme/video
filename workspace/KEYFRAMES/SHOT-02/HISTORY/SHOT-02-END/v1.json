@@ -1,0 +1,42 @@
+{
+  "versionId": "v1",
+  "createdAt": "2026-03-30T20:36:44.559Z",
+  "sourceArtifactId": "SHOT-02-END",
+  "baseVersionId": null,
+  "generationId": "925bcf15-1943-4fac-b0d9-3c66d28dc343",
+  "autoSelected": true,
+  "editInstruction": null,
+  "approvedActionSummary": "Keyframe SHOT-02-END from no prior version with 5 references (initial generation)",
+  "references": [
+    {
+      "path": "workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png",
+      "source": "system",
+      "kind": "start-frame",
+      "label": "Start frame (SHOT-02)"
+    },
+    {
+      "path": "workspace/STORYBOARD.png",
+      "source": "user",
+      "kind": "user-reference",
+      "role": "storyboard"
+    },
+    {
+      "path": "workspace/CHARACTERS/panda-patient.png",
+      "source": "user",
+      "kind": "user-reference",
+      "role": "character"
+    },
+    {
+      "path": "workspace/STORYBOARD.png",
+      "source": "system",
+      "kind": "storyboard",
+      "label": "Storyboard board"
+    },
+    {
+      "path": "workspace/CHARACTERS/panda-patient.png",
+      "source": "system",
+      "kind": "character-sheet",
+      "label": "Character sheet (panda-patient)"
+    }
+  ]
+}
