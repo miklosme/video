@@ -17,7 +17,7 @@ import {
   type ArtifactHistoryState,
 } from './artifact-control'
 import {
-  generateCharacterSheetArtifactVersion,
+  regenerateCharacterSheetArtifactVersion,
   selectPendingCharacterSheetGenerations,
   type PendingCharacterSheetGeneration,
 } from './generate-character-sheets'
@@ -26,17 +26,17 @@ import type {
   GenerateImagenOptionsResult,
 } from './generate-imagen-options'
 import {
-  generateKeyframeArtifactVersion,
+  regenerateKeyframeArtifactVersion,
   selectPendingKeyframeGenerations,
   type PendingKeyframeGeneration,
 } from './generate-keyframes'
 import {
-  generateShotArtifactVersion,
+  regenerateShotArtifactVersion,
   selectPendingShotGenerations,
   type PendingShotGeneration,
   type ShotVideoGenerator,
 } from './generate-shots'
-import { generateStoryboardArtifactVersion } from './generate-storyboard'
+import { regenerateStoryboardArtifactVersion } from './generate-storyboard'
 import {
   AUTHORED_REFERENCE_KINDS,
   getCharacterSheetImagePath,
@@ -87,7 +87,7 @@ interface ArtifactJobState {
 
 type ImageGenerator = (input: GenerateImagenOptionsInput) => Promise<GenerateImagenOptionsResult>
 
-interface ApprovedActionGeneratorOverrides {
+interface RegenerateActionGeneratorOverrides {
   imageGenerator?: ImageGenerator
   shotVideoGenerator?: ShotVideoGenerator
 }
@@ -1177,9 +1177,9 @@ function renderEditComposer(context: ArtifactDetailContext) {
   return `
     <section class="panel">
       <p class="section-title">Regenerate</p>
-      <form method="post" action="${getArtifactGenerateActionPath(context.descriptor)}">
+      <form method="post" action="${getArtifactRegenerateActionPath(context.descriptor)}">
         <input type="hidden" name="baseVersionId" value="${escapeHtml(context.historyState.activeVersionId ?? CURRENT_BASE_VERSION_ID)}">
-        <textarea name="editInstruction" placeholder="Describe the precise change you want from the version you are viewing." required></textarea>
+        <textarea name="regenerateRequest" placeholder="Describe the precise change you want from the version you are viewing." required></textarea>
         <div class="form-actions">
           <button class="button-primary" type="submit">Regenerate</button>
         </div>
@@ -1419,8 +1419,8 @@ function getArtifactReferencesActionPath(descriptor: ArtifactDescriptor) {
   return `${getArtifactDetailPath(descriptor)}/references`
 }
 
-function getArtifactGenerateActionPath(descriptor: ArtifactDescriptor) {
-  return `${getArtifactDetailPath(descriptor)}/generate`
+function getArtifactRegenerateActionPath(descriptor: ArtifactDescriptor) {
+  return `${getArtifactDetailPath(descriptor)}/regenerate`
 }
 
 function getArtifactSelectActionPath(descriptor: ArtifactDescriptor) {
@@ -1886,26 +1886,21 @@ async function buildShotPendingGeneration(
     : null
 }
 
-export async function runApprovedAction(
+export async function runApprovedRegenerateAction(
   pathname: string,
   cwd: string,
   baseVersionId: string,
-  editInstruction: string,
-  overrides: ApprovedActionGeneratorOverrides = {},
+  regenerateRequest: string,
+  overrides: RegenerateActionGeneratorOverrides = {},
 ) {
   if (pathname === '/storyboard') {
-    const [config, storyboardMarkdown, storyboardSidecar] = await Promise.all([
-      loadConfig(cwd),
-      readFile(resolveWorkflowPath(WORKFLOW_FILES.storyboard, cwd), 'utf8'),
-      loadStoryboardSidecar(cwd),
-    ])
+    const config = await loadConfig(cwd)
+    const descriptor = getStoryboardArtifactDescriptor()
 
-    return generateStoryboardArtifactVersion({
-      storyboardMarkdown,
+    return regenerateStoryboardArtifactVersion({
       model: config.imageModel,
-      editInstruction,
-      userReferences: storyboardSidecar?.references ?? [],
-      baseVersionId,
+      regenerateRequest,
+      selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
       cwd,
       generator: overrides.imageGenerator,
     })
@@ -1923,11 +1918,9 @@ export async function runApprovedAction(
 
     const descriptor = getCharacterArtifactDescriptor(characterId)
 
-    return generateCharacterSheetArtifactVersion(generation, {
-      editInstruction,
+    return regenerateCharacterSheetArtifactVersion(generation, {
+      regenerateRequest,
       selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
-      baseVersionId,
-      userReferences: generation.userReferences ?? [],
       cwd,
       generator: overrides.imageGenerator,
     })
@@ -1945,11 +1938,9 @@ export async function runApprovedAction(
 
     const descriptor = getKeyframeArtifactDescriptor(pending.generation)
 
-    return generateKeyframeArtifactVersion(pending.generation, pending.keyframes, pending.shots, {
-      editInstruction,
+    return regenerateKeyframeArtifactVersion(pending.generation, pending.keyframes, pending.shots, {
+      regenerateRequest,
       selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
-      baseVersionId,
-      userReferences: pending.generation.userReferences ?? [],
       cwd,
       generator: overrides.imageGenerator,
     })
@@ -1965,12 +1956,15 @@ export async function runApprovedAction(
       throw new Error(`Shot "${shotId}" is missing a valid generation sidecar.`)
     }
 
-    return generateShotArtifactVersion(
+    // Shot regeneration still uses the existing image-to-video anchor flow.
+    // The current SDK path does not support passing the selected .mp4 back as
+    // a true regeneration baseline.
+    return regenerateShotArtifactVersion(
       pending.generation,
       pending.keyframes,
       pending.characterSheets,
       {
-        editInstruction,
+        regenerateRequest,
         baseVersionId,
         userReferences: pending.generation.userReferences ?? [],
         cwd,
@@ -1979,7 +1973,7 @@ export async function runApprovedAction(
     )
   }
 
-  throw new Error('Unsupported generation route.')
+  throw new Error('Unsupported regenerate route.')
 }
 
 async function serveCanonicalCharacterImage(requestPath: string, cwd: string) {
@@ -2131,7 +2125,7 @@ async function handleReferenceSave(pathname: string, request: Request, cwd: stri
   return redirectTo(getArtifactDetailPath(detail.descriptor))
 }
 
-async function handleGenerate(
+async function handleRegenerate(
   pathname: string,
   request: Request,
   cwd: string,
@@ -2139,21 +2133,26 @@ async function handleGenerate(
 ) {
   const formData = await request.formData()
   const baseVersionId = String(formData.get('baseVersionId') ?? '').trim()
-  const editInstruction = String(formData.get('editInstruction') ?? '').trim()
+  const regenerateRequest = String(formData.get('regenerateRequest') ?? '').trim()
   const detail = await getDetailContext(pathname, cwd)
 
   if (!detail) {
     return renderErrorPage('characters', 'Missing Artifact', 'Artifact not found.', '/')
   }
 
-  if (baseVersionId.length === 0 || editInstruction.length === 0) {
-    throw new Error('Base version and edit instruction are required.')
+  if (baseVersionId.length === 0 || regenerateRequest.length === 0) {
+    throw new Error('Base version and regenerate request are required.')
   }
 
   await assertBaseVersionExists(detail.descriptor, cwd, baseVersionId)
 
   startArtifactJob(jobs, detail.descriptor, async () => {
-    const result = await runApprovedAction(pathname, cwd, baseVersionId, editInstruction)
+    const result = await runApprovedRegenerateAction(
+      pathname,
+      cwd,
+      baseVersionId,
+      regenerateRequest,
+    )
 
     return {
       versionId: result.versionId,
@@ -2359,8 +2358,13 @@ export function startArtifactReviewServer(options: { cwd?: string; preferredPort
             return handleReferenceSave(url.pathname.replace(/\/references$/, ''), request, cwd)
           }
 
-          if (request.method === 'POST' && /\/generate$/.test(url.pathname)) {
-            return handleGenerate(url.pathname.replace(/\/generate$/, ''), request, cwd, activeJobs)
+          if (request.method === 'POST' && /\/regenerate$/.test(url.pathname)) {
+            return handleRegenerate(
+              url.pathname.replace(/\/regenerate$/, ''),
+              request,
+              cwd,
+              activeJobs,
+            )
           }
 
           if (request.method === 'POST' && /\/select$/.test(url.pathname)) {

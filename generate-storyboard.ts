@@ -8,6 +8,7 @@ import {
   prepareStagedArtifactVersion,
   recordArtifactVersionFromStage,
   resolveStoryboardGenerationReferences,
+  resolveStoryboardRegenerationReferences,
 } from './artifact-control'
 import {
   generateImagenOptions,
@@ -92,18 +93,19 @@ export function selectPendingStoryboardGeneration(
   }
 }
 
-function applyStoryboardEditInstruction(prompt: string, editInstruction?: string | null) {
-  if (!editInstruction) {
-    return prompt
+export function buildStoryboardRegeneratePrompt(regenerateRequest: string) {
+  const trimmedRequest = regenerateRequest.trim()
+
+  if (trimmedRequest.length === 0) {
+    throw new Error('Storyboard regenerate request is empty.')
   }
 
   return [
-    prompt,
+    'Regenerate the current storyboard board from the attached base image.',
+    'Keep the existing board structure and content unless the approved change below explicitly asks for broader updates.',
     '',
-    'Requested edit:',
-    editInstruction,
-    '',
-    'Apply only this approved change while preserving the rest of the current storyboard board unless the edit explicitly asks for broader changes.',
+    'Approved change:',
+    trimmedRequest,
   ].join('\n')
 }
 
@@ -111,7 +113,6 @@ export async function runStoryboardGeneration(options: {
   storyboardMarkdown: string
   model: string
   outputPath: string
-  editInstruction?: string | null
   userReferences?: Parameters<typeof resolveStoryboardGenerationReferences>[0]
   logFile?: string
   cwd?: string
@@ -123,10 +124,7 @@ export async function runStoryboardGeneration(options: {
   )
   await assertResolvedReferencesExist(resolvedReferences, options.cwd)
 
-  const prompt = applyStoryboardEditInstruction(
-    buildStoryboardPrompt(options.storyboardMarkdown),
-    options.editInstruction,
-  )
+  const prompt = buildStoryboardPrompt(options.storyboardMarkdown)
   const generator = options.generator ?? generateImagenOptions
   const result = await generator({
     prompt,
@@ -151,9 +149,7 @@ export async function runStoryboardGeneration(options: {
 export async function generateStoryboardArtifactVersion(options: {
   storyboardMarkdown: string
   model: string
-  editInstruction?: string | null
   userReferences?: Parameters<typeof resolveStoryboardGenerationReferences>[0]
-  baseVersionId?: string | null
   logFile?: string
   cwd?: string
   seed?: number
@@ -170,8 +166,89 @@ export async function generateStoryboardArtifactVersion(options: {
       storyboardMarkdown: options.storyboardMarkdown,
       model: options.model,
       outputPath: stagedVersion.stagedPath,
-      editInstruction: options.editInstruction,
       userReferences: options.userReferences,
+      logFile: options.logFile,
+      cwd,
+      seed: seed ?? undefined,
+      generator: options.generator,
+    })
+    const recorded = await recordArtifactVersionFromStage({
+      descriptor,
+      stagedPath: stagedVersion.stagedPath,
+      autoSelect: options.autoSelect,
+      cwd,
+    })
+
+    return {
+      ...result,
+      descriptor,
+      seed,
+      versionId: recorded.versionId,
+    }
+  } catch (error) {
+    await rm(path.resolve(cwd, stagedVersion.stagedPath), { force: true }).catch(() => undefined)
+    throw error
+  }
+}
+
+export async function runStoryboardRegeneration(options: {
+  model: string
+  outputPath: string
+  regenerateRequest: string
+  selectedVersionPath: string
+  logFile?: string
+  cwd?: string
+  seed?: number
+  generator?: ImageGenerator
+}) {
+  const { resolvedReferences, references } = resolveStoryboardRegenerationReferences(
+    options.selectedVersionPath,
+  )
+  await assertResolvedReferencesExist(resolvedReferences, options.cwd)
+
+  const prompt = buildStoryboardRegeneratePrompt(options.regenerateRequest)
+  const generator = options.generator ?? generateImagenOptions
+  const result = await generator({
+    prompt,
+    model: options.model,
+    outputPath: options.outputPath,
+    references,
+    logFile: options.logFile,
+    cwd: options.cwd,
+    seed: options.seed,
+    artifactType: 'storyboard',
+    artifactId: 'STORYBOARD',
+  })
+
+  return {
+    ...result,
+    prompt,
+    resolvedReferences,
+    references,
+  }
+}
+
+export async function regenerateStoryboardArtifactVersion(options: {
+  model: string
+  regenerateRequest: string
+  selectedVersionPath: string
+  logFile?: string
+  cwd?: string
+  seed?: number
+  autoSelect?: boolean
+  generator?: ImageGenerator
+}) {
+  const descriptor = getStoryboardArtifactDescriptor()
+  const cwd = options.cwd ?? process.cwd()
+  const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
+  const seed = options.seed ?? getVersionSeed(stagedVersion.versionId)
+
+  try {
+    const result = await runStoryboardRegeneration({
+      model: options.model,
+      outputPath: stagedVersion.stagedPath,
+      regenerateRequest: options.regenerateRequest,
+      selectedVersionPath: options.selectedVersionPath,
       logFile: options.logFile,
       cwd,
       seed: seed ?? undefined,

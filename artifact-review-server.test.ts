@@ -3,7 +3,7 @@ import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-import { runApprovedAction, startArtifactReviewServer } from './artifact-review-server'
+import { runApprovedRegenerateAction, startArtifactReviewServer } from './artifact-review-server'
 
 async function writeRepoFile(rootDir: string, relativePath: string, content: string | Uint8Array) {
   const filePath = path.resolve(rootDir, relativePath)
@@ -333,9 +333,10 @@ test('artifact review server renders the version rail current first, then retain
       expect(html).not.toContain('version-tile-copy')
       expect(html).toContain('Regenerate')
       expect(html).not.toContain('Edit Request')
-      expect(html).toContain('action="/characters/hero/generate"')
+      expect(html).toContain('action="/characters/hero/regenerate"')
       expect(html).not.toContain('/characters/hero/approve')
       expect(html).toContain('name="baseVersionId" value="current"')
+      expect(html).toContain('name="regenerateRequest"')
       expect(html).not.toContain(
         'Regeneration starts immediately from the version you are viewing. The raw edit text is passed through as written.',
       )
@@ -445,7 +446,7 @@ test('artifact review server no longer exposes the approval preview route', asyn
         method: 'POST',
         body: new URLSearchParams({
           baseVersionId: 'current',
-          editInstruction: 'Tighten the panel spacing.',
+          regenerateRequest: 'Tighten the panel spacing.',
         }),
       })
 
@@ -526,7 +527,7 @@ test('artifact review server uses silent video thumbnails in the version rail wh
   }
 })
 
-test('runApprovedAction stays single-variant even when CONFIG.json.variantCount is greater than 1', async () => {
+test('runApprovedRegenerateAction stays single-variant even when CONFIG.json.variantCount is greater than 1', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
@@ -553,23 +554,29 @@ test('runApprovedAction stays single-variant even when CONFIG.json.variantCount 
     await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard-image')
 
     const seeds: number[] = []
-    await runApprovedAction('/storyboard', rootDir, 'current', 'Tighten the panel spacing.', {
-      imageGenerator: async (input) => {
-        seeds.push(input.seed ?? -1)
+    await runApprovedRegenerateAction(
+      '/storyboard',
+      rootDir,
+      'current',
+      'Tighten the panel spacing.',
+      {
+        imageGenerator: async (input) => {
+          seeds.push(input.seed ?? -1)
 
-        if (!input.outputPath) {
-          throw new Error('Expected outputPath for approved storyboard generation test.')
-        }
+          if (!input.outputPath) {
+            throw new Error('Expected outputPath for approved storyboard generation test.')
+          }
 
-        await writeRepoFile(rootDir, input.outputPath, `storyboard:${input.seed}`)
+          await writeRepoFile(rootDir, input.outputPath, `storyboard:${input.seed}`)
 
-        return {
-          generationId: `gen-${input.seed}`,
-          model: input.model ?? 'image-test',
-          outputPaths: [path.resolve(rootDir, input.outputPath)],
-        }
+          return {
+            generationId: `gen-${input.seed}`,
+            model: input.model ?? 'image-test',
+            outputPaths: [path.resolve(rootDir, input.outputPath)],
+          }
+        },
       },
-    })
+    )
 
     expect(seeds).toEqual([1])
     expect(await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.png'), 'utf8')).toBe(
@@ -578,6 +585,59 @@ test('runApprovedAction stays single-variant even when CONFIG.json.variantCount 
     expect(
       await readFile(path.resolve(rootDir, 'workspace/HISTORY/STORYBOARD/v1.png'), 'utf8'),
     ).toBe('storyboard-image')
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('runApprovedRegenerateAction uses the viewed retained storyboard as the selected-image reference', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/CONFIG.json',
+      `${JSON.stringify(
+        {
+          agentModel: 'agent-test',
+          imageModel: 'image-test',
+          videoModel: 'video-test',
+          variantCount: 1,
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard-current')
+    await writeRepoFile(rootDir, 'workspace/HISTORY/STORYBOARD/v2.png', 'storyboard-v2')
+
+    let capturedPrompt = ''
+    let capturedReferences: { kind: string; path: string }[] = []
+
+    await runApprovedRegenerateAction('/storyboard', rootDir, 'v2', 'Remove the extra character.', {
+      imageGenerator: async (input) => {
+        capturedPrompt = input.prompt
+        capturedReferences = input.references ?? []
+
+        if (!input.outputPath) {
+          throw new Error('Expected outputPath for retained storyboard regeneration test.')
+        }
+
+        await writeRepoFile(rootDir, input.outputPath, 'storyboard:regenerated')
+
+        return {
+          generationId: 'gen-retained',
+          model: input.model ?? 'image-test',
+          outputPaths: [path.resolve(rootDir, input.outputPath)],
+        }
+      },
+    })
+
+    expect(capturedPrompt).toContain('Remove the extra character.')
+    expect(capturedPrompt).not.toContain('Storyboard markdown:')
+    expect(capturedReferences).toEqual([
+      { kind: 'selected-image', path: 'workspace/HISTORY/STORYBOARD/v2.png' },
+    ])
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

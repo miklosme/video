@@ -5,6 +5,7 @@ import path from 'node:path'
 
 import { getCharacterArtifactDescriptor } from './artifact-control'
 import {
+  runCharacterSheetRegeneration,
   syncCharacterSheetGenerations,
   type PendingCharacterSheetGeneration,
 } from './generate-character-sheets'
@@ -14,6 +15,41 @@ async function writeRepoFile(rootDir: string, relativePath: string, content: str
   await mkdir(path.dirname(filePath), { recursive: true })
   await writeFile(filePath, content)
 }
+
+test('runCharacterSheetRegeneration uses only the selected character image and the approved request', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-character-regenerate-'))
+  const generation: PendingCharacterSheetGeneration = {
+    characterId: 'hero',
+    displayName: 'Hero',
+    model: 'image-test',
+    prompt: 'Original character prompt that should not be reused.',
+    outputPath: 'workspace/CHARACTERS/hero.png',
+  }
+
+  try {
+    await writeRepoFile(rootDir, 'workspace/CHARACTERS/HISTORY/hero/v2.png', 'selected-character')
+
+    const result = await runCharacterSheetRegeneration(generation, {
+      regenerateRequest: 'Make the jacket deep green.',
+      selectedVersionPath: 'workspace/CHARACTERS/HISTORY/hero/v2.png',
+      cwd: rootDir,
+      generator: async (input) => ({
+        generationId: 'gen-1',
+        model: input.model ?? 'image-test',
+        outputPaths: [path.resolve(rootDir, input.outputPath ?? 'out.png')],
+      }),
+    })
+
+    expect(result.prompt).toContain('Regenerate the current character reference image for Hero.')
+    expect(result.prompt).toContain('Make the jacket deep green.')
+    expect(result.prompt).not.toContain('Original character prompt that should not be reused.')
+    expect(result.references).toEqual([
+      { kind: 'selected-image', path: 'workspace/CHARACTERS/HISTORY/hero/v2.png' },
+    ])
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
 
 test('syncCharacterSheetGenerations renders variantCount retained versions and selects the last one', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-character-variants-'))

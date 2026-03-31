@@ -285,16 +285,16 @@ export async function generateShotVideoWithGateway(
   }
 }
 
-function applyShotEditInstruction(prompt: string, editInstruction?: string | null) {
-  if (!editInstruction) {
+function buildShotRegeneratePrompt(prompt: string, regenerateRequest?: string | null) {
+  if (!regenerateRequest) {
     return prompt
   }
 
   return [
     prompt,
     '',
-    'Requested edit:',
-    editInstruction,
+    'Approved change:',
+    regenerateRequest,
     '',
     'Apply only this approved change while preserving the rest of the current shot intent unless the edit explicitly asks for broader changes.',
   ].join('\n')
@@ -309,7 +309,7 @@ export async function runShotGeneration(
     logFile?: string
     cwd?: string
     firstOnly?: boolean
-    editInstruction?: string | null
+    regenerateRequest?: string | null
     userReferences?: readonly ArtifactReferenceEntry[]
     outputPath?: string
     seed?: number
@@ -344,7 +344,9 @@ export async function runShotGeneration(
   const outputPaths: string[] = []
   let completedAt: string | null = null
   let errorDetails: GenerationLogEntry['error'] = null
-  const prompt = applyShotEditInstruction(generation.prompt, options.editInstruction)
+  // Shot regeneration still reuses the original shot prompt because the current
+  // video path supports image-to-video anchoring, not a selected video baseline.
+  const prompt = buildShotRegeneratePrompt(generation.prompt, options.regenerateRequest)
 
   try {
     const result = await generator({
@@ -427,7 +429,7 @@ export async function generateShotArtifactVersion(
     generator?: ShotVideoGenerator
     logFile?: string
     cwd?: string
-    editInstruction?: string | null
+    regenerateRequest?: string | null
     userReferences?: readonly ArtifactReferenceEntry[]
     baseVersionId?: string | null
     seed?: number
@@ -444,7 +446,7 @@ export async function generateShotArtifactVersion(
       generator: options.generator,
       logFile: options.logFile,
       cwd,
-      editInstruction: options.editInstruction,
+      regenerateRequest: options.regenerateRequest,
       userReferences: options.userReferences,
       outputPath: stagedVersion.stagedPath,
       seed: seed ?? undefined,
@@ -466,6 +468,24 @@ export async function generateShotArtifactVersion(
     await rm(path.resolve(cwd, stagedVersion.stagedPath), { force: true }).catch(() => undefined)
     throw error
   }
+}
+
+export async function regenerateShotArtifactVersion(
+  generation: PendingShotGeneration,
+  keyframes: KeyframeEntry[],
+  characterSheets: CharacterSheetEntry[],
+  options: {
+    generator?: ShotVideoGenerator
+    logFile?: string
+    cwd?: string
+    regenerateRequest?: string | null
+    userReferences?: readonly ArtifactReferenceEntry[]
+    baseVersionId?: string | null
+    seed?: number
+    autoSelect?: boolean
+  } = {},
+) {
+  return generateShotArtifactVersion(generation, keyframes, characterSheets, options)
 }
 
 export async function syncShotGenerations(

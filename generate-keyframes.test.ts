@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { getKeyframeArtifactDescriptor } from './artifact-control'
 import {
   planKeyframeGenerationReferences,
+  runKeyframeRegeneration,
   selectPendingKeyframeGenerations,
   syncKeyframeGenerations,
 } from './generate-keyframes'
@@ -131,6 +132,48 @@ function createArtifacts(): KeyframeArtifactEntry[] {
     status: 'planned',
   }))
 }
+
+test('runKeyframeRegeneration uses only the selected keyframe image and the approved request', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-keyframe-regenerate-'))
+  const keyframe = createKeyframes()[0]!
+  const generation = {
+    ...createArtifacts()[0]!,
+    ...keyframe,
+    outputPath: keyframe.imagePath,
+    incomingTransition: createShots()[0]!.incomingTransition,
+  }
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/KEYFRAMES/SHOT-01/HISTORY/SHOT-01-START/v2.png',
+      'selected-keyframe',
+    )
+
+    const result = await runKeyframeRegeneration(generation, {
+      regenerateRequest: 'Move the camera slightly closer.',
+      selectedVersionPath: 'workspace/KEYFRAMES/SHOT-01/HISTORY/SHOT-01-START/v2.png',
+      cwd: rootDir,
+      generator: async (input) => ({
+        generationId: 'gen-1',
+        model: input.model ?? 'image-test',
+        outputPaths: [path.resolve(rootDir, input.outputPath ?? 'out.png')],
+      }),
+    })
+
+    expect(result.prompt).toContain('Regenerate the current keyframe image for SHOT-01-START.')
+    expect(result.prompt).toContain('Move the camera slightly closer.')
+    expect(result.prompt).not.toContain('Prompt for SHOT-01-START.')
+    expect(result.references).toEqual([
+      {
+        kind: 'selected-image',
+        path: 'workspace/KEYFRAMES/SHOT-01/HISTORY/SHOT-01-START/v2.png',
+      },
+    ])
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
 
 test('selectPendingKeyframeGenerations follows SHOTS order and start-before-end sequencing', () => {
   expect(

@@ -10,6 +10,7 @@ import {
   prepareStagedArtifactVersion,
   recordArtifactVersionFromStage,
   resolveCharacterGenerationReferences,
+  resolveCharacterRegenerationReferences,
 } from './artifact-control'
 import {
   generateImagenOptions,
@@ -80,18 +81,23 @@ export function selectPendingCharacterSheetGenerations(
     }))
 }
 
-function applyCharacterEditInstruction(prompt: string, editInstruction?: string | null) {
-  if (!editInstruction) {
-    return prompt
+export function buildCharacterSheetRegeneratePrompt(
+  generation: Pick<PendingCharacterSheetGeneration, 'displayName'>,
+  regenerateRequest: string,
+) {
+  const trimmedRequest = regenerateRequest.trim()
+
+  if (trimmedRequest.length === 0) {
+    throw new Error('Character regenerate request is empty.')
   }
 
   return [
-    prompt,
+    `Regenerate the current character reference image for ${generation.displayName}.`,
+    'Use the attached base image as the direct visual baseline.',
+    'Preserve the rest of the design unless the approved change below explicitly asks for a broader redesign.',
     '',
-    'Requested edit:',
-    editInstruction,
-    '',
-    'Apply only this approved change while preserving the rest of the current character reference image unless the edit explicitly asks for a broader redesign.',
+    'Approved change:',
+    trimmedRequest,
   ].join('\n')
 }
 
@@ -99,8 +105,6 @@ export async function runCharacterSheetGeneration(
   generation: PendingCharacterSheetGeneration,
   options: {
     outputPath?: string
-    editInstruction?: string | null
-    selectedVersionPath?: string | null
     userReferences?: readonly ArtifactReferenceEntry[]
     logFile?: string
     cwd?: string
@@ -109,12 +113,11 @@ export async function runCharacterSheetGeneration(
   } = {},
 ) {
   const { resolvedReferences, references } = resolveCharacterGenerationReferences({
-    selectedVersionPath: options.selectedVersionPath,
     userReferences: options.userReferences ?? generation.userReferences ?? [],
   })
   await assertResolvedReferencesExist(resolvedReferences, options.cwd)
 
-  const prompt = applyCharacterEditInstruction(generation.prompt, options.editInstruction)
+  const prompt = generation.prompt
   const generator = options.generator ?? generateImagenOptions
   const result = await generator({
     prompt,
@@ -139,9 +142,6 @@ export async function runCharacterSheetGeneration(
 export async function generateCharacterSheetArtifactVersion(
   generation: PendingCharacterSheetGeneration,
   options: {
-    editInstruction?: string | null
-    selectedVersionPath?: string | null
-    baseVersionId?: string | null
     userReferences?: readonly ArtifactReferenceEntry[]
     logFile?: string
     cwd?: string
@@ -158,9 +158,92 @@ export async function generateCharacterSheetArtifactVersion(
   try {
     const result = await runCharacterSheetGeneration(generation, {
       outputPath: stagedVersion.stagedPath,
-      editInstruction: options.editInstruction,
-      selectedVersionPath: options.selectedVersionPath,
       userReferences: options.userReferences,
+      logFile: options.logFile,
+      cwd,
+      seed: seed ?? undefined,
+      generator: options.generator,
+    })
+    const recorded = await recordArtifactVersionFromStage({
+      descriptor,
+      stagedPath: stagedVersion.stagedPath,
+      autoSelect: options.autoSelect,
+      cwd,
+    })
+
+    return {
+      ...result,
+      descriptor,
+      seed,
+      versionId: recorded.versionId,
+    }
+  } catch (error) {
+    await rm(path.resolve(cwd, stagedVersion.stagedPath), { force: true }).catch(() => undefined)
+    throw error
+  }
+}
+
+export async function runCharacterSheetRegeneration(
+  generation: PendingCharacterSheetGeneration,
+  options: {
+    outputPath?: string
+    regenerateRequest: string
+    selectedVersionPath: string
+    logFile?: string
+    cwd?: string
+    seed?: number
+    generator?: ImageGenerator
+  },
+) {
+  const { resolvedReferences, references } = resolveCharacterRegenerationReferences(
+    options.selectedVersionPath,
+  )
+  await assertResolvedReferencesExist(resolvedReferences, options.cwd)
+
+  const prompt = buildCharacterSheetRegeneratePrompt(generation, options.regenerateRequest)
+  const generator = options.generator ?? generateImagenOptions
+  const result = await generator({
+    prompt,
+    model: generation.model,
+    outputPath: options.outputPath ?? generation.outputPath,
+    references,
+    logFile: options.logFile,
+    cwd: options.cwd,
+    seed: options.seed,
+    artifactType: 'character',
+    artifactId: generation.characterId,
+  })
+
+  return {
+    ...result,
+    prompt,
+    resolvedReferences,
+    references,
+  }
+}
+
+export async function regenerateCharacterSheetArtifactVersion(
+  generation: PendingCharacterSheetGeneration,
+  options: {
+    regenerateRequest: string
+    selectedVersionPath: string
+    logFile?: string
+    cwd?: string
+    seed?: number
+    autoSelect?: boolean
+    generator?: ImageGenerator
+  },
+) {
+  const descriptor = getCharacterArtifactDescriptor(generation.characterId)
+  const cwd = options.cwd ?? process.cwd()
+  const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
+  const seed = options.seed ?? getVersionSeed(stagedVersion.versionId)
+
+  try {
+    const result = await runCharacterSheetRegeneration(generation, {
+      outputPath: stagedVersion.stagedPath,
+      regenerateRequest: options.regenerateRequest,
+      selectedVersionPath: options.selectedVersionPath,
       logFile: options.logFile,
       cwd,
       seed: seed ?? undefined,

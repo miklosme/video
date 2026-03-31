@@ -484,10 +484,26 @@ export function toGenerationReferences(
   }))
 }
 
+function createSelectedImageReference(selectedVersionPath: string) {
+  return createSystemReference('selected-image', selectedVersionPath, {
+    label: 'Base artifact',
+    notes: 'Artifact used as the regeneration baseline for this request.',
+  })
+}
+
 export function resolveStoryboardGenerationReferences(
   userReferences: readonly ArtifactReferenceEntry[] = [],
 ) {
   const resolvedReferences = createUserReferences(userReferences)
+
+  return {
+    resolvedReferences,
+    references: toGenerationReferences(resolvedReferences),
+  }
+}
+
+export function resolveStoryboardRegenerationReferences(selectedVersionPath: string) {
+  const resolvedReferences = [createSelectedImageReference(selectedVersionPath)]
 
   return {
     resolvedReferences,
@@ -502,15 +518,19 @@ export function resolveCharacterGenerationReferences(options: {
   const resolvedReferences: ResolvedArtifactReference[] = []
 
   if (options.selectedVersionPath) {
-    resolvedReferences.push(
-      createSystemReference('selected-image', options.selectedVersionPath, {
-        label: 'Base artifact',
-        notes: 'Artifact used as the edit baseline for this generation.',
-      }),
-    )
+    resolvedReferences.push(createSelectedImageReference(options.selectedVersionPath))
   }
 
   resolvedReferences.push(...createUserReferences(options.userReferences))
+
+  return {
+    resolvedReferences,
+    references: toGenerationReferences(resolvedReferences),
+  }
+}
+
+export function resolveCharacterRegenerationReferences(selectedVersionPath: string) {
+  const resolvedReferences = [createSelectedImageReference(selectedVersionPath)]
 
   return {
     resolvedReferences,
@@ -543,15 +563,19 @@ export function resolveKeyframeGenerationReferences(
   const resolvedReferences: ResolvedArtifactReference[] = []
 
   if (options.selectedVersionPath) {
-    resolvedReferences.push(
-      createSystemReference('selected-image', options.selectedVersionPath, {
-        label: 'Base artifact',
-        notes: 'Artifact used as the edit baseline for this generation.',
-      }),
-    )
+    resolvedReferences.push(createSelectedImageReference(options.selectedVersionPath))
   }
 
   resolvedReferences.push(...createUserReferences(options.userReferences))
+
+  return {
+    resolvedReferences,
+    references: toGenerationReferences(resolvedReferences),
+  }
+}
+
+export function resolveKeyframeRegenerationReferences(selectedVersionPath: string) {
+  const resolvedReferences = [createSelectedImageReference(selectedVersionPath)]
 
   return {
     resolvedReferences,

@@ -9,6 +9,7 @@ import {
   prepareStagedArtifactVersion,
   recordArtifactVersionFromStage,
   resolveKeyframeGenerationReferences,
+  resolveKeyframeRegenerationReferences,
 } from './artifact-control'
 import {
   generateImagenOptions,
@@ -221,18 +222,23 @@ async function assertReferenceFilesExist(
   }
 }
 
-function applyKeyframeEditInstruction(prompt: string, editInstruction?: string | null) {
-  if (!editInstruction) {
-    return prompt
+export function buildKeyframeRegeneratePrompt(
+  generation: Pick<PendingKeyframeGeneration, 'keyframeId' | 'shotId' | 'frameType'>,
+  regenerateRequest: string,
+) {
+  const trimmedRequest = regenerateRequest.trim()
+
+  if (trimmedRequest.length === 0) {
+    throw new Error('Keyframe regenerate request is empty.')
   }
 
   return [
-    prompt,
+    `Regenerate the current keyframe image for ${generation.keyframeId}.`,
+    `Use the attached ${generation.frameType} frame from ${generation.shotId} as the direct visual baseline.`,
+    'Preserve the rest of the framing, continuity, and character identity unless the approved change below explicitly asks for broader changes.',
     '',
-    'Requested edit:',
-    editInstruction,
-    '',
-    'Apply only this approved change while preserving the rest of the current keyframe unless the edit explicitly requests broader changes.',
+    'Approved change:',
+    trimmedRequest,
   ].join('\n')
 }
 
@@ -242,8 +248,6 @@ export async function runKeyframeGeneration(
   shots: ShotEntry[],
   options: {
     outputPath?: string
-    editInstruction?: string | null
-    selectedVersionPath?: string | null
     userReferences?: readonly ArtifactReferenceEntry[]
     logFile?: string
     cwd?: string
@@ -256,16 +260,12 @@ export async function runKeyframeGeneration(
     keyframes,
     shots,
     {
-      selectedVersionPath: options.selectedVersionPath,
       userReferences: options.userReferences ?? generation.userReferences ?? [],
     },
   )
   await assertReferenceFilesExist(references, generation.keyframeId, options.cwd)
 
-  const prompt = applyKeyframeEditInstruction(
-    resolveKeyframeGenerationPrompt(generation),
-    options.editInstruction,
-  )
+  const prompt = resolveKeyframeGenerationPrompt(generation)
   const generator = options.generator ?? generateImagenOptions
   const result = await generator({
     prompt,
@@ -296,9 +296,6 @@ export async function generateKeyframeArtifactVersion(
   keyframes: KeyframeEntry[],
   shots: ShotEntry[],
   options: {
-    editInstruction?: string | null
-    selectedVersionPath?: string | null
-    baseVersionId?: string | null
     userReferences?: readonly ArtifactReferenceEntry[]
     logFile?: string
     cwd?: string
@@ -315,9 +312,98 @@ export async function generateKeyframeArtifactVersion(
   try {
     const result = await runKeyframeGeneration(generation, keyframes, shots, {
       outputPath: stagedVersion.stagedPath,
-      editInstruction: options.editInstruction,
-      selectedVersionPath: options.selectedVersionPath,
       userReferences: options.userReferences,
+      logFile: options.logFile,
+      cwd,
+      seed: seed ?? undefined,
+      generator: options.generator,
+    })
+    const recorded = await recordArtifactVersionFromStage({
+      descriptor,
+      stagedPath: stagedVersion.stagedPath,
+      autoSelect: options.autoSelect,
+      cwd,
+    })
+
+    return {
+      ...result,
+      descriptor,
+      seed,
+      versionId: recorded.versionId,
+    }
+  } catch (error) {
+    await rm(path.resolve(cwd, stagedVersion.stagedPath), { force: true }).catch(() => undefined)
+    throw error
+  }
+}
+
+export async function runKeyframeRegeneration(
+  generation: PendingKeyframeGeneration,
+  options: {
+    outputPath?: string
+    regenerateRequest: string
+    selectedVersionPath: string
+    logFile?: string
+    cwd?: string
+    seed?: number
+    generator?: ImageGenerator
+  },
+) {
+  const { resolvedReferences, references } = resolveKeyframeRegenerationReferences(
+    options.selectedVersionPath,
+  )
+  await assertReferenceFilesExist(references, generation.keyframeId, options.cwd)
+
+  const prompt = buildKeyframeRegeneratePrompt(generation, options.regenerateRequest)
+  const generator = options.generator ?? generateImagenOptions
+  const result = await generator({
+    prompt,
+    model: generation.model,
+    size: DEFAULT_KEYFRAME_IMAGE_SIZE,
+    outputPath: options.outputPath ?? generation.outputPath,
+    keyframeId: generation.keyframeId,
+    shotId: generation.shotId,
+    frameType: generation.frameType,
+    references,
+    logFile: options.logFile,
+    cwd: options.cwd,
+    seed: options.seed,
+    artifactType: 'keyframe',
+    artifactId: generation.keyframeId,
+  })
+
+  return {
+    ...result,
+    prompt,
+    resolvedReferences,
+    references,
+  }
+}
+
+export async function regenerateKeyframeArtifactVersion(
+  generation: PendingKeyframeGeneration,
+  keyframes: KeyframeEntry[],
+  shots: ShotEntry[],
+  options: {
+    regenerateRequest: string
+    selectedVersionPath: string
+    logFile?: string
+    cwd?: string
+    seed?: number
+    autoSelect?: boolean
+    generator?: ImageGenerator
+  },
+) {
+  const descriptor = getKeyframeArtifactDescriptor(generation)
+  const cwd = options.cwd ?? process.cwd()
+  const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
+  const seed = options.seed ?? getVersionSeed(stagedVersion.versionId)
+
+  try {
+    const result = await runKeyframeRegeneration(generation, {
+      outputPath: stagedVersion.stagedPath,
+      regenerateRequest: options.regenerateRequest,
+      selectedVersionPath: options.selectedVersionPath,
       logFile: options.logFile,
       cwd,
       seed: seed ?? undefined,

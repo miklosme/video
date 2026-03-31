@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { getStoryboardArtifactDescriptor } from './artifact-control'
 import {
   buildStoryboardPrompt,
+  runStoryboardRegeneration,
   selectPendingStoryboardGeneration,
   syncStoryboardGeneration,
 } from './generate-storyboard'
@@ -58,6 +59,38 @@ test('selectPendingStoryboardGeneration preserves explicit storyboard sidecar re
   expect(generation.references).toEqual([
     { kind: 'storyboard-template', path: 'templates/STORYBOARD.template.png' },
   ])
+})
+
+test('runStoryboardRegeneration uses only the selected storyboard image and the approved request', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-regenerate-'))
+
+  try {
+    await writeRepoFile(rootDir, 'workspace/HISTORY/STORYBOARD/v2.png', 'selected-storyboard')
+
+    const result = await runStoryboardRegeneration({
+      model: 'image-test',
+      outputPath: 'workspace/HISTORY/STORYBOARD/.staged-v3.png',
+      regenerateRequest: 'Remove the extra character from the last panel.',
+      selectedVersionPath: 'workspace/HISTORY/STORYBOARD/v2.png',
+      cwd: rootDir,
+      generator: async (input) => ({
+        generationId: 'gen-1',
+        model: input.model ?? 'image-test',
+        outputPaths: [path.resolve(rootDir, input.outputPath ?? 'out.png')],
+      }),
+    })
+
+    expect(result.prompt).toContain('Regenerate the current storyboard board')
+    expect(result.prompt).toContain('Approved change:')
+    expect(result.prompt).toContain('Remove the extra character from the last panel.')
+    expect(result.prompt).not.toContain('Storyboard markdown:')
+    expect(result.prompt).not.toContain('storyboard template image')
+    expect(result.references).toEqual([
+      { kind: 'selected-image', path: 'workspace/HISTORY/STORYBOARD/v2.png' },
+    ])
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
 })
 
 test('generate-storyboard skips when the canonical storyboard image already exists', async () => {
