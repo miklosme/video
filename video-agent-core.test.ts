@@ -89,6 +89,14 @@ function createWorkflowStatus(items: Array<Record<string, unknown>>) {
   return `${JSON.stringify(items, null, 2)}\n`
 }
 
+function createPlannedKeyframes(keyframeIds: string[]) {
+  return keyframeIds.map((keyframeId) => ({
+    keyframeId,
+    frameType: keyframeId.endsWith('-END') ? ('end' as const) : ('start' as const),
+    imagePath: `workspace/KEYFRAMES/${keyframeId.slice(0, 7)}/${keyframeId}.png`,
+  }))
+}
+
 test('loadWorkflowSummary derives milestone readiness from workspace files', async () => {
   const repo = await createTestRepo()
 
@@ -278,36 +286,37 @@ test('loadWorkflowSummary distinguishes keyframe preparation from keyframe revie
           title: 'Plan keyframes',
           instruction: 'Plan the keyframes.',
           checked: false,
-          relatedFiles: ['KEYFRAMES.json'],
+          relatedFiles: ['SHOTS.json'],
         },
         {
           title: 'Prepare keyframes',
           instruction: 'Write the sidecars.',
           checked: false,
-          relatedFiles: ['KEYFRAMES.json', 'KEYFRAMES/'],
+          relatedFiles: ['SHOTS.json', 'KEYFRAMES/'],
         },
         {
           title: 'Review keyframes',
           instruction: 'Review the rendered PNGs.',
           checked: false,
-          relatedFiles: ['KEYFRAMES.json', 'KEYFRAMES/'],
+          relatedFiles: ['SHOTS.json', 'KEYFRAMES/'],
         },
       ]),
     )
     await writeRepoFile(
       repo.rootDir,
-      'workspace/KEYFRAMES.json',
+      'workspace/SHOTS.json',
       `${JSON.stringify(
         [
           {
-            keyframeId: 'SHOT-01-START',
             shotId: 'SHOT-01',
-            frameType: 'start',
-            title: 'Opening frame',
-            goal: 'Set the opening pose.',
             status: 'planned',
-            imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
-            characterIds: ['test-dog'],
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
           },
         ],
         null,
@@ -368,7 +377,7 @@ test('loadWorkflowSummary distinguishes storyboard authoring from storyboard rev
           title: 'Plan keyframes',
           instruction: 'Plan the keyframes.',
           checked: false,
-          relatedFiles: ['KEYFRAMES.json'],
+          relatedFiles: ['SHOTS.json'],
         },
       ]),
     )
@@ -593,6 +602,7 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
         shotId: 'SHOT-01',
         status: 'planned',
         videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+        keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
         keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
         durationSeconds: 4,
         incomingTransition: {
@@ -621,11 +631,11 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
       model: 'image-test',
       prompt: 'A calm opening frame.',
       outputPath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
-      characterIds: ['test-dog'],
       incomingTransition: {
         type: 'opening',
         notes: 'Open the sequence.',
       },
+      userReferences: undefined,
     },
   ])
   expect(characterGenerations).toEqual([
@@ -639,24 +649,25 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
   ])
 })
 
-test('loadKeyframes parses required characterIds', async () => {
+test('loadKeyframes flattens planned keyframes from SHOTS.json', async () => {
   const repo = await createTestRepo()
 
   try {
     await writeRepoFile(
       repo.rootDir,
-      'workspace/KEYFRAMES.json',
+      'workspace/SHOTS.json',
       `${JSON.stringify(
         [
           {
-            keyframeId: 'SHOT-01-START',
             shotId: 'SHOT-01',
-            frameType: 'start',
-            title: 'Opening frame',
-            goal: 'Set the opening pose.',
             status: 'planned',
-            imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
-            characterIds: ['test-dog'],
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
           },
         ],
         null,
@@ -666,7 +677,14 @@ test('loadKeyframes parses required characterIds', async () => {
 
     const keyframes = await loadKeyframes(repo.rootDir)
 
-    expect(keyframes[0]?.characterIds).toEqual(['test-dog'])
+    expect(keyframes).toEqual([
+      {
+        keyframeId: 'SHOT-01-START',
+        shotId: 'SHOT-01',
+        frameType: 'start',
+        imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+      },
+    ])
   } finally {
     await repo.cleanup()
   }
@@ -710,7 +728,7 @@ test('loadWorkflowSummary distinguishes shot planning from shot preparation and 
             shotId: 'SHOT-01',
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
-            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+            keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
             incomingTransition: {
               type: 'opening',
               notes: 'Open the sequence.',

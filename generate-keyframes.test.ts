@@ -19,12 +19,21 @@ async function writeRepoFile(rootDir: string, relativePath: string, content: str
   await writeFile(filePath, content, 'utf8')
 }
 
+function createPlannedKeyframes(keyframeIds: string[]) {
+  return keyframeIds.map((keyframeId) => ({
+    keyframeId,
+    frameType: keyframeId.endsWith('-END') ? ('end' as const) : ('start' as const),
+    imagePath: `workspace/KEYFRAMES/${keyframeId.slice(0, 7)}/${keyframeId}.png`,
+  }))
+}
+
 function createShots(): ShotEntry[] {
   return [
     {
       shotId: 'SHOT-01',
       status: 'planned',
       videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+      keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
       keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
       durationSeconds: 4,
       incomingTransition: {
@@ -36,6 +45,7 @@ function createShots(): ShotEntry[] {
       shotId: 'SHOT-02',
       status: 'planned',
       videoPath: 'workspace/SHOTS/SHOT-02.mp4',
+      keyframes: createPlannedKeyframes(['SHOT-02-START', 'SHOT-02-END']),
       keyframeIds: ['SHOT-02-START', 'SHOT-02-END'],
       durationSeconds: 4,
       incomingTransition: {
@@ -47,6 +57,7 @@ function createShots(): ShotEntry[] {
       shotId: 'SHOT-03',
       status: 'planned',
       videoPath: 'workspace/SHOTS/SHOT-03.mp4',
+      keyframes: createPlannedKeyframes(['SHOT-03-START', 'SHOT-03-END']),
       keyframeIds: ['SHOT-03-START', 'SHOT-03-END'],
       durationSeconds: 4,
       incomingTransition: {
@@ -396,11 +407,6 @@ test('generate-keyframes fails for a continuity shot when the previous shot end 
       'workspace/SHOTS.json',
       `${JSON.stringify(createShots().slice(0, 2), null, 2)}\n`,
     )
-    await writeRepoFile(
-      rootDir,
-      'workspace/KEYFRAMES.json',
-      `${JSON.stringify(createKeyframes().slice(0, 4), null, 2)}\n`,
-    )
     await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard')
     await writeRepoFile(rootDir, 'workspace/CHARACTERS/dog.png', 'character')
     await writeRepoFile(
@@ -473,11 +479,6 @@ test('generate-keyframes fails for an end keyframe when the same-shot start imag
       rootDir,
       'workspace/SHOTS.json',
       `${JSON.stringify(createShots().slice(0, 1), null, 2)}\n`,
-    )
-    await writeRepoFile(
-      rootDir,
-      'workspace/KEYFRAMES.json',
-      `${JSON.stringify(createKeyframes().slice(0, 2), null, 2)}\n`,
     )
     await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard')
     await writeRepoFile(rootDir, 'workspace/CHARACTERS/dog.png', 'character')

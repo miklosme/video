@@ -46,7 +46,6 @@ const ALLOWED_WORKSPACE_FILES = new Set([
   'CHARACTERS.md',
   'STORYBOARD.md',
   'STORYBOARD.json',
-  'KEYFRAMES.json',
   'SHOTS.json',
   'FINAL-CUT.json',
   'STATUS.json',
@@ -487,7 +486,7 @@ function buildRuntimeDirective(
     '- Avoid grid or collage layouts, split panels, extra subjects, scene clutter, dramatic lighting, text overlays, and non-canonical props in character-sheet prompts unless they are part of identity.',
   )
   lines.push(
-    '- Every KEYFRAMES.json entry must include characterIds listing only the characters visible in that frame, in the same order their character-sheet references should appear in the keyframe sidecar.',
+    '- SHOTS.json is the only planning manifest after storyboard review. Keep it generation-agnostic: prompts, references, and model fields live only in sidecars.',
   )
   lines.push(
     '- Sidecar references are the source of truth for still-image generation inputs. Do not assume runtime will append storyboard, character, or continuity references for fresh generations.',
@@ -502,10 +501,10 @@ function buildRuntimeDirective(
     '- frameType must be "start" or "end". By default plan both; when the shot begins and ends nearly the same, a deliberate one-anchor shot may use only one of them.',
   )
   lines.push(
-    '- SHOTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, keyframeIds, durationSeconds, incomingTransition: { type, notes } }.',
+    '- SHOTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, durationSeconds, incomingTransition: { type, notes }, keyframes: [{ keyframeId, frameType, imagePath }] }.',
   )
   lines.push(
-    '- SHOTS.json.keyframeIds should match the planned anchors in KEYFRAMES.json: either one anchor id or one start/end pair.',
+    '- Each SHOTS.json.keyframes array should contain either one anchor entry or one start/end pair for that shot.',
   )
   lines.push(
     `- Each SHOTS.json entry should include durationSeconds for the target clip length; default to ${DEFAULT_VIDEO_DURATION_SECONDS} when the user has not specified one.`,
@@ -711,9 +710,6 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         validateConfigAgainstModelOptions(config, modelOptions)
         return
       }
-      case 'KEYFRAMES.json':
-        await loadKeyframes(rootDir)
-        return
       case 'STORYBOARD.json':
         await loadStoryboardSidecar(rootDir)
         return
@@ -850,14 +846,6 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             validateConfigAgainstModelOptions(config, modelOptions)
             return 'ready'
           }
-          case 'KEYFRAMES.json': {
-            const entries = await loadKeyframes(rootDir)
-            if (entries.length === 0) {
-              return 'incomplete'
-            }
-
-            return containsPlaceholderValue(entries) ? 'incomplete' : 'ready'
-          }
           case 'STORYBOARD.json': {
             const entry = await loadStoryboardSidecar(rootDir)
             if (entry === null) {
@@ -952,7 +940,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
   }
 
   const inspectKeyframesPreparation = async (): Promise<ArtifactReadiness> => {
-    if (!(await workspacePathExists(WORKFLOW_FILES.keyframes, rootDir))) {
+    if (!(await workspacePathExists(WORKFLOW_FILES.shotPrompts, rootDir))) {
       return 'missing'
     }
 
@@ -1562,7 +1550,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             fileName: z
               .string()
               .describe(
-                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, STORYBOARD.md, STORYBOARD.json, KEYFRAMES.json, SHOTS.json, or FINAL-CUT.json',
+                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, STORYBOARD.md, STORYBOARD.json, SHOTS.json, or FINAL-CUT.json',
               ),
           }),
           execute: async ({ fileName }) => {
@@ -1613,7 +1601,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             fileName: z
               .string()
               .describe(
-                'Canonical workspace filename such as CONFIG.json, STORY.md, STORYBOARD.md, STORYBOARD.json, KEYFRAMES.json, SHOTS.json, or FINAL-CUT.json',
+                'Canonical workspace filename such as CONFIG.json, STORY.md, STORYBOARD.md, STORYBOARD.json, SHOTS.json, or FINAL-CUT.json',
               ),
             content: z.string().describe('The complete new file contents.'),
           }),

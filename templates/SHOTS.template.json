@@ -3,11 +3,22 @@
     "shotId": "SHOT-01",
     "status": "planned",
     "videoPath": "workspace/SHOTS/SHOT-01.mp4",
-    "keyframeIds": ["SHOT-01-START", "SHOT-01-END"],
     "durationSeconds": 4,
     "incomingTransition": {
       "type": "opening",
       "notes": "TBD"
-    }
+    },
+    "keyframes": [
+      {
+        "keyframeId": "SHOT-01-START",
+        "frameType": "start",
+        "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png"
+      },
+      {
+        "keyframeId": "SHOT-01-END",
+        "frameType": "end",
+        "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png"
+      }
+    ]
   }
 ]

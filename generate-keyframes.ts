@@ -45,7 +45,7 @@ export interface PendingKeyframeGeneration {
   model: string
   prompt: string
   outputPath: string
-  characterIds: string[]
+  characterIds?: string[]
   incomingTransition: ShotIncomingTransitionEntry
   userReferences?: ArtifactReferenceEntry[]
 }
@@ -116,7 +116,6 @@ export function selectPendingKeyframeGenerations(
           model: artifact.model,
           prompt: artifact.prompt,
           outputPath: entry.imagePath,
-          characterIds: entry.characterIds,
           incomingTransition: shot.incomingTransition,
           userReferences: artifact.references,
         }
@@ -192,7 +191,7 @@ export function planKeyframeGenerationReferences(
     PendingKeyframeGeneration,
     'keyframeId' | 'shotId' | 'frameType' | 'incomingTransition'
   > & {
-    characterIds: readonly string[]
+    characterIds?: readonly string[]
   },
   keyframes: KeyframeEntry[],
   shots: ShotEntry[],

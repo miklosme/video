@@ -1528,8 +1528,12 @@ async function buildCharacterCards(cwd: string) {
 }
 
 async function buildReviewShots(cwd: string): Promise<KeyframeReviewShot[]> {
-  const keyframes = await loadKeyframesOrEmpty(cwd)
+  const [keyframes, artifacts] = await Promise.all([
+    loadKeyframesOrEmpty(cwd),
+    loadKeyframeArtifactsOrEmpty(cwd),
+  ])
   const shots = new Map<string, KeyframeEntry[]>()
+  const artifactsByKeyframeId = new Map(artifacts.map((entry) => [entry.keyframeId, entry]))
 
   for (const entry of keyframes) {
     const existingShot = shots.get(entry.shotId) ?? []
@@ -1542,12 +1546,14 @@ async function buildReviewShots(cwd: string): Promise<KeyframeReviewShot[]> {
       const slotsByType = new Map<FrameType, KeyframeReviewSlot>()
 
       for (const entry of entries) {
+        const artifact = artifactsByKeyframeId.get(entry.keyframeId)
+
         slotsByType.set(entry.frameType, {
           keyframeId: entry.keyframeId,
           frameType: entry.frameType,
-          title: entry.title,
-          goal: entry.goal,
-          status: entry.status,
+          title: entry.keyframeId,
+          goal: `${entry.frameType === 'start' ? 'Start' : 'End'} anchor`,
+          status: artifact?.status ?? 'planned',
           href: `/keyframes/${encodeURIComponent(entry.keyframeId)}`,
           imageUrl: `/${encodeAssetUrl(entry.imagePath)}`,
           imageExists: await fileExists(resolveRepoPath(entry.imagePath, cwd)),
@@ -1669,7 +1675,7 @@ async function loadKeyframeDetail(
   return {
     descriptor,
     activeTab: 'keyframes' as const,
-    title: keyframe.title,
+    title: keyframe.keyframeId,
     subtitle:
       'Use the current artifact, retained versions, and explicit references to iterate on a single keyframe without manual file copying.',
     summaryHref: '/keyframes',
@@ -1683,9 +1689,9 @@ async function loadKeyframeDetail(
     sourceReferences: artifact?.references ?? [],
     sourcePrompt: artifact?.prompt ?? null,
     sourceModel: artifact?.model ?? null,
-    sourceStatus: artifact?.status ?? keyframe.status,
+    sourceStatus: artifact?.status ?? 'planned',
     historyState,
-    notesHtml: `<section class="panel"><p class="section-title">Keyframe Goal</p><p class="muted">${escapeHtml(keyframe.goal)}</p></section>`,
+    notesHtml: `<section class="panel"><p class="section-title">Keyframe Plan</p><p class="muted">Shot: ${escapeHtml(keyframe.shotId)}</p><p class="small">Frame type: ${escapeHtml(keyframe.frameType)}</p></section>`,
     canEdit:
       (historyState.currentExists || historyState.activeVersionId !== null) &&
       artifact !== undefined,

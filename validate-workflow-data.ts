@@ -3,8 +3,7 @@ import path from 'node:path'
 
 import { resolveFinalCutProps } from './final-cut'
 import {
-  getCharacterSheetImagePath,
-  getStoryboardImagePath,
+  LEGACY_KEYFRAMES_FILE,
   loadCharacterSheets,
   loadConfig,
   loadKeyframeArtifacts,
@@ -94,16 +93,6 @@ function summarizeFrameTypes(entries: { frameType: FrameType }[]) {
   return [...new Set(entries.map((entry) => entry.frameType))].sort().join(', ')
 }
 
-function getPreviousShot(shots: ShotEntry[], shotId: string) {
-  const shotIndex = shots.findIndex((entry) => entry.shotId === shotId)
-
-  if (shotIndex === -1) {
-    throw new Error(`Cannot find shot "${shotId}" in workspace/SHOTS.json.`)
-  }
-
-  return shotIndex === 0 ? null : shots[shotIndex - 1]!
-}
-
 function assertReferenceAtIndex(
   references: readonly ArtifactReferenceEntry[],
   index: number,
@@ -121,131 +110,15 @@ function assertReferenceAtIndex(
   )
 }
 
-function buildExpectedKeyframeReferencePrefix(
-  keyframe: KeyframeEntry,
-  shot: ShotEntry,
-  keyframes: KeyframeEntry[],
-  shots: ShotEntry[],
-): ArtifactReferenceEntry[] {
-  const expectedReferences: ArtifactReferenceEntry[] = []
-
-  if (keyframe.frameType !== 'end' && shot.incomingTransition.type === 'continuity') {
-    const previousShot = getPreviousShot(shots, shot.shotId)
-
-    if (!previousShot) {
-      throw new Error(
-        `Keyframe artifact "${keyframe.keyframeId}" requires a previous shot because its incoming transition is "continuity".`,
-      )
-    }
-
-    const previousEndKeyframe = keyframes.find(
-      (entry) => entry.shotId === previousShot.shotId && entry.frameType === 'end',
-    )
-
-    if (!previousEndKeyframe) {
-      throw new Error(
-        `Keyframe artifact "${keyframe.keyframeId}" requires the previous shot "${previousShot.shotId}" to define an end keyframe.`,
-      )
-    }
-
-    expectedReferences.push({
-      kind: 'previous-shot-end-frame',
-      path: previousEndKeyframe.imagePath,
-    })
-  }
-
-  if (keyframe.frameType === 'end') {
-    const startKeyframe = keyframes.find(
-      (entry) => entry.shotId === keyframe.shotId && entry.frameType === 'start',
-    )
-
-    if (startKeyframe) {
-      expectedReferences.push({
-        kind: 'start-frame',
-        path: startKeyframe.imagePath,
-      })
-    }
-  }
-
-  expectedReferences.push({
-    kind: 'storyboard',
-    path: getStoryboardImagePath(),
-  })
-
-  for (const characterId of keyframe.characterIds) {
-    expectedReferences.push({
-      kind: 'character-sheet',
-      path: getCharacterSheetImagePath(characterId),
-    })
-  }
-
-  return expectedReferences
-}
-
-function validateKeyframeArtifactReferenceOrder(
-  keyframe: KeyframeEntry,
-  shot: ShotEntry,
-  artifact: KeyframeArtifactEntry,
-  keyframes: KeyframeEntry[],
-  shots: ShotEntry[],
-) {
-  const references = artifact.references ?? []
-  const context = `Keyframe artifact "${artifact.keyframeId}"`
-
-  if (references.length === 0) {
-    throw new Error(`${context} must declare explicit references in sidecar order.`)
-  }
-
-  const expectedPrefix = buildExpectedKeyframeReferencePrefix(keyframe, shot, keyframes, shots)
-
-  for (const [index, expectedReference] of expectedPrefix.entries()) {
-    assertReferenceAtIndex(references, index, expectedReference, context)
-  }
-
-  for (const [index, reference] of references.entries()) {
-    if (index < expectedPrefix.length) {
-      continue
-    }
-
-    if (reference.kind !== 'user-reference') {
-      throw new Error(
-        `${context} reference ${index + 1} must use kind "user-reference" after the required structural references.`,
-      )
-    }
-  }
-}
-
-async function validateKeyframes(
-  keyframes: KeyframeEntry[],
-  characterSheets: CharacterSheetEntry[],
-) {
+async function validateKeyframes(keyframes: KeyframeEntry[]) {
   const keyframeIds = new Set<string>()
-  const characterIds = new Set(characterSheets.map((entry) => entry.characterId))
 
   for (const entry of keyframes) {
     if (keyframeIds.has(entry.keyframeId)) {
-      throw new Error(`Duplicate keyframeId "${entry.keyframeId}" in workspace/KEYFRAMES.json.`)
+      throw new Error(`Duplicate keyframeId "${entry.keyframeId}" in workspace/SHOTS.json.`)
     }
 
     keyframeIds.add(entry.keyframeId)
-
-    for (const characterId of entry.characterIds) {
-      if (!characterIds.has(characterId)) {
-        throw new Error(
-          `Keyframe "${entry.keyframeId}" references missing character "${characterId}" in workspace/CHARACTERS/.`,
-        )
-      }
-
-      const characterSheetImagePath = resolveRepoPath(getCharacterSheetImagePath(characterId))
-
-      try {
-        await access(characterSheetImagePath)
-      } catch {
-        throw new Error(
-          `Keyframe "${entry.keyframeId}" requires character sheet image "${path.relative(process.cwd(), characterSheetImagePath)}".`,
-        )
-      }
-    }
   }
 
   for (const [shotId, entries] of groupByShotId(keyframes)) {
@@ -298,11 +171,9 @@ function validateKeyframeArtifacts(keyframes: KeyframeEntry[], artifacts: Keyfra
 
 export async function validateKeyframeArtifactReferences(
   keyframes: KeyframeEntry[],
-  shots: ShotEntry[],
   artifacts: KeyframeArtifactEntry[],
 ) {
   const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
-  const shotById = new Map(shots.map((entry) => [entry.shotId, entry]))
 
   for (const artifact of artifacts) {
     await validateArtifactReferencesExist(
@@ -311,13 +182,10 @@ export async function validateKeyframeArtifactReferences(
     )
 
     const keyframe = keyframeById.get(artifact.keyframeId)
-    const shot = shotById.get(artifact.shotId)
 
-    if (!keyframe || !shot) {
+    if (!keyframe) {
       continue
     }
-
-    validateKeyframeArtifactReferenceOrder(keyframe, shot, artifact, keyframes, shots)
   }
 }
 
@@ -477,7 +345,7 @@ async function main() {
   const config = await loadConfig()
   validateConfigAgainstModelOptions(config, modelOptions)
   const status = await loadStatus()
-  const keyframesExists = await workspacePathExists(WORKFLOW_FILES.keyframes)
+  const legacyKeyframesExists = await workspacePathExists(LEGACY_KEYFRAMES_FILE)
   const shotPromptsExists = await workspacePathExists(WORKFLOW_FILES.shotPrompts)
   const finalCutExists = await workspacePathExists(WORKFLOW_FILES.finalCut)
   const characterSheets = await loadCharacterSheets()
@@ -485,7 +353,13 @@ async function main() {
   const shotArtifacts = await loadShotArtifacts()
   const storyboardSidecar = await loadStoryboardSidecar()
 
-  const keyframes = keyframesExists ? await loadKeyframes() : []
+  if (legacyKeyframesExists) {
+    throw new Error(
+      `Legacy ${LEGACY_KEYFRAMES_FILE} is no longer supported. Merge its entries into ${WORKFLOW_FILES.shotPrompts} and remove the old file.`,
+    )
+  }
+
+  const keyframes = shotPromptsExists ? await loadKeyframes() : []
   const shots = shotPromptsExists ? await loadShotPrompts() : []
 
   const storyboardReviewChecked = status.some(
@@ -507,9 +381,9 @@ async function main() {
   }
 
   await validateCharacterSheets(characterSheets)
-  await validateKeyframes(keyframes, characterSheets)
+  await validateKeyframes(keyframes)
   validateKeyframeArtifacts(keyframes, keyframeArtifacts)
-  await validateKeyframeArtifactReferences(keyframes, shots, keyframeArtifacts)
+  await validateKeyframeArtifactReferences(keyframes, keyframeArtifacts)
   validateShots(keyframes, shots)
   await validateShotArtifacts(shots, shotArtifacts)
   await validateStoryboardSidecar(storyboardSidecar)
@@ -527,7 +401,7 @@ async function main() {
         statusItems: status.length,
         readyMilestones: status.filter((item) => item.checked).length,
         characterSheetsCount: characterSheets.length,
-        keyframesPresent: keyframesExists,
+        keyframesPresent: shotPromptsExists,
         keyframesCount: keyframes.length,
         keyframeArtifactsCount: keyframeArtifacts.length,
         shotPromptsPresent: shotPromptsExists,

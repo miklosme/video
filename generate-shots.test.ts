@@ -29,6 +29,14 @@ async function createTestRepo() {
   }
 }
 
+function createPlannedKeyframes(keyframeIds: string[]) {
+  return keyframeIds.map((keyframeId) => ({
+    keyframeId,
+    frameType: keyframeId.endsWith('-END') ? ('end' as const) : ('start' as const),
+    imagePath: `workspace/KEYFRAMES/${keyframeId.slice(0, 7)}/${keyframeId}.png`,
+  }))
+}
+
 test('loadShotPrompts parses planning-only shot entries', async () => {
   const repo = await createTestRepo()
 
@@ -42,12 +50,12 @@ test('loadShotPrompts parses planning-only shot entries', async () => {
             shotId: 'SHOT-01',
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
-            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
             durationSeconds: 4,
             incomingTransition: {
               type: 'opening',
               notes: 'Open the sequence.',
             },
+            keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
         null,
@@ -62,6 +70,7 @@ test('loadShotPrompts parses planning-only shot entries', async () => {
         shotId: 'SHOT-01',
         status: 'planned',
         videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+        keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
         keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
         durationSeconds: 4,
         incomingTransition: {
@@ -88,11 +97,11 @@ test('loadShotPrompts defaults durationSeconds when omitted', async () => {
             shotId: 'SHOT-01',
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
-            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
             incomingTransition: {
               type: 'opening',
               notes: 'Open the sequence.',
             },
+            keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
         null,
@@ -220,12 +229,8 @@ test('planShotGenerationAssets uses start and end anchors and caps deduped chara
   expect(planShotGenerationAssets(generation, keyframes)).toEqual({
     inputImagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
     lastFramePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
-    characterIds: ['dog', 'pack', 'bowl', 'room'],
-    referenceImagePaths: [
-      'workspace/CHARACTERS/dog.png',
-      'workspace/CHARACTERS/pack.png',
-      'workspace/CHARACTERS/bowl.png',
-    ],
+    characterIds: [],
+    referenceImagePaths: [],
     references: [
       {
         kind: 'start-frame',
@@ -234,18 +239,6 @@ test('planShotGenerationAssets uses start and end anchors and caps deduped chara
       {
         kind: 'end-frame',
         path: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
-      },
-      {
-        kind: 'character-sheet',
-        path: 'workspace/CHARACTERS/dog.png',
-      },
-      {
-        kind: 'character-sheet',
-        path: 'workspace/CHARACTERS/pack.png',
-      },
-      {
-        kind: 'character-sheet',
-        path: 'workspace/CHARACTERS/bowl.png',
       },
     ],
   })
@@ -276,16 +269,12 @@ test('planShotGenerationAssets uses a lone start anchor as input without a last-
   expect(planShotGenerationAssets(generation, keyframes)).toEqual({
     inputImagePath: 'workspace/KEYFRAMES/SHOT-START-ONLY/SHOT-START-ONLY-START.png',
     lastFramePath: null,
-    characterIds: ['dog'],
-    referenceImagePaths: ['workspace/CHARACTERS/dog.png'],
+    characterIds: [],
+    referenceImagePaths: [],
     references: [
       {
         kind: 'start-frame',
         path: 'workspace/KEYFRAMES/SHOT-START-ONLY/SHOT-START-ONLY-START.png',
-      },
-      {
-        kind: 'character-sheet',
-        path: 'workspace/CHARACTERS/dog.png',
       },
     ],
   })
@@ -316,22 +305,18 @@ test('planShotGenerationAssets uses a lone end anchor as input without a last-fr
   expect(planShotGenerationAssets(generation, keyframes)).toEqual({
     inputImagePath: 'workspace/KEYFRAMES/SHOT-END-ONLY/SHOT-END-ONLY-END.png',
     lastFramePath: null,
-    characterIds: ['dog'],
-    referenceImagePaths: ['workspace/CHARACTERS/dog.png'],
+    characterIds: [],
+    referenceImagePaths: [],
     references: [
       {
         kind: 'end-frame',
         path: 'workspace/KEYFRAMES/SHOT-END-ONLY/SHOT-END-ONLY-END.png',
       },
-      {
-        kind: 'character-sheet',
-        path: 'workspace/CHARACTERS/dog.png',
-      },
     ],
   })
 })
 
-test('planShotGenerationAssets errors when all referenced anchors are missing from KEYFRAMES.json', () => {
+test('planShotGenerationAssets errors when all referenced anchors are missing from SHOTS.json', () => {
   const generation: PendingShotGeneration = {
     shotId: 'SHOT-404',
     model: 'video-test',
@@ -342,11 +327,11 @@ test('planShotGenerationAssets errors when all referenced anchors are missing fr
   }
 
   expect(() => planShotGenerationAssets(generation, [])).toThrow(
-    'Shot "SHOT-404" cannot be generated because all referenced keyframes are missing from workspace/KEYFRAMES.json.',
+    'Shot "SHOT-404" cannot be generated because all referenced keyframes are missing from workspace/SHOTS.json.',
   )
 })
 
-test('planShotGenerationAssets prioritizes explicit user references ahead of derived character sheets', () => {
+test('planShotGenerationAssets uses only explicit shot-sidecar references', () => {
   const generation: PendingShotGeneration = {
     shotId: 'SHOT-02',
     model: 'video-test',
@@ -393,12 +378,8 @@ test('planShotGenerationAssets prioritizes explicit user references ahead of der
   expect(planShotGenerationAssets(generation, keyframes)).toEqual({
     inputImagePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png',
     lastFramePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png',
-    characterIds: ['dog', 'pack'],
-    referenceImagePaths: [
-      'workspace/REFERENCES/layout.png',
-      'workspace/REFERENCES/light.png',
-      'workspace/CHARACTERS/dog.png',
-    ],
+    characterIds: [],
+    referenceImagePaths: ['workspace/REFERENCES/layout.png', 'workspace/REFERENCES/light.png'],
     references: [
       {
         kind: 'start-frame',
@@ -415,10 +396,6 @@ test('planShotGenerationAssets prioritizes explicit user references ahead of der
       {
         kind: 'user-reference',
         path: 'workspace/REFERENCES/light.png',
-      },
-      {
-        kind: 'character-sheet',
-        path: 'workspace/CHARACTERS/dog.png',
       },
     ],
   })

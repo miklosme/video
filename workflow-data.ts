@@ -55,11 +55,11 @@ export interface KeyframeEntry {
   keyframeId: string
   shotId: string
   frameType: FrameType
-  title: string
-  goal: string
-  status: string
   imagePath: string
-  characterIds: string[]
+  title?: string
+  goal?: string
+  status?: string
+  characterIds?: string[]
 }
 
 export type KeyframesData = KeyframeEntry[]
@@ -92,10 +92,17 @@ export interface ShotIncomingTransitionEntry {
   notes: string
 }
 
+export interface ShotKeyframeEntry {
+  keyframeId: string
+  frameType: FrameType
+  imagePath: string
+}
+
 export interface ShotEntry {
   shotId: string
   status: string
   videoPath: string
+  keyframes?: ShotKeyframeEntry[]
   keyframeIds: string[]
   durationSeconds: number
   incomingTransition: ShotIncomingTransitionEntry
@@ -204,6 +211,7 @@ export interface GenerationReferenceEntry {
 
 export const WORKSPACE_DIR = 'workspace'
 export const MODEL_OPTIONS_FILE = 'MODEL_OPTIONS.json'
+export const LEGACY_KEYFRAMES_FILE = 'KEYFRAMES.json'
 
 export const WORKFLOW_FILES = {
   config: 'CONFIG.json',
@@ -211,7 +219,6 @@ export const WORKFLOW_FILES = {
   storyboard: 'STORYBOARD.md',
   storyboardSidecar: 'STORYBOARD.json',
   storyboardImage: 'STORYBOARD.png',
-  keyframes: 'KEYFRAMES.json',
   shotPrompts: 'SHOTS.json',
   finalCut: 'FINAL-CUT.json',
 } as const
@@ -509,10 +516,13 @@ function parseStatusData(value: unknown): StatusData {
   )
 }
 
-function parseKeyframeEntry(value: unknown, context: string): KeyframeEntry {
+function parseShotKeyframeEntry(
+  value: unknown,
+  shotId: string,
+  context: string,
+): ShotKeyframeEntry {
   const object = expectObject(value, context)
   const keyframeId = expectString(object.keyframeId, `${context}.keyframeId`)
-  const shotId = expectString(object.shotId, `${context}.shotId`)
   const imagePath = expectString(object.imagePath, `${context}.imagePath`)
   const expectedImagePath = getKeyframeImagePath({ keyframeId, shotId })
 
@@ -522,19 +532,19 @@ function parseKeyframeEntry(value: unknown, context: string): KeyframeEntry {
 
   return {
     keyframeId,
-    shotId,
     frameType: expectFrameType(object.frameType, `${context}.frameType`),
-    title: expectString(object.title, `${context}.title`),
-    goal: expectString(object.goal, `${context}.goal`),
-    status: expectString(object.status, `${context}.status`),
     imagePath,
-    characterIds: expectStringArray(object.characterIds, `${context}.characterIds`),
   }
 }
 
-function parseKeyframesData(value: unknown): KeyframesData {
-  return expectArray(value, 'KEYFRAMES.json').map((entry, index) =>
-    parseKeyframeEntry(entry, `KEYFRAMES.json[${index}]`),
+function flattenShotKeyframes(shots: ShotsData): KeyframesData {
+  return shots.flatMap((shot) =>
+    (shot.keyframes ?? []).map((keyframe) => ({
+      keyframeId: keyframe.keyframeId,
+      shotId: shot.shotId,
+      frameType: keyframe.frameType,
+      imagePath: keyframe.imagePath,
+    })),
   )
 }
 
@@ -602,6 +612,9 @@ function parseShotEntry(value: unknown, context: string): ShotEntry {
   const shotId = expectString(object.shotId, `${context}.shotId`)
   const videoPath = expectString(object.videoPath, `${context}.videoPath`)
   const expectedVideoPath = getShotVideoPath({ shotId })
+  const keyframes = expectArray(object.keyframes, `${context}.keyframes`).map((entry, index) =>
+    parseShotKeyframeEntry(entry, shotId, `${context}.keyframes[${index}]`),
+  )
   const durationSeconds =
     object.durationSeconds === undefined
       ? DEFAULT_VIDEO_DURATION_SECONDS
@@ -615,7 +628,8 @@ function parseShotEntry(value: unknown, context: string): ShotEntry {
     shotId,
     status: expectString(object.status, `${context}.status`),
     videoPath,
-    keyframeIds: expectStringArray(object.keyframeIds, `${context}.keyframeIds`),
+    keyframes,
+    keyframeIds: keyframes.map((entry) => entry.keyframeId),
     durationSeconds,
     incomingTransition: parseShotIncomingTransitionEntry(
       object.incomingTransition,
@@ -826,7 +840,9 @@ export async function loadModelOptions(cwd = process.cwd()) {
 }
 
 export async function loadKeyframes(cwd = process.cwd()) {
-  return readJsonFile(WORKFLOW_FILES.keyframes, parseKeyframesData, cwd)
+  const shots = await loadShotPrompts(cwd)
+
+  return flattenShotKeyframes(shots)
 }
 
 export async function loadStoryboardSidecar(cwd = process.cwd()) {
@@ -859,6 +875,12 @@ export async function loadCharacterSheets(cwd = process.cwd()) {
 }
 
 export async function loadShotPrompts(cwd = process.cwd()) {
+  if (await workspacePathExists(LEGACY_KEYFRAMES_FILE, cwd)) {
+    throw new Error(
+      `Legacy ${LEGACY_KEYFRAMES_FILE} is no longer supported. Merge its entries into ${WORKFLOW_FILES.shotPrompts} and remove the old file.`,
+    )
+  }
+
   return readJsonFile(WORKFLOW_FILES.shotPrompts, parseShotsData, cwd)
 }
 

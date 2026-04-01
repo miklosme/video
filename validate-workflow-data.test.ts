@@ -73,6 +73,14 @@ function runValidation(rootDir: string) {
   })
 }
 
+function createPlannedKeyframes(keyframeIds: string[]) {
+  return keyframeIds.map((keyframeId) => ({
+    keyframeId,
+    frameType: keyframeId.endsWith('-END') ? ('end' as const) : ('start' as const),
+    imagePath: `workspace/KEYFRAMES/${keyframeId.slice(0, 7)}/${keyframeId}.png`,
+  }))
+}
+
 test('validate-workflow-data rejects keyframe references without a typed kind', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
 
@@ -98,26 +106,6 @@ test('validate-workflow-data rejects keyframe references without a typed kind', 
     await writeRepoFile(rootDir, 'workspace/CHARACTERS/hero.png', 'hero')
     await writeRepoFile(
       rootDir,
-      'workspace/KEYFRAMES.json',
-      `${JSON.stringify(
-        [
-          {
-            keyframeId: 'SHOT-01-START',
-            shotId: 'SHOT-01',
-            frameType: 'start',
-            title: 'Open',
-            goal: 'Open the shot.',
-            status: 'planned',
-            imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
-            characterIds: ['hero'],
-          },
-        ],
-        null,
-        2,
-      )}\n`,
-    )
-    await writeRepoFile(
-      rootDir,
       'workspace/SHOTS.json',
       `${JSON.stringify(
         [
@@ -125,12 +113,12 @@ test('validate-workflow-data rejects keyframe references without a typed kind', 
             shotId: 'SHOT-01',
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
-            keyframeIds: ['SHOT-01-START'],
             durationSeconds: 4,
             incomingTransition: {
               type: 'opening',
               notes: 'Open the sequence.',
             },
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
           },
         ],
         null,
@@ -256,36 +244,6 @@ test('validate-workflow-data accepts explicit multi-character end-keyframe refer
 
     await writeRepoFile(
       rootDir,
-      'workspace/KEYFRAMES.json',
-      `${JSON.stringify(
-        [
-          {
-            keyframeId: 'SHOT-01-START',
-            shotId: 'SHOT-01',
-            frameType: 'start',
-            title: 'Open',
-            goal: 'Open the shot.',
-            status: 'planned',
-            imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
-            characterIds: ['alpha', 'beta', 'gamma'],
-          },
-          {
-            keyframeId: 'SHOT-01-END',
-            shotId: 'SHOT-01',
-            frameType: 'end',
-            title: 'Land',
-            goal: 'Land the shot.',
-            status: 'planned',
-            imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
-            characterIds: ['alpha', 'beta', 'gamma'],
-          },
-        ],
-        null,
-        2,
-      )}\n`,
-    )
-    await writeRepoFile(
-      rootDir,
       'workspace/SHOTS.json',
       `${JSON.stringify(
         [
@@ -293,12 +251,12 @@ test('validate-workflow-data accepts explicit multi-character end-keyframe refer
             shotId: 'SHOT-01',
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
-            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
             durationSeconds: 4,
             incomingTransition: {
               type: 'opening',
               notes: 'Open the sequence.',
             },
+            keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
         null,
@@ -354,29 +312,11 @@ test('validate-workflow-data accepts explicit multi-character end-keyframe refer
   }
 })
 
-test('validate-workflow-data rejects continuity refs that do not point to the actual previous shot end frame', async () => {
+test('validate-workflow-data rejects the legacy KEYFRAMES.json manifest', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
 
   try {
     await writeValidationBaseFiles(rootDir)
-    await writeRepoFile(rootDir, 'workspace/STORYBOARD.md', '# STORYBOARD\n')
-    await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard')
-    await writeRepoFile(
-      rootDir,
-      'workspace/CHARACTERS/hero.json',
-      `${JSON.stringify(
-        {
-          characterId: 'hero',
-          displayName: 'Hero',
-          model: 'image-test',
-          prompt: 'A clean reference.',
-          status: 'ready',
-        },
-        null,
-        2,
-      )}\n`,
-    )
-    await writeRepoFile(rootDir, 'workspace/CHARACTERS/hero.png', 'hero')
     await writeRepoFile(
       rootDir,
       'workspace/KEYFRAMES.json',
@@ -386,86 +326,9 @@ test('validate-workflow-data rejects continuity refs that do not point to the ac
             keyframeId: 'SHOT-01-END',
             shotId: 'SHOT-01',
             frameType: 'end',
-            title: 'Land',
-            goal: 'Land the first shot.',
-            status: 'planned',
             imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
-            characterIds: ['hero'],
-          },
-          {
-            keyframeId: 'SHOT-02-START',
-            shotId: 'SHOT-02',
-            frameType: 'start',
-            title: 'Continue',
-            goal: 'Continue into the next shot.',
-            status: 'planned',
-            imagePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png',
-            characterIds: ['hero'],
           },
         ],
-        null,
-        2,
-      )}\n`,
-    )
-    await writeRepoFile(
-      rootDir,
-      'workspace/SHOTS.json',
-      `${JSON.stringify(
-        [
-          {
-            shotId: 'SHOT-01',
-            status: 'planned',
-            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
-            keyframeIds: ['SHOT-01-END'],
-            durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
-          },
-          {
-            shotId: 'SHOT-02',
-            status: 'planned',
-            videoPath: 'workspace/SHOTS/SHOT-02.mp4',
-            keyframeIds: ['SHOT-02-START'],
-            durationSeconds: 4,
-            incomingTransition: {
-              type: 'continuity',
-              notes: 'Carry the same geography forward.',
-            },
-          },
-        ],
-        null,
-        2,
-      )}\n`,
-    )
-    await writeRepoFile(rootDir, 'workspace/KEYFRAMES/SHOT-99/SHOT-99-END.png', 'wrong-previous')
-    await writeRepoFile(
-      rootDir,
-      'workspace/KEYFRAMES/SHOT-02/SHOT-02-START.json',
-      `${JSON.stringify(
-        {
-          keyframeId: 'SHOT-02-START',
-          shotId: 'SHOT-02',
-          frameType: 'start',
-          model: 'image-test',
-          prompt: 'Prompt.',
-          status: 'planned',
-          references: [
-            {
-              kind: 'previous-shot-end-frame',
-              path: 'workspace/KEYFRAMES/SHOT-99/SHOT-99-END.png',
-            },
-            {
-              kind: 'storyboard',
-              path: 'workspace/STORYBOARD.png',
-            },
-            {
-              kind: 'character-sheet',
-              path: 'workspace/CHARACTERS/hero.png',
-            },
-          ],
-        },
         null,
         2,
       )}\n`,
@@ -475,7 +338,7 @@ test('validate-workflow-data rejects continuity refs that do not point to the ac
 
     expect(result.exitCode).toBe(1)
     expect(new TextDecoder().decode(result.stderr)).toContain(
-      'Keyframe artifact "SHOT-02-START" reference 1 must be previous-shot-end-frame at "workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png".',
+      'Legacy KEYFRAMES.json is no longer supported. Merge its entries into SHOTS.json and remove the old file.',
     )
   } finally {
     await rm(rootDir, { recursive: true, force: true })

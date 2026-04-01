@@ -12,6 +12,14 @@ async function writeRepoFile(rootDir: string, relativePath: string, content: str
   await writeFile(filePath, content, 'utf8')
 }
 
+function createPlannedKeyframes(keyframeIds: string[]) {
+  return keyframeIds.map((keyframeId) => ({
+    keyframeId,
+    frameType: keyframeId.endsWith('-END') ? ('end' as const) : ('start' as const),
+    imagePath: `workspace/KEYFRAMES/${keyframeId.slice(0, 7)}/${keyframeId}.png`,
+  }))
+}
+
 function createKeyframes(): KeyframeEntry[] {
   return [
     {
@@ -70,8 +78,8 @@ test('loadShotPrompts rejects missing incomingTransition', async () => {
             shotId: 'SHOT-01',
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
-            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
             durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
         null,
@@ -100,12 +108,12 @@ test('loadShotPrompts rejects empty incomingTransition notes', async () => {
             shotId: 'SHOT-01',
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
-            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
             durationSeconds: 4,
             incomingTransition: {
               type: 'opening',
               notes: '',
             },
+            keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
         null,
@@ -238,7 +246,7 @@ test('validateShots rejects a shot with zero keyframes', () => {
   )
 })
 
-test('loadKeyframes rejects legacy single frame types with a clear error', async () => {
+test('loadKeyframes rejects the legacy KEYFRAMES.json manifest', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-shot-transition-'))
 
   try {
@@ -264,7 +272,7 @@ test('loadKeyframes rejects legacy single frame types with a clear error', async
     )
 
     await expect(loadKeyframes(rootDir)).rejects.toThrow(
-      'KEYFRAMES.json[0].frameType must be one of: start, end.',
+      'Legacy KEYFRAMES.json is no longer supported. Merge its entries into SHOTS.json and remove the old file.',
     )
   } finally {
     await rm(rootDir, { recursive: true, force: true })

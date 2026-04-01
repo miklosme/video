@@ -550,7 +550,6 @@ function getPreviousShot(shots: ShotEntry[], shotId: string) {
 
 export function resolveKeyframeGenerationReferences(
   generation: Pick<KeyframeEntry, 'keyframeId' | 'shotId' | 'frameType'> & {
-    characterIds: readonly string[]
     incomingTransition: ShotIncomingTransitionEntry
   },
   keyframes: KeyframeEntry[],
@@ -603,7 +602,7 @@ function getShotAnchorKeyframes(
 
   if (anchors.length === 0) {
     throw new Error(
-      `Shot "${generation.shotId}" cannot be generated because all referenced keyframes are missing from workspace/KEYFRAMES.json.`,
+      `Shot "${generation.shotId}" cannot be generated because all referenced keyframes are missing from workspace/SHOTS.json.`,
     )
   }
 
@@ -658,30 +657,13 @@ export function resolveShotGenerationAssets(
     userReferences?: readonly ArtifactReferenceEntry[]
   } = {},
 ): ResolvedShotGenerationAssets {
-  const { inputAnchor, end, anchors } = getShotAnchorKeyframes(generation, keyframes)
-  const characterIds: string[] = []
-  const seenCharacterIds = new Set<string>()
-
-  for (const anchor of anchors) {
-    for (const characterId of anchor.characterIds) {
-      if (seenCharacterIds.has(characterId)) {
-        continue
-      }
-
-      seenCharacterIds.add(characterId)
-      characterIds.push(characterId)
-    }
-  }
-
+  const { inputAnchor, end } = getShotAnchorKeyframes(generation, keyframes)
   const explicitUserReferences = createUserReferences(options.userReferences)
-  const derivedCharacterReferences = characterIds.map((characterId) =>
-    createSystemReference('character-sheet', getCharacterSheetImagePath(characterId), {
-      label: `Character sheet (${characterId})`,
-    }),
-  )
-  const referenceImageCandidates = [...explicitUserReferences, ...derivedCharacterReferences]
-  const chosenReferenceImages = referenceImageCandidates.slice(0, 3)
-  const droppedReferences = referenceImageCandidates.slice(3)
+  const characterIds = explicitUserReferences
+    .filter((reference) => reference.kind === 'character-sheet')
+    .map((reference) => path.posix.basename(reference.path, path.posix.extname(reference.path)))
+  const chosenReferenceImages = explicitUserReferences.slice(0, 3)
+  const droppedReferences = explicitUserReferences.slice(3)
   const resolvedReferences: ResolvedArtifactReference[] = [
     createSystemReference(
       inputAnchor.frameType === 'start' ? 'start-frame' : 'end-frame',

@@ -32,6 +32,14 @@ async function writeCharacterArtifactFixture(rootDir: string) {
   await writeRepoFile(rootDir, 'workspace/CHARACTERS/HISTORY/hero/v2.png', 'hero-v2-image')
 }
 
+function createPlannedKeyframes(keyframeIds: string[]) {
+  return keyframeIds.map((keyframeId) => ({
+    keyframeId,
+    frameType: keyframeId.endsWith('-END') ? ('end' as const) : ('start' as const),
+    imagePath: `workspace/KEYFRAMES/${keyframeId.slice(0, 7)}/${keyframeId}.png`,
+  }))
+}
+
 test('artifact review server renders the storyboard tab with a placeholder and raw markdown', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
@@ -87,18 +95,19 @@ test('artifact review server renders a neutral placeholder for an omitted keyfra
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/KEYFRAMES.json',
+      'workspace/SHOTS.json',
       `${JSON.stringify(
         [
           {
-            keyframeId: 'SHOT-01-END',
             shotId: 'SHOT-01',
-            frameType: 'end',
-            title: 'Closing anchor',
-            goal: 'Hold on the final frame only.',
             status: 'planned',
-            imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
-            characterIds: [],
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open directly on the closing pose.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-END']),
           },
         ],
         null,
@@ -113,7 +122,7 @@ test('artifact review server renders a neutral placeholder for an omitted keyfra
       const html = await response.text()
 
       expect(response.status).toBe(200)
-      expect(html).toContain('Closing anchor')
+      expect(html).toContain('SHOT-01-END')
       expect(html).toContain('No start keyframe planned')
       expect(html).not.toContain('Missing start frame')
     } finally {
@@ -137,12 +146,12 @@ test('artifact review server renders the shots tab with prompt metadata and a mi
             shotId: 'SHOT-01',
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
-            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
             durationSeconds: 4,
             incomingTransition: {
               type: 'opening',
               notes: 'Open the sequence.',
             },
+            keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
         null,
@@ -219,12 +228,12 @@ test('artifact review server serves the canonical shot video', async () => {
             shotId: 'SHOT-01',
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
-            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
             durationSeconds: 4,
             incomingTransition: {
               type: 'opening',
               notes: 'Open the sequence.',
             },
+            keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
         null,
@@ -472,12 +481,12 @@ test('artifact review server uses silent video thumbnails in the version rail wh
             shotId: 'SHOT-01',
             status: 'ready',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
-            keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
             durationSeconds: 4,
             incomingTransition: {
               type: 'opening',
               notes: 'Open the sequence.',
             },
+            keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
         null,
