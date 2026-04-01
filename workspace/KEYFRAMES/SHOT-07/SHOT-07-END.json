@@ -1,0 +1,28 @@
+{
+  "keyframeId": "SHOT-07-END",
+  "shotId": "SHOT-07",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A cinematic photo inside the Renaissance library as the final button lands: the librarian's withering stare holds, the merchant stands deflated, and through the window the donkey is clearly visible outside calmly eating someone's flowers. The donkey should look completely ordinary and unbothered, making the background action funnier by its normalcy. Keep the window gag legible but naturally embedded in the composition, not cartoonishly spotlighted. Soft interior daylight, photoreal historical detail, clean comic contrast between interior social shame and exterior casual vandalism.",
+  "status": "draft",
+  "references": [
+    {
+      "path": "workspace/CHARACTERS/librarian.png",
+      "kind": "character-sheet",
+      "label": "Librarian",
+      "notes": "Primary reference for expression, costume, and static authority."
+    },
+    {
+      "path": "workspace/CHARACTERS/merchant.png",
+      "kind": "character-sheet",
+      "label": "Merchant",
+      "notes": "Secondary reference for the merchant's deflated presence."
+    },
+    {
+      "path": "workspace/CHARACTERS/donkey.png",
+      "kind": "character-sheet",
+      "label": "Donkey",
+      "notes": "Tertiary reference for donkey appearance while eating flowers outside."
+    }
+  ]
+}

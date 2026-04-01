@@ -1,0 +1,79 @@
+[
+  {
+    "shotId": "SHOT-01",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-01.mp4",
+    "keyframeIds": ["SHOT-01-START", "SHOT-01-END"],
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "opening",
+      "notes": "Open already in forward motion on the merchant and donkey in the narrow street; establish urgency immediately with no pre-roll calm."
+    }
+  },
+  {
+    "shotId": "SHOT-02",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-02.mp4",
+    "keyframeIds": ["SHOT-02-START", "SHOT-02-END"],
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "continuity",
+      "notes": "Carry forward the same rider-donkey momentum from the street into denser market traffic; preserve satchel grip and rising panic."
+    }
+  },
+  {
+    "shotId": "SHOT-03",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-03.mp4",
+    "keyframeIds": ["SHOT-03-START", "SHOT-03-END"],
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "continuity",
+      "notes": "Continue the chase energy into a wider civic space; keep merchant and donkey consistent while the Duomo construction resets the scale around them."
+    }
+  },
+  {
+    "shotId": "SHOT-04",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-04.mp4",
+    "keyframeIds": ["SHOT-04-START", "SHOT-04-END"],
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "continuity",
+      "notes": "Inherit the same ride and urgency, but compress into tighter framing on the merchant's panic and the satchel as the false stakes peak."
+    }
+  },
+  {
+    "shotId": "SHOT-05",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-05.mp4",
+    "keyframeIds": ["SHOT-05-START", "SHOT-05-END"],
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "continuity",
+      "notes": "Carry the same frantic momentum into the stop at the doorway; preserve the merchant's panic, then let the action break as he dismounts and lunges inside."
+    }
+  },
+  {
+    "shotId": "SHOT-06",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-06.mp4",
+    "keyframeIds": ["SHOT-06-START", "SHOT-06-END"],
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "scene-change",
+      "notes": "Reset from exterior chase chaos to a still interior library; preserve the merchant's breathless arrival, but replace suspense with quiet judgment."
+    }
+  },
+  {
+    "shotId": "SHOT-07",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-07.mp4",
+    "keyframeIds": ["SHOT-07-START", "SHOT-07-END"],
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "continuity",
+      "notes": "Hold the library setup from the reveal shot; keep the merchant and librarian in place while the window gag with the donkey and flowers becomes readable."
+    }
+  }
+]

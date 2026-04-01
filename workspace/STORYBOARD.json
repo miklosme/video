@@ -1,0 +1,17 @@
+{
+  "references": [
+    {
+      "path": "templates/STORYBOARD.template.png",
+      "kind": "storyboard-template",
+      "label": "Storyboard template",
+      "notes": "Board layout and review presentation reference."
+    },
+
+    {
+      "path": "workspace/CHARACTERS/librarian.png",
+      "kind": "user-reference",
+      "label": "Librarian character",
+      "notes": "Quiet, severe librarian with a dry wit, representing the mundane reality that collapses the dramatic premise."
+    }
+  ]
+}

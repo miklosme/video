@@ -1,0 +1,22 @@
+{
+  "keyframeId": "SHOT-05-START",
+  "shotId": "SHOT-05",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A cinematic photo of the merchant and donkey arriving hard at a modest institutional doorway in Renaissance Florence, medium-wide framing with a sudden stop. The donkey has just pulled up, still calm, while the merchant begins an awkward urgent dismount, nearly losing balance as he protects the leather satchel. The doorway should feel ordinary but momentarily charged with false importance, as if he has reached the site of a major political crisis. Stone facade, practical city street detail, strong comic tension between epic performance and modest destination.",
+  "status": "draft",
+  "references": [
+    {
+      "path": "workspace/CHARACTERS/merchant.png",
+      "kind": "character-sheet",
+      "label": "Merchant",
+      "notes": "Reference for merchant wardrobe, satchel, and awkward frantic body mechanics."
+    },
+    {
+      "path": "workspace/CHARACTERS/donkey.png",
+      "kind": "character-sheet",
+      "label": "Donkey",
+      "notes": "Reference for calm arrival pose and tack continuity."
+    }
+  ]
+}

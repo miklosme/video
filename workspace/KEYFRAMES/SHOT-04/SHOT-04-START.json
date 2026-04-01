@@ -1,0 +1,22 @@
+{
+  "keyframeId": "SHOT-04-START",
+  "shotId": "SHOT-04",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A cinematic photo in tighter moving coverage on the merchant riding the donkey through Florence, focused on his face, shoulders, and the satchel gripped hard against his chest. His eyes are wide, jaw tense, posture compressed by stress, and he scans ahead as if seconds from catastrophe. The donkey is still partially visible beneath him, maintaining sensible calm that undercuts the melodrama. Historical street texture in soft motion behind them, crisp character readability, natural daylight, suspenseful framing used for comic effect.",
+  "status": "draft",
+  "references": [
+    {
+      "path": "workspace/CHARACTERS/merchant.png",
+      "kind": "character-sheet",
+      "label": "Merchant",
+      "notes": "Primary reference for close face match, expression range, clothing, and satchel."
+    },
+    {
+      "path": "workspace/CHARACTERS/donkey.png",
+      "kind": "character-sheet",
+      "label": "Donkey",
+      "notes": "Partial supporting reference for donkey coat, tack, and calm presence."
+    }
+  ]
+}

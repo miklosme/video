@@ -2,62 +2,62 @@
 
 ## Sequence Summary
 
-A breathless Renaissance chase unfolds with the visual language of a political thriller: a merchant tears across Florence on a donkey, clutching a satchel as if history depends on it. Each shot raises the apparent stakes through denser crowds, bigger landmarks, and more frantic behavior, until he reaches a doorway in total panic. The hard comedic reveal collapses all that grandeur at once: it is only a library, the satchel holds an overdue book, and the only creature still behaving naturally is the donkey outside eating flowers.
+A mock-historical thriller chase through Renaissance Florence. A merchant barrels across the city on a donkey with absurd seriousness, clutching a leather satchel as if it contains state secrets. Each beat escalates the apparent stakes through crowd density, architecture, and the merchant’s own escalating panic, until the reveal punctures everything at once: he is only returning an overdue library book, while the donkey outside behaves with more dignity than he does.
 
 ## Shots
 
-### SHOT-01 - The urgent departure
+### SHOT-01 - Out of the street and into crisis
 
-Purpose: Establish the merchant as intensely stressed from the first frame and imply oversized stakes immediately.
+Purpose: Open at full urgency and immediately imply a mission far larger than the reality.
 
-Visual: The merchant rides a small donkey into frame through an early-morning Florentine street, leaning forward, clutching a worn leather satchel tightly to his chest. His face is taut with concentration while the donkey remains calm and practical beneath him. The city around them is already active enough to suggest pressure.
+Visual: Early morning Florence. The merchant rides a small donkey hard through a narrow stone street, leaning forward and gripping a worn leather satchel tightly against his chest. He looks tense, sleep-deprived, and catastrophically late. The donkey is steady and practical, almost too calm for the intensity the rider is projecting.
 
-Transition: Opening shot. Begin with immediate forward motion and no warm-up.
+Transition: Opening shot. Drop straight into forward motion with no setup beat.
 
-### SHOT-02 - Through the market crush
+### SHOT-02 - Through the market
 
-Purpose: Escalate urgency by showing him force his way through everyday civic life as if on a mission of state.
+Purpose: Escalate the urgency by forcing him through ordinary public life as if he is on a diplomatic emergency.
 
-Visual: He weaves the donkey through crowded market stalls, pedestrians, baskets, and carts. Vendors pull goods back out of his path. He reacts to every small obstruction like a disaster, still gripping the satchel protectively, while the donkey stays steady and unbothered.
+Visual: He threads the donkey through a packed market: baskets of produce, bolts of cloth, handcarts, and annoyed vendors all closing in around him. He jerks his body to avoid obstacles and protects the satchel at all costs. People react as he passes, but the donkey continues with stubborn, unheroic composure.
 
-Transition: Cut on motion so the rush feels uninterrupted and cumulative.
+Transition: Cut on movement so the rush feels continuous and cumulative.
 
-### SHOT-03 - Florence at stake
+### SHOT-03 - The city turns monumental
 
-Purpose: Expand the scale and make the errand feel momentously historical.
+Purpose: Make the errand feel absurdly grand by placing it against the historical scale of Florence.
 
-Visual: The merchant races past the Duomo under construction, with scaffolding, stonework, and workers visible in the background. The architecture briefly dwarfs him, but his intensity makes it feel as though he is carrying something equal to the city’s importance.
+Visual: The merchant rides past the Duomo under construction. Scaffolding, workers, stone blocks, and unfinished grandeur fill the frame while he pushes through the foreground like a man carrying the fate of the republic. The environment should momentarily make his panic seem justified.
 
-Transition: Cut wider to increase grandeur and let the setting amplify the drama.
+Transition: Cut wider and let the architecture inflate the drama.
 
-### SHOT-04 - Nearing catastrophe
+### SHOT-04 - Panic peaks in motion
 
-Purpose: Push his panic to its peak and suggest he may be seconds from irreversible failure.
+Purpose: Tighten the pressure and make it feel like he is seconds from irreversible failure.
 
-Visual: A tighter, more frantic view as he glances ahead with widening eyes, bounces in the saddle, and cinches the satchel even closer. The donkey pushes forward through the street at a practical pace while the merchant behaves as though time itself is collapsing.
+Visual: Closer, more frantic coverage. The merchant bounces in the saddle, scans ahead with widening eyes, and cinches the satchel tighter as though he may lose everything if he slows down for one second. The donkey keeps moving at a sensible pace, which only makes the merchant’s performance funnier.
 
-Transition: Cut tighter and faster, compressing the space as the music and panic build.
+Transition: Cut tighter and faster, compressing space as the dramatic build reaches its peak.
 
-### SHOT-05 - Arrival at the door
+### SHOT-05 - The desperate arrival
 
-Purpose: Deliver the climax of the false premise right before the joke lands.
+Purpose: Deliver the climax of the false premise just before the joke turns.
 
-Visual: He pulls up sharply in front of a modest but important-looking doorway, half-falls off the donkey, stumbles forward, and rushes inside without dignity. The movement should play like the last second before a diplomatic or military disaster.
+Visual: He pulls up sharply at a modest institutional doorway, scrambles off the donkey without grace, and nearly stumbles as he rushes inside. For one final moment, it should play like he has arrived to prevent a political disaster or deliver a message of enormous importance.
 
-Transition: Hard cut at the exact peak of action as he bursts through the door.
+Transition: Hard cut at the peak of movement as he bursts through the door.
 
-### SHOT-06 - The reveal
+### SHOT-06 - The humiliating truth
 
-Purpose: Collapse the entire dramatic setup into the banal truth.
+Purpose: Collapse the entire buildup into a banal, very small consequence.
 
-Visual: Interior of a quiet Renaissance library. The merchant stands breathless at a desk, producing an overdue book from the satchel with desperate apology energy. Across from him, the librarian receives him with still, dry, withering disapproval, refusing the scale of his performance.
+Visual: Interior, quiet Renaissance library. The merchant stands breathless at a desk, pulling an overdue book from the satchel with a look of desperate apology. The librarian is still, severe, and utterly unimpressed, meeting his theatrical urgency with a dry withering stare.
 
-Transition: Hard comedic contrast from kinetic exterior chaos to static interior quiet.
+Transition: Hard comedic contrast from rushing exterior chaos to still interior silence.
 
-### SHOT-07 - The final indignity
+### SHOT-07 - Donkey button
 
-Purpose: Land the joke with a visual button that undercuts the merchant one last time.
+Purpose: Land the final visual punchline and fully undercut the merchant’s self-importance.
 
-Visual: As the librarian holds the beat, the donkey is visible through the library window outside, casually eating someone’s flowers with complete calm. The merchant’s panic now feels even more absurd against the donkey’s perfect indifference.
+Visual: Hold the library beat long enough to notice the donkey through the window outside, calmly eating someone’s flowers. The background gag should feel casual, not highlighted too aggressively. The merchant’s frantic ordeal shrinks into total absurdity.
 
-Transition: Hold just long enough for the background gag to register and complete the punchline.
+Transition: Hold for the joke to register cleanly as the closing image.

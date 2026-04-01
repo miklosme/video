@@ -1,0 +1,22 @@
+{
+  "keyframeId": "SHOT-01-END",
+  "shotId": "SHOT-01",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A cinematic photo of the merchant and donkey deeper into the same narrow Renaissance Florence street, tighter framing with stronger compression and urgency. The merchant is hunched lower, gripping the leather satchel even tighter and staring ahead with mounting panic, while the donkey keeps a steady sensible pace. Stone walls and morning light streak past in the background, the composition emphasizing acceleration and false high stakes. Photoreal historical detail, readable faces and silhouette, dynamic but controlled motion, comic tension driven by the mismatch between human panic and animal calm.",
+  "status": "draft",
+  "references": [
+    {
+      "path": "workspace/CHARACTERS/merchant.png",
+      "kind": "character-sheet",
+      "label": "Merchant",
+      "notes": "Primary reference for consistent face, clothing, and satchel handling."
+    },
+    {
+      "path": "workspace/CHARACTERS/donkey.png",
+      "kind": "character-sheet",
+      "label": "Donkey",
+      "notes": "Maintain calm demeanor and stable body proportions."
+    }
+  ]
+}
