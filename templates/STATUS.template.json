@@ -39,7 +39,7 @@
     "title": "Review storyboard",
     "instruction": "Generate and review one full-project storyboard board from STORYBOARD.md before committing to keyframes.",
     "checked": false,
-    "relatedFiles": ["STORYBOARD.md", "STORYBOARD.png"]
+    "relatedFiles": ["STORYBOARD.md", "STORYBOARD.json", "STORYBOARD.png"]
   },
   {
     "title": "Plan keyframes",

@@ -60,6 +60,8 @@ Your job as an LLM is to be a senior creative development partner helping the us
 - When writing shot sidecar JSON files in `workspace/SHOTS/`, set each entry's `model` to `workspace/CONFIG.json.videoModel`.
 - Shot sidecar JSON files must use this exact shape: `shotId`, `model`, `prompt`, `status`.
 - `STORYBOARD.md` is the canonical storyboard and must use stable shot IDs such as `SHOT-01`.
+- `STORYBOARD.json` is required before generating `STORYBOARD.png` and must use the exact shape `{ "references": [...] }`.
+- The first `STORYBOARD.json.references` entry must be the storyboard template reference at `templates/STORYBOARD.template.png`; add any extra source images after that as `user-reference` entries.
 - `STORYBOARD.png` is the cheap full-project storyboard review artifact generated from `STORYBOARD.md` and should be reviewed before locking keyframes.
 - Keep storyboard shots and keyframes as different concepts. `KEYFRAMES.json` must use distinct keyframe IDs such as `SHOT-01-START` or `SHOT-01-END`, with each keyframe linked back to its parent `shotId`.
 - By default, plan two keyframes per storyboard shot: one `start` keyframe and one `end` keyframe. When the shot starts and ends almost the same, use a deliberate one-anchor plan with only `start` or only `end`. Do not use `single`.

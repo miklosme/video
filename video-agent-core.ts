@@ -376,6 +376,20 @@ function containsPlaceholderValue(value: unknown): boolean {
   return false
 }
 
+function normalizeMilestoneTitle(title: string) {
+  return title.trim().toLowerCase()
+}
+
+function getEffectiveMilestoneRelatedFiles(
+  item: Pick<WorkflowStatusItem, 'title' | 'relatedFiles'>,
+) {
+  if (normalizeMilestoneTitle(item.title) === 'review storyboard') {
+    return ['STORYBOARD.md', 'STORYBOARD.json', 'STORYBOARD.png']
+  }
+
+  return [...item.relatedFiles]
+}
+
 function getNextIncompleteMilestone(status: WorkflowStatusItem[]): WorkflowMilestoneSummary | null {
   for (const [index, item] of status.entries()) {
     if (!item.checked) {
@@ -461,6 +475,9 @@ function buildRuntimeDirective(
     '- STORYBOARD.png is the cheap full-project storyboard review artifact generated from workspace/STORYBOARD.md before keyframes are locked.',
   )
   lines.push(
+    '- workspace/STORYBOARD.json is required before storyboard generation. It must declare explicit storyboard references, starting with the storyboard template reference to templates/STORYBOARD.template.png.',
+  )
+  lines.push(
     '- Use workspace/CONFIG.json.imageModel for workspace/KEYFRAMES/*.json and workspace/CHARACTERS/*.json model fields and still-image prompting style.',
   )
   lines.push(
@@ -506,7 +523,7 @@ function buildRuntimeDirective(
     '- Use workspace/CONFIG.json.videoModel for workspace/SHOTS/*.json model fields and shot-motion prompting style.',
   )
   lines.push(
-    '- Shot sidecar schema is { shotId, model, prompt, status, references? }. workspace/STORYBOARD.json may optionally contain { references? }.',
+    '- Shot sidecar schema is { shotId, model, prompt, status, references? }. workspace/STORYBOARD.json uses the shape { references }.',
   )
   lines.push(
     '- Do not auto-run paid image or video generation. When sidecar JSON is ready but PNGs or MP4s are missing, tell the user they have to run the generation script and continue after review.',
@@ -843,7 +860,11 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
           }
           case 'STORYBOARD.json': {
             const entry = await loadStoryboardSidecar(rootDir)
-            return entry === null || !containsPlaceholderValue(entry) ? 'ready' : 'incomplete'
+            if (entry === null) {
+              return 'missing'
+            }
+
+            return containsPlaceholderValue(entry) ? 'incomplete' : 'ready'
           }
           case 'SHOTS.json': {
             const entries = await loadShotPrompts(rootDir)
@@ -1054,7 +1075,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
   const inspectMilestoneArtifacts = async (
     item: StatusData[number],
   ): Promise<ArtifactReadiness> => {
-    const normalizedTitle = item.title.trim().toLowerCase()
+    const normalizedTitle = normalizeMilestoneTitle(item.title)
 
     if (normalizedTitle === 'prepare character sheets') {
       return inspectCharacterSheetsPreparation()
@@ -1085,7 +1106,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
     }
 
     const artifactStates = await Promise.all(
-      item.relatedFiles.map((fileName) => inspectWorkspaceArtifact(fileName)),
+      getEffectiveMilestoneRelatedFiles(item).map((fileName) => inspectWorkspaceArtifact(fileName)),
     )
 
     if (artifactStates.every((state) => state === 'ready')) {
@@ -1126,6 +1147,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
 
     const derivedStatus: WorkflowStatusItem[] = reconciledStatus.map((item, index) => ({
       ...item,
+      relatedFiles: getEffectiveMilestoneRelatedFiles(item),
       state: item.checked
         ? index === latestCheckedIndex
           ? 'ready'
@@ -1473,7 +1495,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
     if (!affectedItem) {
       throw new Error(`Workflow milestone index ${startIndex} is out of range.`)
     }
-    const relatedFiles = [...new Set(affectedItem.relatedFiles)]
+    const relatedFiles = [...new Set(getEffectiveMilestoneRelatedFiles(affectedItem))]
     const removedFiles: string[] = []
 
     await Promise.all(
@@ -1540,7 +1562,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             fileName: z
               .string()
               .describe(
-                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, KEYFRAMES.json, SHOTS.json, or FINAL-CUT.json',
+                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, STORYBOARD.md, STORYBOARD.json, KEYFRAMES.json, SHOTS.json, or FINAL-CUT.json',
               ),
           }),
           execute: async ({ fileName }) => {
@@ -1591,7 +1613,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             fileName: z
               .string()
               .describe(
-                'Canonical workspace filename such as CONFIG.json, STORY.md, KEYFRAMES.json, SHOTS.json, or FINAL-CUT.json',
+                'Canonical workspace filename such as CONFIG.json, STORY.md, STORYBOARD.md, STORYBOARD.json, KEYFRAMES.json, SHOTS.json, or FINAL-CUT.json',
               ),
             content: z.string().describe('The complete new file contents.'),
           }),

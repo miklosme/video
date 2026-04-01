@@ -17,7 +17,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `workspace/CHARACTERS.md`
 - `workspace/CHARACTERS/`
 - `workspace/STORYBOARD.md`
-- `workspace/STORYBOARD.json` (optional)
+- `workspace/STORYBOARD.json`
 - `workspace/STORYBOARD.png`
 - `workspace/KEYFRAMES.json`
 - `workspace/KEYFRAMES/`
@@ -35,7 +35,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `workspace/CHARACTERS.md` stores textual character definitions, and each character section should include a stable `Character ID:`.
 - `workspace/CHARACTERS/` stores character-sheet sidecar JSON files plus the generated `.png` sheets beside them.
 - `workspace/STORYBOARD.md` is the single canonical storyboard file and should use stable shot IDs such as `SHOT-01`.
-- `workspace/STORYBOARD.json` is the storyboard-reference sidecar. Its `references` array is the source of truth for storyboard generation inputs and uses repo-relative `path`, required typed `kind`, and optional `label`/`notes`.
+- `workspace/STORYBOARD.json` is the storyboard-reference sidecar and is required before generating `workspace/STORYBOARD.png`. Its `references` array is the source of truth for storyboard generation inputs and uses repo-relative `path`, required typed `kind`, and optional `label`/`notes`.
 - `workspace/STORYBOARD.png` is the single storyboard review artifact for the whole project, generated from `workspace/STORYBOARD.md` before keyframe review.
 - `workspace/KEYFRAMES.json` should use distinct keyframe IDs such as `SHOT-01-START` and `SHOT-01-END`, each linked back to a parent `shotId`, and each keyframe entry must list the relevant `characterIds` for that frame.
 - `workspace/KEYFRAMES/` stores one sidecar JSON and one generated `.png` per keyframe, grouped under each `shotId`. Keyframe sidecar `references` are the source of truth for still-image generation inputs and must be authored in the exact intended priority order.

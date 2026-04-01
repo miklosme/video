@@ -47,6 +47,22 @@ async function createTestRepo() {
   await writeRepoFile(rootDir, 'CREATIVE_AGENTS.md', 'Creative prompt for tests.\n')
   await writeRepoFile(rootDir, 'MODEL_PROMPTING_GUIDE.md', 'Prompting guide for tests.\n')
   await writeRepoFile(rootDir, 'templates/STATUS.template.json', '[]\n')
+  await writeRepoFile(
+    rootDir,
+    'templates/STORYBOARD.template.json',
+    `${JSON.stringify(
+      {
+        references: [
+          {
+            kind: 'storyboard-template',
+            path: 'templates/STORYBOARD.template.png',
+          },
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+  )
 
   return {
     rootDir,
@@ -369,15 +385,95 @@ test('loadWorkflowSummary distinguishes storyboard authoring from storyboard rev
     expect(workflowBeforeImage.status[1]).toMatchObject({
       checked: false,
       state: 'incomplete',
+      relatedFiles: ['STORYBOARD.md', 'STORYBOARD.json', 'STORYBOARD.png'],
     })
     expect(workflowBeforeImage.nextMilestone).toMatchObject({ title: 'Review storyboard' })
 
     await writeRepoFile(repo.rootDir, 'workspace/STORYBOARD.png', 'png-bytes')
 
+    const workflowWithoutSidecar = await runtime.loadWorkflowSummary()
+
+    expect(workflowWithoutSidecar.status[1]).toMatchObject({
+      checked: false,
+      state: 'incomplete',
+    })
+
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          references: [
+            {
+              kind: 'storyboard-template',
+              path: 'templates/STORYBOARD.template.png',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
     const workflowAfterImage = await runtime.loadWorkflowSummary()
 
     expect(workflowAfterImage.status[1]).toMatchObject({ checked: true, state: 'ready' })
     expect(workflowAfterImage.nextMilestone).toMatchObject({ title: 'Plan keyframes' })
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('writeWorkspaceFile bootstraps storyboard sidecar after storyboard markdown is written', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/CONFIG.json', createValidConfig())
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/STATUS.json',
+      createWorkflowStatus([
+        {
+          title: 'Build storyboard',
+          instruction: 'Write the storyboard markdown.',
+          checked: false,
+          relatedFiles: ['STORYBOARD.md'],
+        },
+        {
+          title: 'Review storyboard',
+          instruction: 'Review the storyboard image.',
+          checked: false,
+          relatedFiles: ['STORYBOARD.md', 'STORYBOARD.png'],
+        },
+      ]),
+    )
+
+    const runtime = createVideoAgentRuntime({ rootDir: repo.rootDir, creativePrompt: 'test' })
+    const result = await runtime.writeWorkspaceFile(
+      'STORYBOARD.md',
+      '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n- Visual: The white dog sits by the bowl.\n',
+    )
+
+    expect(result.bootstrappedFiles).toEqual([
+      {
+        fileName: 'STORYBOARD.json',
+        workspacePath: path.resolve(repo.rootDir, 'workspace/STORYBOARD.json'),
+      },
+    ])
+    expect(await readFile(path.resolve(repo.rootDir, 'workspace/STORYBOARD.json'), 'utf8')).toBe(
+      `${JSON.stringify(
+        {
+          references: [
+            {
+              kind: 'storyboard-template',
+              path: 'templates/STORYBOARD.template.png',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
   } finally {
     await repo.cleanup()
   }
