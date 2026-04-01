@@ -1,0 +1,28 @@
+{
+  "keyframeId": "SHOT-03-END",
+  "shotId": "SHOT-03",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the adult male psychologist in the same medium close-up in his office, gently asking a careful therapeutic question. His expression remains warm, curious, and precise rather than clever or smug, with only a subtle change in mouth and gaze as he speaks. Warm restrained palette, soft blurred office background, muted professional wardrobe, natural soft lighting, photorealistic.",
+  "status": "planned",
+  "references": [
+    {
+      "path": "workspace/CHARACTERS/psychologist.png",
+      "kind": "character-sheet",
+      "label": "Psychologist approved sheet",
+      "notes": "Preserve exact therapist identity and wardrobe continuity."
+    },
+    {
+      "path": "workspace/KEYFRAMES/SHOT-03/SHOT-03-START.png",
+      "kind": "start-frame",
+      "label": "SHOT-03 start continuity",
+      "notes": "Carry forward the same framing, pose, and office background with a subtle speaking change."
+    },
+    {
+      "path": "workspace/STORYBOARD.png",
+      "kind": "storyboard",
+      "label": "Storyboard board",
+      "notes": "Match the SHOT-03 panel progression and preserve the intended calm reverse-shot composition."
+    }
+  ]
+}

@@ -50,7 +50,7 @@
   {
     "title": "Prepare keyframes",
     "instruction": "Write one sidecar JSON file per keyframe so still-image generation has stable prompts, IDs, and model metadata.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["KEYFRAMES.json", "KEYFRAMES/"]
   },
   {
@@ -62,7 +62,7 @@
   {
     "title": "Plan shots",
     "instruction": "Write one planning entry per shot so each storyboard beat has canonical keyframe anchors and a canonical output video path.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["SHOTS.json"]
   },
   {

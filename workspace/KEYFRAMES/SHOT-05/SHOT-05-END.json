@@ -1,0 +1,34 @@
+{
+  "keyframeId": "SHOT-05-END",
+  "shotId": "SHOT-05",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A photo of the same intimate two-shot in the psychologist's office, holding the moment after the therapist offers a hopeful first step. The psychologist remains calm and supportive while the adult female panda patient absorbs the words in quiet stillness, with the frame carrying warmth, steadiness, and a first hint of relief. Warm minimalist office, soft natural light, muted earth tones, restrained emotional realism, photorealistic.",
+  "status": "planned",
+  "references": [
+    {
+      "path": "workspace/CHARACTERS/psychologist.png",
+      "kind": "character-sheet",
+      "label": "Psychologist approved sheet",
+      "notes": "Preserve exact therapist identity and posture continuity."
+    },
+    {
+      "path": "workspace/CHARACTERS/panda-patient.png",
+      "kind": "character-sheet",
+      "label": "Panda patient approved sheet",
+      "notes": "Preserve exact panda identity and subtle receptive expression."
+    },
+    {
+      "path": "workspace/KEYFRAMES/SHOT-05/SHOT-05-START.png",
+      "kind": "start-frame",
+      "label": "SHOT-05 start continuity",
+      "notes": "Carry forward the same composition and character placement with a slight emotional softening."
+    },
+    {
+      "path": "workspace/STORYBOARD.png",
+      "kind": "storyboard",
+      "label": "Storyboard board",
+      "notes": "Match the SHOT-05 panel progression and preserve the shared frame staging."
+    }
+  ]
+}
