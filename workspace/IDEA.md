@@ -1,8 +1,5 @@
 # IDEA
 
-Short video of a panda at the psychologist.
+a merchant rides a donkey through renaissance florence with increasing urgency — weaving through market stalls, past the duomo under construction, looking stressed, clutching a leather satchel like it contains state secrets. dramatic music builds. he finally arrives, dismounts in a rush, bursts through a door
 
-Panda: "Everybody hates me. Either because of my black side or because of my white side."
-Psychologist: "And which one do you like better?"
-Panda: "Neither."
-Psychologist: "Then that’s where we start."
+hard cut to: he's just returning an overdue library book. the librarian gives him a withering look. the donkey is visible through the window, eating someone's flowers.

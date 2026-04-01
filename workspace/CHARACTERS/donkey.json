@@ -1,0 +1,7 @@
+{
+  "characterId": "donkey",
+  "displayName": "The Donkey",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A clean studio reference photo of a small sturdy donkey, single subject, full body visible in a natural standing pose with a slight three-quarter view. The donkey has a soft brown-gray coat, darker mane, large upright ears, gentle eyes, and a compact practical build with slightly shaggy texture. It wears simple believable Renaissance-era rope or leather tack with no ornament. Plain seamless neutral background, soft even lighting, sharp detail, clear silhouette, readable markings, calm ordinary expression, designed as a stable downstream character reference.",
+  "status": "draft"
+}

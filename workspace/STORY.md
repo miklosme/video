@@ -2,20 +2,20 @@
 
 ## Logline
 
-In a psychologist’s office, a female panda frames her pain as being rejected for one side or the other, only to realize the deeper wound is that she has learned to reject herself.
+In Renaissance Florence, a frantic merchant races across the city on a donkey as if carrying matters of state, only for the grand urgency to collapse into a tiny, humiliating truth: he is desperately returning an overdue library book.
 
 ## Synopsis
 
-A female panda sits in therapy, convinced the world despises her because of her black side or because of her white side. She presents the problem as external, almost political, splitting herself into opposing halves. The male psychologist listens, then gently asks which side she prefers. When the panda quietly admits, "Neither," the conversation pivots: the real conflict is not public judgment but self-rejection. The moment lands with simplicity and warmth, turning a joke setup into a small, honest emotional breakthrough.
+A merchant tears through Florence with mounting panic, clutching a leather satchel and riding his donkey with the intensity of a political courier. The city seems to frame his journey as high drama: crowded markets part around him, the unfinished Duomo looms behind him, and every beat suggests that history may hinge on whatever he carries. He arrives in a breathless rush, dismounts, and bursts through a doorway at the peak of the music. Then the illusion snaps. He is in a library, sheepishly returning an overdue book to a unimpressed librarian, while outside the donkey casually eats someone’s flowers.
 
 ## Beginning
 
-We open in a calm psychologist’s office. The panda is visibly burdened, speaking with weary sincerity rather than cartoon panic. She explains that everybody hates her, either because of her black side or because of her white side. The line plays first as a clever, absurd observation, but her delivery suggests genuine exhaustion and loneliness.
+The opening establishes a world of exaggerated stakes. In busy Renaissance Florence, a merchant on a donkey pushes urgently through the streets, visibly stressed and tightly protecting a worn leather satchel. The tone invites the viewer to assume espionage, diplomacy, or some other matter of enormous consequence.
 
 ## Middle
 
-The male psychologist does not challenge the premise immediately. Instead, he lets the panda fully express the split she feels inside, then responds with a precise, disarming question: which one do you like better? The question shifts the scene from social commentary to personal truth. The panda is caught off guard. After a beat, she admits she likes neither.
+His journey escalates in intensity. He weaves through market stalls, squeezes through pedestrians and carts, and passes the Duomo under construction as the score grows more dramatic. The merchant’s expression becomes more desperate, and the satchel feels increasingly important. The city’s scale and bustle amplify the sense that he is racing against time.
 
 ## End
 
-The psychologist answers, "Then that’s where we start." The final beat is quiet, compassionate, and slightly hopeful. Rather than ending on a punchline alone, the scene lands on the possibility of healing: the panda is no longer talking about sides, but about herself. The emotional resolution is subtle, with the office holding steady as the first real step toward self-acceptance begins.
+He finally reaches his destination, jumps down in a hurry, and storms through the door as if the fate of Florence depends on him. Smash cut to the banal truth: he is returning an overdue library book. The librarian answers his panic with a dry, withering look. In the final comic button, the donkey can be seen through the window, calmly eating someone’s flowers, undercutting the merchant’s grand self-seriousness with one last indignity.

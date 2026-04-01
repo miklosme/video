@@ -1,0 +1,7 @@
+{
+  "characterId": "librarian",
+  "displayName": "The Librarian",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A clean studio reference photo of an older Florentine Renaissance librarian, single subject, full body visible or nearly full body in a neutral standing pose with a slight three-quarter view. The character has a lined face, sharp observant eyes, composed posture, precise hands, and a severe but controlled expression. They wear modest dark scholarly Renaissance robes with a simple head covering or tightly arranged hair, creating a neat spare silhouette. Plain seamless neutral background, soft even lighting, sharp detail, readable face and hands, calm direct presence, stable wardrobe and restrained styling for downstream character consistency.",
+  "status": "draft"
+}
