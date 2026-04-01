@@ -56,7 +56,7 @@
   {
     "title": "Review keyframes",
     "instruction": "Generate and review one canonical PNG per planned keyframe before treating the shot anchors as locked.",
-    "checked": true,
+    "checked": false,
     "relatedFiles": ["KEYFRAMES.json", "KEYFRAMES/"]
   },
   {

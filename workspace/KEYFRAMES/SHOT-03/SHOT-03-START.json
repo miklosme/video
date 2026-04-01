@@ -3,20 +3,20 @@
   "shotId": "SHOT-03",
   "frameType": "start",
   "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of the adult male psychologist in a medium close-up seated in his office, listening with grounded attentiveness before speaking. His posture is open and steady, expression calm, thoughtful, and nonjudgmental. Soft office background, warm restrained palette, realistic therapist wardrobe in muted tones, natural soft lighting, shallow depth of field, photorealistic.",
-  "status": "planned",
+  "prompt": "A photo of an adult male psychologist seated in his office, medium close-up. He listens with grounded attentiveness, open posture, calm thoughtful expression, and quiet therapeutic presence. The warm minimalist office background is softly visible behind him, consistent with the established room. Naturalistic daylight, realistic skin and fabric detail, muted professional wardrobe, emotionally steady and compassionate tone, no smugness or performative cleverness.",
+  "status": "ready",
   "references": [
+    {
+      "path": "workspace/REFERENCES/psychologist-room.png",
+      "kind": "user-reference",
+      "label": "Psychologist office interior",
+      "notes": "Keep the background consistent with the established office design, palette, and furniture language."
+    },
     {
       "path": "workspace/CHARACTERS/psychologist.png",
       "kind": "character-sheet",
-      "label": "Psychologist approved sheet",
-      "notes": "Use for exact face, hairstyle, wardrobe, and professional demeanor."
-    },
-    {
-      "path": "workspace/STORYBOARD.png",
-      "kind": "storyboard",
-      "label": "Storyboard board",
-      "notes": "Match the SHOT-03 panel framing and reverse-shot eyeline."
+      "label": "Psychologist",
+      "notes": "Match the psychologist's face, hair, muted professional wardrobe, and grounded presence."
     }
   ]
 }

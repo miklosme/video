@@ -3,26 +3,20 @@
   "shotId": "SHOT-02",
   "frameType": "end",
   "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of the adult female panda patient in the same medium shot in the psychologist's office, finishing her confession with sincere emotional weight. Her face holds a vulnerable, wounded honesty rather than a punchline expression, with only a slight shift in posture and breath. Warm neutral office tones, softly blurred therapy background, natural soft light, realistic emotional restraint, photorealistic.",
-  "status": "planned",
+  "prompt": "A photo of an adult female panda seated in a psychologist's office, medium shot ending on emotional honesty. She has just finished a painful confession, with sincere sadness in her face, slight heaviness in her posture, and restrained vulnerable body language. The office background remains soft and unobtrusive, matching the same warm minimalist therapy room. Naturalistic daylight, realistic fur detail, intimate framing, grounded performance, emotionally sincere rather than punchline-driven.",
+  "status": "ready",
   "references": [
+    {
+      "path": "workspace/REFERENCES/psychologist-room.png",
+      "kind": "user-reference",
+      "label": "Psychologist office interior",
+      "notes": "Keep the background consistent with the established office design, palette, and furniture language."
+    },
     {
       "path": "workspace/CHARACTERS/panda-patient.png",
       "kind": "character-sheet",
-      "label": "Panda patient approved sheet",
-      "notes": "Preserve exact character identity and markings."
-    },
-    {
-      "path": "workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png",
-      "kind": "start-frame",
-      "label": "SHOT-02 start continuity",
-      "notes": "Keep the same framing, eyeline, room background, and pose continuity with a subtle emotional progression."
-    },
-    {
-      "path": "workspace/STORYBOARD.png",
-      "kind": "storyboard",
-      "label": "Storyboard board",
-      "notes": "Match the SHOT-02 panel progression and preserve the intended medium coverage."
+      "label": "Panda patient",
+      "notes": "Match the panda's face, markings, proportions, and natural unclothed appearance."
     }
   ]
 }

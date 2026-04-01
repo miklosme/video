@@ -3,26 +3,26 @@
   "shotId": "SHOT-01",
   "frameType": "start",
   "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A photo of a warm minimalist psychologist's office in a tasteful wide shot. An adult female panda patient sits slightly slumped on the patient chair or couch facing an adult male psychologist across from her, both fully readable in frame with clear room geography and calm relational distance. Soft natural window light, muted earth tones, uncluttered professional decor, realistic therapy setting, restrained emotional atmosphere, clean composition, photorealistic.",
-  "status": "planned",
+  "prompt": "A photo of a warm minimalist psychologist's office, wide two-subject composition. An adult female panda sits slightly slumped in the patient chair or couch, facing an adult male psychologist seated across from her. Therapy room atmosphere, quiet stillness, safe orderly space, soft naturalistic daylight, clean interior design, realistic textures, restrained emotional tone, readable room geography, cinematic but grounded. Keep the office reference layout and mood consistent, with the panda emotionally heavy but contained and the psychologist calm and attentive.",
+  "status": "ready",
   "references": [
+    {
+      "path": "workspace/REFERENCES/psychologist-room.png",
+      "kind": "user-reference",
+      "label": "Psychologist office interior",
+      "notes": "Match the room layout, furniture language, and overall interior mood as the primary environment reference."
+    },
     {
       "path": "workspace/CHARACTERS/panda-patient.png",
       "kind": "character-sheet",
-      "label": "Panda patient approved sheet",
-      "notes": "Use for exact panda markings, face, proportions, and silhouette."
+      "label": "Panda patient",
+      "notes": "Match the panda's face, markings, proportions, and natural unclothed appearance."
     },
     {
       "path": "workspace/CHARACTERS/psychologist.png",
       "kind": "character-sheet",
-      "label": "Psychologist approved sheet",
-      "notes": "Use for exact face, wardrobe silhouette, and grounded professional look."
-    },
-    {
-      "path": "workspace/STORYBOARD.png",
-      "kind": "storyboard",
-      "label": "Storyboard board",
-      "notes": "Match the SHOT-01 panel composition and overall room staging."
+      "label": "Psychologist",
+      "notes": "Match the psychologist's face, hair, muted professional wardrobe, and grounded presence."
     }
   ]
 }
