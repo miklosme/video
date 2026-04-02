@@ -8,6 +8,15 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `AGENTS.md`: coding-agent instructions
 - `MODEL_OPTIONS.json`: fixed model-card options used by the config dialog
 
+## Project Switching
+
+- Local projects live under the gitignored `projects/<project-name>/` folders.
+- `workspace/` remains the stable runtime path, but it is now expected to be the active-project mount point.
+- Use `bun run switch <project-name>` to activate an existing project.
+- Use `bun run switch` without a name to list local projects and choose one interactively when running in a TTY.
+- Use `bun run new <project-name>` to create an empty local project folder and activate it immediately.
+- On a fresh clone, activate or create a project before running the app or other workspace-aware tooling.
+
 ## Canonical Workflow
 
 - `workspace/IDEA.md`
@@ -26,6 +35,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 
 ## Working Rules
 
+- Treat `workspace/` as the active project surface. The actual files may live under `projects/<project-name>/` through the active symlink.
 - Start from `workspace/IDEA.md`.
 - When a canonical workspace file is missing, copy the matching template first.
 - `workspace/CONFIG.json` stores the active agent, image, and video model cards plus the default visual `variantCount` for the current project.
@@ -47,6 +57,8 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 
 ## Tooling Notes
 
+- `bun run switch <project-name>` repoints `workspace/` to the chosen local project under `projects/`.
+- `bun run new <project-name>` creates `projects/<project-name>/` and makes it the active `workspace/`.
 - `bun validate-workflow-data.ts` validates required workflow files, explicit sidecar `references`, and the simplified JSON schemas.
 - `bun generate-character-sheets.ts` syncs missing `workspace/CHARACTERS/*.png` files from their sidecar JSON files, renders `workspace/CONFIG.json.variantCount` variants in sequence when the stable public PNG is missing, stores earlier variants in `HISTORY/`, and keeps the last new variant at the public PNG path.
 - `bun generate-storyboard.ts` syncs the missing `workspace/STORYBOARD.png` review board from `workspace/STORYBOARD.md`, uses the explicit typed `references` declared in `workspace/STORYBOARD.json`, renders `workspace/CONFIG.json.variantCount` variants in sequence when the stable public board is missing, stores earlier variants in `HISTORY/`, and keeps the last new variant at the public PNG path.

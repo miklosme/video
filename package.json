@@ -5,6 +5,8 @@
   "private": true,
   "scripts": {
     "app": "bun app.tsx",
+    "switch": "bun project-workspace.ts switch",
+    "new": "bun project-workspace.ts new",
     "generate:characters": "bun generate-character-sheets.ts",
     "generate:storyboard": "bun generate-storyboard.ts",
     "generate:keyframes": "bun generate-keyframes.ts",
@@ -16,8 +18,7 @@
     "typecheck": "tsc --noEmit --pretty",
     "format": "prettier --write .",
     "reset": "bun reset-history.ts",
-    "reset:all": "rm -f workspace/HISTORY.json",
-    "reset:hard": "rm -rf workspace/ && mkdir workspace/ && echo '' > workspace/.gitkeep"
+    "reset:all": "rm -f workspace/HISTORY.json"
   },
   "devDependencies": {
     "@types/bun": "latest",

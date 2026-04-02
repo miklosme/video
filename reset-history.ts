@@ -1,6 +1,8 @@
 import { access, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
+import { ensureActiveWorkspace } from './project-workspace'
+
 const WORKSPACE_HISTORY_PATH = path.resolve(process.cwd(), 'workspace/HISTORY.json')
 const LEGACY_HISTORY_PATH = path.resolve(process.cwd(), 'HISTORY.json')
 
@@ -30,6 +32,7 @@ async function fileExists(targetPath: string) {
 }
 
 async function main() {
+  await ensureActiveWorkspace()
   const historyPath =
     (await fileExists(WORKSPACE_HISTORY_PATH)) || !(await fileExists(LEGACY_HISTORY_PATH))
       ? WORKSPACE_HISTORY_PATH

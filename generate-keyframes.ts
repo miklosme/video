@@ -17,6 +17,7 @@ import {
   type GenerateImagenOptionsResult,
 } from './generate-imagen-options'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
+import { ensureActiveWorkspace } from './project-workspace'
 import {
   loadConfig,
   loadKeyframeArtifacts,
@@ -574,6 +575,7 @@ export async function syncKeyframeGenerations(
 }
 
 async function main() {
+  await ensureActiveWorkspace()
   const filters = parseArgs()
   const [config, keyframes, artifacts, shots] = await Promise.all([
     loadConfig(),

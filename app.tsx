@@ -28,6 +28,7 @@ import {
   type SuggestedNextStep,
 } from './next-step-suggestions'
 import { captureWorkflowEvent, createTraceId, shutdownPostHog } from './posthog'
+import { ensureActiveWorkspace } from './project-workspace'
 import { startManagedRemotionStudio, type ManagedRemotionStudio } from './remotion-workflow'
 import {
   createVideoAgentRuntime,
@@ -1261,6 +1262,8 @@ function App({
 }
 
 async function main() {
+  await ensureActiveWorkspace()
+
   if (!process.env.AI_GATEWAY_API_KEY) {
     throw new Error('AI_GATEWAY_API_KEY is required to run app.tsx with the Vercel AI Gateway.')
   }

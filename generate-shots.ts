@@ -12,6 +12,7 @@ import {
   resolveShotGenerationAssets,
 } from './artifact-control'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
+import { ensureActiveWorkspace } from './project-workspace'
 import {
   loadCharacterSheets,
   loadConfig,
@@ -596,6 +597,7 @@ export async function syncShotGenerations(
 }
 
 async function main() {
+  await ensureActiveWorkspace()
   const filters = parseArgs()
   const config = await loadConfig()
   const [shots, shotArtifacts, keyframes, characterSheets] = await Promise.all([

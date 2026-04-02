@@ -16,6 +16,7 @@ import {
   type GenerateImagenOptionsResult,
 } from './generate-imagen-options'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
+import { ensureActiveWorkspace } from './project-workspace'
 import {
   getStoryboardImagePath,
   loadConfig,
@@ -332,6 +333,7 @@ export async function syncStoryboardGeneration(options: {
 }
 
 async function main() {
+  await ensureActiveWorkspace()
   if (!(await workspacePathExists(WORKFLOW_FILES.storyboard))) {
     throw new Error(
       'workspace/STORYBOARD.md is required before running bun run generate:storyboard.',

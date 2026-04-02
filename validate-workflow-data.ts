@@ -2,6 +2,7 @@ import { access } from 'node:fs/promises'
 import path from 'node:path'
 
 import { resolveFinalCutProps } from './final-cut'
+import { ensureActiveWorkspace } from './project-workspace'
 import {
   LEGACY_KEYFRAMES_FILE,
   loadCharacterSheets,
@@ -335,6 +336,7 @@ export function validateShots(keyframes: KeyframeEntry[], shots: ShotEntry[]) {
 }
 
 async function main() {
+  await ensureActiveWorkspace()
   await requireRepoPath(MODEL_OPTIONS_FILE, MODEL_OPTIONS_FILE)
   await requireWorkspacePath('IDEA.md', 'workspace/IDEA.md')
   await requireWorkspacePath(WORKFLOW_FILES.config, 'workspace/CONFIG.json')

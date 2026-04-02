@@ -7,6 +7,7 @@ import { spawn, type ChildProcess } from 'node:child_process'
 
 import { ensureFinalCutManifest, resolveFinalCutProps } from './final-cut'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
+import { ensureActiveWorkspace } from './project-workspace'
 import { startWorkspaceAssetServer } from './workspace-asset-server'
 
 type RemotionMode = 'studio' | 'render'
@@ -30,6 +31,7 @@ async function writeResolvedPropsFile(cwd: string, props: unknown) {
 }
 
 async function prepareRemotionRuntime(cwd: string) {
+  await ensureActiveWorkspace(cwd)
   await ensureFinalCutManifest(cwd)
   const assetServer = await startWorkspaceAssetServer(cwd)
   const props = await resolveFinalCutProps(cwd, { assetBaseUrl: assetServer.url })

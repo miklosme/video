@@ -312,6 +312,35 @@ test('validate-workflow-data accepts explicit multi-character end-keyframe refer
   }
 })
 
+test('validate-workflow-data explains how to activate a project when workspace is missing', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'MODEL_OPTIONS.json',
+      `${JSON.stringify(
+        {
+          agentModels: ['agent-test'],
+          imageModels: ['image-test'],
+          videoModels: ['video-test'],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = runValidation(rootDir)
+
+    expect(result.exitCode).toBe(1)
+    expect(new TextDecoder().decode(result.stderr)).toContain(
+      'No active workspace. Run bun run switch <project-name> or bun run new <project-name> first.',
+    )
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('validate-workflow-data rejects the legacy KEYFRAMES.json manifest', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
 

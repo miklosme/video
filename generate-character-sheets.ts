@@ -18,6 +18,7 @@ import {
   type GenerateImagenOptionsResult,
 } from './generate-imagen-options'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
+import { ensureActiveWorkspace } from './project-workspace'
 import {
   getCharacterSheetImagePath,
   loadCharacterSheets,
@@ -342,6 +343,7 @@ export async function syncCharacterSheetGenerations(
 }
 
 async function main() {
+  await ensureActiveWorkspace()
   const filters = parseArgs()
   const [config, characterSheets] = await Promise.all([loadConfig(), loadCharacterSheets()])
   const plannedGenerations = selectPendingCharacterSheetGenerations(characterSheets, filters)
