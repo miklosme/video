@@ -44,6 +44,6 @@ TODO.md
 workspace/**/*.mp4
 
 workspace-panda/
-workspaces/
+projects/
 
 .claude/
