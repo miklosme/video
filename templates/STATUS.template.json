@@ -43,7 +43,7 @@
   },
   {
     "title": "Plan keyframes",
-    "instruction": "Create SHOTS.json after storyboard review, planning distinct keyframes for each shot and defaulting to one start and one end frame unless a deliberate one-anchor start-only or end-only exception is justified.",
+    "instruction": "Create SHOTS.json after storyboard review, planning distinct keyframes for each shot and defaulting to one start frame; add an end frame only when a distinct closing anchor is deliberately needed.",
     "checked": false,
     "relatedFiles": ["SHOTS.json"]
   },

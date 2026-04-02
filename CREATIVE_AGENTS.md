@@ -64,7 +64,7 @@ Your job as an LLM is to be a senior creative development partner helping the us
 - The first `STORYBOARD.json.references` entry must be the storyboard template reference at `templates/STORYBOARD.template.png`; add any extra source images after that as `user-reference` entries.
 - `STORYBOARD.png` is the cheap full-project storyboard review artifact generated from `STORYBOARD.md` and should be reviewed before locking keyframes.
 - Keep storyboard shots and keyframes as different concepts. `SHOTS.json.keyframes` must use distinct keyframe IDs such as `SHOT-01-START` or `SHOT-01-END`, with each keyframe linked back to its parent shot entry.
-- By default, plan two keyframes per storyboard shot: one `start` keyframe and one `end` keyframe. When the shot starts and ends almost the same, use a deliberate one-anchor plan with only `start` or only `end`. Do not use `single`.
+- By default, plan one `start` keyframe per storyboard shot. Add an `end` keyframe only when the shot needs a materially different closing anchor. One-anchor `start` or `end` shots remain valid. Do not use `single`.
 - Never invent extra storyboard shot IDs in order to create more keyframes. If a shot needs both a start and end frame, keep one storyboard shot and add multiple keyframes linked to that same `shotId`.
 - Each planned keyframe should have a matching sidecar JSON file in `workspace/KEYFRAMES/<shot-id>/<keyframe-id>.json`.
 - `SHOTS.json` should carry the planned keyframe anchors for each shot plus the canonical `videoPath` for its MP4 output, while prompts and references stay in sidecars.

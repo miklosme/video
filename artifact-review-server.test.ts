@@ -32,6 +32,49 @@ async function writeCharacterArtifactFixture(rootDir: string) {
   await writeRepoFile(rootDir, 'workspace/CHARACTERS/HISTORY/hero/v2.png', 'hero-v2-image')
 }
 
+async function writeConfigFixture(
+  rootDir: string,
+  overrides: Partial<{
+    agentModel: string
+    imageModel: string
+    videoModel: string
+    variantCount: number
+  }> = {},
+) {
+  await writeRepoFile(
+    rootDir,
+    'workspace/CONFIG.json',
+    `${JSON.stringify(
+      {
+        agentModel: 'agent-test',
+        imageModel: 'image-test',
+        videoModel: 'video-test',
+        variantCount: 1,
+        ...overrides,
+      },
+      null,
+      2,
+    )}\n`,
+  )
+}
+
+async function waitFor(check: () => Promise<void>, timeoutMs = 2000) {
+  const startedAt = Date.now()
+  let lastError: unknown = null
+
+  while (Date.now() - startedAt < timeoutMs) {
+    try {
+      await check()
+      return
+    } catch (error) {
+      lastError = error
+      await new Promise((resolve) => setTimeout(resolve, 20))
+    }
+  }
+
+  throw lastError ?? new Error('Timed out waiting for async artifact review work to finish.')
+}
+
 function createPlannedKeyframes(keyframeIds: string[]) {
   return keyframeIds.map((keyframeId) => ({
     keyframeId,
@@ -124,7 +167,392 @@ test('artifact review server renders a neutral placeholder for an omitted keyfra
       expect(response.status).toBe(200)
       expect(html).toContain('SHOT-01-END')
       expect(html).toContain('No start keyframe planned')
+      expect(html).toContain('href="/keyframes/SHOT-01-START"')
       expect(html).not.toContain('Missing start frame')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server renders an omitted keyframe detail page with a create action', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeConfigFixture(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/keyframes/SHOT-01-END', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('SHOT-01-END')
+      expect(html).toContain('No end keyframe planned')
+      expect(html).toContain('action="/keyframes/SHOT-01-END/create"')
+      expect(html).toContain('Create keyframe')
+      expect(html).toContain('No source prompt available for this artifact.')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server creates an omitted keyframe, saves the prompt sidecar, and generates a single image variant', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+  const seeds: number[] = []
+
+  try {
+    await writeConfigFixture(rootDir, { variantCount: 3 })
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({
+      cwd: rootDir,
+      preferredPort: 0,
+      imageGenerator: async (input) => {
+        seeds.push(input.seed ?? -1)
+
+        if (!input.outputPath) {
+          throw new Error('Expected outputPath for created keyframe generation test.')
+        }
+
+        await writeRepoFile(rootDir, input.outputPath, 'generated-end')
+
+        return {
+          generationId: 'gen-keyframe-create',
+          model: input.model ?? 'image-test',
+          outputPaths: [path.resolve(rootDir, input.outputPath)],
+        }
+      },
+    })
+
+    try {
+      const response = await fetch(new URL('/keyframes/SHOT-01-END/create', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+        body: new URLSearchParams({
+          prompt: 'A fully distinct closing frame with the rider turning toward camera.',
+        }),
+      })
+
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toBe('/keyframes/SHOT-01-END')
+
+      await waitFor(async () => {
+        expect(
+          await readFile(
+            path.resolve(rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png'),
+            'utf8',
+          ),
+        ).toBe('generated-end')
+      })
+
+      const shots = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/SHOTS.json'), 'utf8'),
+      )
+      const createdSidecar = JSON.parse(
+        await readFile(
+          path.resolve(rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.json'),
+          'utf8',
+        ),
+      )
+
+      expect(shots[0].keyframes).toEqual([
+        {
+          keyframeId: 'SHOT-01-START',
+          frameType: 'start',
+          imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+        },
+        {
+          keyframeId: 'SHOT-01-END',
+          frameType: 'end',
+          imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
+        },
+      ])
+      expect(createdSidecar).toEqual({
+        keyframeId: 'SHOT-01-END',
+        shotId: 'SHOT-01',
+        frameType: 'end',
+        model: 'image-test',
+        prompt: 'A fully distinct closing frame with the rider turning toward camera.',
+        status: 'draft',
+      })
+      expect(seeds).toEqual([1])
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server removes an end keyframe and leaves the shot start-only', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.json',
+      `${JSON.stringify(
+        {
+          keyframeId: 'SHOT-01-END',
+          shotId: 'SHOT-01',
+          frameType: 'end',
+          model: 'image-test',
+          prompt: 'A distinct closing frame.',
+          status: 'draft',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png', 'end-image')
+    await writeRepoFile(
+      rootDir,
+      'workspace/KEYFRAMES/SHOT-01/HISTORY/SHOT-01-END/v1.png',
+      'end-v1-image',
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/keyframes/SHOT-01-END/remove', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+      })
+
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toBe('/keyframes/SHOT-01-END')
+
+      const shots = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/SHOTS.json'), 'utf8'),
+      )
+      expect(shots[0].keyframes).toEqual([
+        {
+          keyframeId: 'SHOT-01-START',
+          frameType: 'start',
+          imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+        },
+      ])
+
+      await expect(
+        readFile(path.resolve(rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.json'), 'utf8'),
+      ).rejects.toThrow()
+      await expect(
+        readFile(path.resolve(rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png'), 'utf8'),
+      ).rejects.toThrow()
+      await expect(
+        readFile(
+          path.resolve(rootDir, 'workspace/KEYFRAMES/SHOT-01/HISTORY/SHOT-01-END/v1.png'),
+          'utf8',
+        ),
+      ).rejects.toThrow()
+
+      const detailResponse = await fetch(new URL('/keyframes/SHOT-01-END', server.url))
+      const html = await detailResponse.text()
+
+      expect(detailResponse.status).toBe(200)
+      expect(html).toContain('No end keyframe planned')
+      expect(html).toContain('action="/keyframes/SHOT-01-END/create"')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server removes a start keyframe and leaves the shot end-only', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open directly on the closing pose.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.json',
+      `${JSON.stringify(
+        {
+          keyframeId: 'SHOT-01-START',
+          shotId: 'SHOT-01',
+          frameType: 'start',
+          model: 'image-test',
+          prompt: 'An opening frame.',
+          status: 'draft',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png', 'start-image')
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/keyframes/SHOT-01-START/remove', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+      })
+
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toBe('/keyframes/SHOT-01-START')
+
+      const shots = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/SHOTS.json'), 'utf8'),
+      )
+      expect(shots[0].keyframes).toEqual([
+        {
+          keyframeId: 'SHOT-01-END',
+          frameType: 'end',
+          imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
+        },
+      ])
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server rejects removing the last remaining anchor', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.json',
+      `${JSON.stringify(
+        {
+          keyframeId: 'SHOT-01-START',
+          shotId: 'SHOT-01',
+          frameType: 'start',
+          model: 'image-test',
+          prompt: 'An opening frame.',
+          status: 'draft',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/keyframes/SHOT-01-START/remove', server.url), {
+        method: 'POST',
+      })
+      const html = await response.text()
+
+      expect(response.status).toBe(400)
+      expect(html).toContain('Shot &quot;SHOT-01&quot; must keep at least one planned anchor.')
     } finally {
       await server.stop()
     }

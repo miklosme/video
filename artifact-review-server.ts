@@ -1,4 +1,4 @@
-import { access, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 
@@ -26,6 +26,7 @@ import type {
   GenerateImagenOptionsResult,
 } from './generate-imagen-options'
 import {
+  generateKeyframeArtifactVersion,
   regenerateKeyframeArtifactVersion,
   selectPendingKeyframeGenerations,
   type PendingKeyframeGeneration,
@@ -40,6 +41,8 @@ import { regenerateStoryboardArtifactVersion } from './generate-storyboard'
 import {
   AUTHORED_REFERENCE_KINDS,
   getCharacterSheetImagePath,
+  getKeyframeArtifactJsonPath,
+  getKeyframeImagePath,
   getShotVideoPath,
   getStoryboardImagePath,
   loadCharacterSheets,
@@ -139,6 +142,19 @@ interface VersionRailItem {
   isCurrent: boolean
 }
 
+interface ArtifactPrimaryAction {
+  kind: 'regenerate' | 'create-keyframe'
+  actionUrl: string
+  enabled: boolean
+}
+
+interface KeyframeRemovalAction {
+  actionUrl: string
+  enabled: boolean
+  helpText: string
+  confirmMessage?: string
+}
+
 interface ArtifactDetailContext {
   descriptor: ArtifactDescriptor
   activeTab: Tab
@@ -158,6 +174,8 @@ interface ArtifactDetailContext {
   notesHtml: string
   canEdit: boolean
   canEditReferences: boolean
+  primaryAction: ArtifactPrimaryAction
+  removeAction: KeyframeRemovalAction | null
 }
 
 export interface ArtifactReviewServer {
@@ -189,6 +207,45 @@ async function fileExists(filePath: string) {
   } catch {
     return false
   }
+}
+
+function frameTypeLabel(frameType: FrameType) {
+  return frameType === 'start' ? 'Start' : 'End'
+}
+
+function getCanonicalKeyframeId(shotId: string, frameType: FrameType) {
+  return `${shotId}-${frameType.toUpperCase()}`
+}
+
+function parseCanonicalKeyframeId(keyframeId: string): {
+  shotId: string
+  frameType: FrameType
+} | null {
+  if (keyframeId.endsWith('-START')) {
+    return {
+      shotId: keyframeId.slice(0, -'-START'.length),
+      frameType: 'start',
+    }
+  }
+
+  if (keyframeId.endsWith('-END')) {
+    return {
+      shotId: keyframeId.slice(0, -'-END'.length),
+      frameType: 'end',
+    }
+  }
+
+  return null
+}
+
+function sortShotKeyframes(
+  keyframes: ReadonlyArray<Pick<KeyframeEntry, 'frameType' | 'keyframeId' | 'imagePath'>>,
+) {
+  return [...keyframes].sort(
+    (left, right) =>
+      FRAME_ORDER[left.frameType] - FRAME_ORDER[right.frameType] ||
+      left.keyframeId.localeCompare(right.keyframeId),
+  )
 }
 
 async function loadCharacterSheetsOrEmpty(cwd: string) {
@@ -237,6 +294,162 @@ async function loadShotPromptsOrEmpty(cwd: string) {
 
     throw error
   }
+}
+
+function serializeShotEntry(shot: ShotEntry) {
+  return {
+    shotId: shot.shotId,
+    status: shot.status,
+    videoPath: shot.videoPath,
+    durationSeconds: shot.durationSeconds,
+    incomingTransition: shot.incomingTransition,
+    keyframes: sortShotKeyframes(shot.keyframes ?? []).map((entry) => ({
+      keyframeId: entry.keyframeId,
+      frameType: entry.frameType,
+      imagePath: entry.imagePath,
+    })),
+  }
+}
+
+async function writeShotPromptsFile(shots: ShotEntry[], cwd: string) {
+  const outputPath = resolveWorkflowPath(WORKFLOW_FILES.shotPrompts, cwd)
+  const serialized = shots.map((shot) => serializeShotEntry(shot))
+
+  await writeFile(outputPath, `${JSON.stringify(serialized, null, 2)}\n`, 'utf8')
+}
+
+function getShotByCanonicalKeyframeId(shots: ShotEntry[], keyframeId: string) {
+  const parsed = parseCanonicalKeyframeId(keyframeId)
+
+  if (!parsed) {
+    return null
+  }
+
+  const shot = shots.find((entry) => entry.shotId === parsed.shotId)
+
+  if (!shot) {
+    return null
+  }
+
+  return {
+    shot,
+    frameType: parsed.frameType,
+    shotId: parsed.shotId,
+  }
+}
+
+async function createOmittedKeyframe(
+  keyframeId: string,
+  prompt: string,
+  cwd: string,
+): Promise<ArtifactDescriptor> {
+  const trimmedPrompt = prompt.trim()
+
+  if (trimmedPrompt.length === 0) {
+    throw new Error('A prompt is required to create a keyframe.')
+  }
+
+  const [config, shots] = await Promise.all([loadConfig(cwd), loadShotPrompts(cwd)])
+  const match = getShotByCanonicalKeyframeId(shots, keyframeId)
+
+  if (!match) {
+    throw new Error(`Keyframe "${keyframeId}" does not map to an existing shot.`)
+  }
+
+  const { shot, frameType, shotId } = match
+
+  if (shot.keyframeIds.includes(keyframeId)) {
+    throw new Error(`Keyframe "${keyframeId}" is already planned.`)
+  }
+
+  const nextKeyframes = sortShotKeyframes([
+    ...(shot.keyframes ?? []),
+    {
+      keyframeId,
+      frameType,
+      imagePath: getKeyframeImagePath({ shotId, keyframeId }),
+    },
+  ])
+
+  const nextShots = shots.map((entry) =>
+    entry.shotId === shotId
+      ? {
+          ...entry,
+          keyframes: nextKeyframes,
+          keyframeIds: nextKeyframes.map((item) => item.keyframeId),
+        }
+      : entry,
+  )
+  const descriptor = getKeyframeArtifactDescriptor({ keyframeId, shotId })
+  const sidecarAbsolutePath = resolveRepoPath(
+    getKeyframeArtifactJsonPath({ shotId, keyframeId }),
+    cwd,
+  )
+
+  await writeShotPromptsFile(nextShots, cwd)
+  await mkdir(path.dirname(sidecarAbsolutePath), { recursive: true })
+  await writeFile(
+    sidecarAbsolutePath,
+    `${JSON.stringify(
+      {
+        keyframeId,
+        shotId,
+        frameType,
+        model: config.imageModel,
+        prompt: trimmedPrompt,
+        status: 'draft',
+      },
+      null,
+      2,
+    )}\n`,
+    'utf8',
+  )
+
+  return descriptor
+}
+
+async function removePlannedKeyframe(keyframeId: string, cwd: string): Promise<ArtifactDescriptor> {
+  const shots = await loadShotPrompts(cwd)
+  const shot = shots.find((entry) => entry.keyframeIds.includes(keyframeId))
+
+  if (!shot) {
+    throw new Error(`Keyframe "${keyframeId}" is not planned in workspace/SHOTS.json.`)
+  }
+
+  if (shot.keyframeIds.length <= 1) {
+    throw new Error(`Shot "${shot.shotId}" must keep at least one planned anchor.`)
+  }
+
+  const nextKeyframes = (shot.keyframes ?? []).filter((entry) => entry.keyframeId !== keyframeId)
+
+  if (nextKeyframes.length === (shot.keyframes ?? []).length) {
+    throw new Error(`Keyframe "${keyframeId}" is missing from shot "${shot.shotId}".`)
+  }
+
+  const nextShots = shots.map((entry) =>
+    entry.shotId === shot.shotId
+      ? {
+          ...entry,
+          keyframes: nextKeyframes,
+          keyframeIds: nextKeyframes.map((item) => item.keyframeId),
+        }
+      : entry,
+  )
+  const descriptor = getKeyframeArtifactDescriptor({
+    keyframeId,
+    shotId: shot.shotId,
+  })
+
+  await writeShotPromptsFile(nextShots, cwd)
+  if (!descriptor.sidecarPath) {
+    throw new Error(`Keyframe "${keyframeId}" is missing its source sidecar path.`)
+  }
+
+  await rm(resolveRepoPath(descriptor.sidecarPath, cwd), { force: true })
+  await rm(resolveRepoPath(descriptor.publicPath, cwd), { force: true })
+  await rm(resolveRepoPath(descriptor.historyDir, cwd), { recursive: true, force: true })
+
+  return descriptor
 }
 
 async function loadShotArtifactsOrEmpty(cwd: string) {
@@ -1165,7 +1378,22 @@ function renderHistoricalVersionActions(context: ArtifactDetailContext) {
 }
 
 function renderEditComposer(context: ArtifactDetailContext) {
-  if (!context.canEdit) {
+  if (context.primaryAction.kind === 'create-keyframe') {
+    return `
+      <section class="panel">
+        <p class="section-title">Create Keyframe</p>
+        <p class="form-note">Add this omitted anchor by writing a full fresh prompt. The prompt is saved to the new sidecar before generation starts.</p>
+        <form method="post" action="${context.primaryAction.actionUrl}">
+          <textarea name="prompt" placeholder="Write the full prompt for this new keyframe." required></textarea>
+          <div class="form-actions">
+            <button class="button-primary" type="submit">Create keyframe</button>
+          </div>
+        </form>
+      </section>
+    `
+  }
+
+  if (!context.primaryAction.enabled) {
     return `
       <section class="panel">
         <p class="section-title">Regenerate</p>
@@ -1177,12 +1405,32 @@ function renderEditComposer(context: ArtifactDetailContext) {
   return `
     <section class="panel">
       <p class="section-title">Regenerate</p>
-      <form method="post" action="${getArtifactRegenerateActionPath(context.descriptor)}">
+      <form method="post" action="${context.primaryAction.actionUrl}">
         <input type="hidden" name="baseVersionId" value="${escapeHtml(context.historyState.activeVersionId ?? CURRENT_BASE_VERSION_ID)}">
         <textarea name="regenerateRequest" placeholder="Describe the precise change you want from the version you are viewing." required></textarea>
         <div class="form-actions">
           <button class="button-primary" type="submit">Regenerate</button>
         </div>
+      </form>
+    </section>
+  `
+}
+
+function renderRemoveAction(context: ArtifactDetailContext) {
+  if (!context.removeAction) {
+    return ''
+  }
+
+  return `
+    <section class="panel">
+      <p class="section-title">Anchor Planning</p>
+      <p class="form-note">${escapeHtml(context.removeAction.helpText)}</p>
+      <form
+        method="post"
+        action="${context.removeAction.actionUrl}"
+        ${context.removeAction.confirmMessage ? `onsubmit="return window.confirm(${escapeHtml(JSON.stringify(context.removeAction.confirmMessage))})"` : ''}
+      >
+        <button class="button-danger" type="submit" ${context.removeAction.enabled ? '' : 'disabled'}>Remove keyframe</button>
       </form>
     </section>
   `
@@ -1219,6 +1467,7 @@ function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState 
           ${renderDetailSideNav(context)}
           ${renderHistoricalVersionActions(context)}
           ${renderEditComposer(context)}
+          ${renderRemoveAction(context)}
           ${renderReferenceEditor(
             getArtifactReferencesActionPath(context.descriptor),
             context.sourceReferences,
@@ -1283,13 +1532,15 @@ function buildOmittedSlot(
   shotId: string,
   frameType: Extract<FrameType, 'start' | 'end'>,
 ): KeyframeReviewSlot {
+  const keyframeId = getCanonicalKeyframeId(shotId, frameType)
+
   return {
-    keyframeId: `${shotId}-${frameType.toUpperCase()}`,
+    keyframeId,
     frameType,
-    title: `No ${frameType} keyframe planned`,
+    title: keyframeId,
     goal: '',
     status: 'omitted',
-    href: null,
+    href: `/keyframes/${encodeURIComponent(keyframeId)}`,
     imageUrl: '',
     imageExists: false,
     placeholderLabel: `No ${frameType} keyframe planned`,
@@ -1339,7 +1590,7 @@ function renderKeyframesSummary(shots: KeyframeReviewShot[]) {
     renderPage(
       'keyframes',
       `<div class="stack">
-        ${renderHero('Keyframes', 'Each keyframe opens into its own control page with retained versions, references, and direct regenerate controls.', 'Review Surface')}
+        ${renderHero('Keyframes', 'Each keyframe or omitted anchor opens into its own control page so you can regenerate, add, or remove anchors without editing files manually.', 'Review Surface')}
         ${shots.length === 0 ? '<div class="empty-state">No keyframes yet.</div>' : shots.map(renderKeyframeShot).join('')}
       </div>`,
     ),
@@ -1423,12 +1674,20 @@ function getArtifactRegenerateActionPath(descriptor: ArtifactDescriptor) {
   return `${getArtifactDetailPath(descriptor)}/regenerate`
 }
 
+function getArtifactCreateActionPath(descriptor: ArtifactDescriptor) {
+  return `${getArtifactDetailPath(descriptor)}/create`
+}
+
 function getArtifactSelectActionPath(descriptor: ArtifactDescriptor) {
   return `${getArtifactDetailPath(descriptor)}/select`
 }
 
 function getArtifactDeleteActionPath(descriptor: ArtifactDescriptor) {
   return `${getArtifactDetailPath(descriptor)}/delete`
+}
+
+function getArtifactRemoveActionPath(descriptor: ArtifactDescriptor) {
+  return `${getArtifactDetailPath(descriptor)}/remove`
 }
 
 function getArtifactVersionMediaUrl(descriptor: ArtifactDescriptor, versionId: string) {
@@ -1647,6 +1906,12 @@ async function loadCharacterDetail(
     notesHtml: `<section class="panel"><p class="section-title">Current Prompt</p><p class="muted">${escapeHtml(character.prompt)}</p></section>`,
     canEdit: historyState.currentExists || historyState.activeVersionId !== null,
     canEditReferences: true,
+    primaryAction: {
+      kind: 'regenerate',
+      actionUrl: getArtifactRegenerateActionPath(descriptor),
+      enabled: historyState.currentExists || historyState.activeVersionId !== null,
+    },
+    removeAction: null,
   } satisfies ArtifactDetailContext
 }
 
@@ -1655,9 +1920,10 @@ async function loadKeyframeDetail(
   cwd: string,
   requestedVersionId?: string | null,
 ) {
-  const [keyframes, artifacts] = await Promise.all([
+  const [keyframes, artifacts, shots] = await Promise.all([
     loadKeyframesOrEmpty(cwd),
     loadKeyframeArtifactsOrEmpty(cwd),
+    loadShotPromptsOrEmpty(cwd),
   ])
   const keyframe = keyframes.find((entry) => entry.keyframeId === keyframeId)
 
@@ -1671,6 +1937,8 @@ async function loadKeyframeDetail(
     activeVersionId: requestedVersionId,
   })
   const activeVersionId = historyState.activeVersionId
+  const shot = shots.find((entry) => entry.shotId === keyframe.shotId) ?? null
+  const canRemoveAnchor = (shot?.keyframeIds.length ?? 0) > 1
 
   return {
     descriptor,
@@ -1696,6 +1964,75 @@ async function loadKeyframeDetail(
       (historyState.currentExists || historyState.activeVersionId !== null) &&
       artifact !== undefined,
     canEditReferences: artifact !== undefined,
+    primaryAction: {
+      kind: 'regenerate',
+      actionUrl: getArtifactRegenerateActionPath(descriptor),
+      enabled:
+        (historyState.currentExists || historyState.activeVersionId !== null) &&
+        artifact !== undefined,
+    },
+    removeAction: {
+      actionUrl: getArtifactRemoveActionPath(descriptor),
+      enabled: canRemoveAnchor,
+      helpText: canRemoveAnchor
+        ? `Remove this ${frameTypeLabel(keyframe.frameType).toLowerCase()} anchor and collapse the shot back to its remaining planned keyframe.`
+        : 'This is the only planned anchor for the shot, so it cannot be removed.',
+      confirmMessage: canRemoveAnchor
+        ? `Remove planned keyframe ${keyframe.keyframeId} and delete its sidecar, current image, and retained history?`
+        : undefined,
+    },
+  } satisfies ArtifactDetailContext
+}
+
+async function loadOmittedKeyframeDetail(
+  keyframeId: string,
+  cwd: string,
+  requestedVersionId?: string | null,
+) {
+  const [config, shots] = await Promise.all([
+    loadConfig(cwd).catch(() => null),
+    loadShotPromptsOrEmpty(cwd),
+  ])
+  const match = getShotByCanonicalKeyframeId(shots, keyframeId)
+
+  if (!match || match.shot.keyframeIds.includes(keyframeId)) {
+    return null
+  }
+
+  const descriptor = getKeyframeArtifactDescriptor({
+    keyframeId,
+    shotId: match.shotId,
+  })
+  const historyState = await loadArtifactHistoryState(descriptor, cwd, {
+    activeVersionId: requestedVersionId,
+  })
+
+  return {
+    descriptor,
+    activeTab: 'keyframes' as const,
+    title: keyframeId,
+    subtitle:
+      'This anchor is currently omitted from the shot plan. Create it only when the shot needs a distinct extra start or end frame.',
+    summaryHref: '/keyframes',
+    summaryLabel: 'Back to keyframes',
+    mediaType: 'image' as const,
+    mediaUrl: null,
+    mediaExists: false,
+    mediaPlaceholder: `No ${match.frameType} keyframe planned`,
+    sourceReferences: [],
+    sourcePrompt: null,
+    sourceModel: config?.imageModel ?? null,
+    sourceStatus: 'omitted',
+    historyState,
+    notesHtml: `<section class="panel"><p class="section-title">Keyframe Plan</p><p class="muted">Shot: ${escapeHtml(match.shotId)}</p><p class="small">Frame type: ${escapeHtml(match.frameType)}</p><p class="small">Current planned anchors: ${escapeHtml(match.shot.keyframeIds.join(' -> '))}</p></section>`,
+    canEdit: false,
+    canEditReferences: false,
+    primaryAction: {
+      kind: 'create-keyframe',
+      actionUrl: getArtifactCreateActionPath(descriptor),
+      enabled: true,
+    },
+    removeAction: null,
   } satisfies ArtifactDetailContext
 }
 
@@ -1741,6 +2078,14 @@ async function loadShotDetail(shotId: string, cwd: string, requestedVersionId?: 
       (historyState.currentExists || historyState.activeVersionId !== null) &&
       artifact !== undefined,
     canEditReferences: artifact !== undefined,
+    primaryAction: {
+      kind: 'regenerate',
+      actionUrl: getArtifactRegenerateActionPath(descriptor),
+      enabled:
+        (historyState.currentExists || historyState.activeVersionId !== null) &&
+        artifact !== undefined,
+    },
+    removeAction: null,
   } satisfies ArtifactDetailContext
 }
 
@@ -1778,6 +2123,12 @@ async function loadStoryboardDetail(cwd: string, requestedVersionId?: string | n
     notesHtml: `<section class="panel"><p class="section-title">Source Storyboard</p>${markdown ? `<pre class="storyboard-markdown">${escapeHtml(markdown.trim())}</pre>` : '<div class="empty-state">No storyboard markdown yet.</div>'}</section>`,
     canEdit: historyState.currentExists || historyState.activeVersionId !== null,
     canEditReferences: true,
+    primaryAction: {
+      kind: 'regenerate',
+      actionUrl: getArtifactRegenerateActionPath(descriptor),
+      enabled: historyState.currentExists || historyState.activeVersionId !== null,
+    },
+    removeAction: null,
   } satisfies ArtifactDetailContext
 }
 
@@ -1795,7 +2146,12 @@ async function getDetailContext(pathname: string, cwd: string, requestedVersionI
   const keyframeMatch = /^\/keyframes\/([^/]+)$/.exec(pathname)
 
   if (keyframeMatch) {
-    return loadKeyframeDetail(decodeURIComponent(keyframeMatch[1]!), cwd, requestedVersionId)
+    const keyframeId = decodeURIComponent(keyframeMatch[1]!)
+
+    return (
+      (await loadKeyframeDetail(keyframeId, cwd, requestedVersionId)) ??
+      (await loadOmittedKeyframeDetail(keyframeId, cwd, requestedVersionId))
+    )
   }
 
   const shotMatch = /^\/shots\/([^/]+)$/.exec(pathname)
@@ -2136,6 +2492,7 @@ async function handleRegenerate(
   request: Request,
   cwd: string,
   jobs: Map<string, ArtifactJobState>,
+  overrides: RegenerateActionGeneratorOverrides,
 ) {
   const formData = await request.formData()
   const baseVersionId = String(formData.get('baseVersionId') ?? '').trim()
@@ -2158,6 +2515,7 @@ async function handleRegenerate(
       cwd,
       baseVersionId,
       regenerateRequest,
+      overrides,
     )
 
     return {
@@ -2166,6 +2524,57 @@ async function handleRegenerate(
   })
 
   return redirectTo(getArtifactDetailPath(detail.descriptor))
+}
+
+async function handleCreate(
+  pathname: string,
+  request: Request,
+  cwd: string,
+  jobs: Map<string, ArtifactJobState>,
+  overrides: RegenerateActionGeneratorOverrides,
+) {
+  const detail = await getDetailContext(pathname, cwd)
+
+  if (!detail) {
+    return renderErrorPage('keyframes', 'Missing Keyframe', 'Keyframe not found.', '/keyframes')
+  }
+
+  if (detail.primaryAction.kind !== 'create-keyframe') {
+    throw new Error(`Keyframe "${detail.descriptor.artifactId}" is already planned.`)
+  }
+
+  const formData = await request.formData()
+  const prompt = String(formData.get('prompt') ?? '').trim()
+
+  if (prompt.length === 0) {
+    throw new Error('A prompt is required to create a keyframe.')
+  }
+
+  const descriptor = await createOmittedKeyframe(detail.descriptor.artifactId, prompt, cwd)
+
+  startArtifactJob(jobs, descriptor, async () => {
+    const pending = await buildKeyframePendingGeneration(descriptor.artifactId, cwd)
+
+    if (!pending) {
+      throw new Error(`Keyframe "${descriptor.artifactId}" is missing a valid generation sidecar.`)
+    }
+
+    const result = await generateKeyframeArtifactVersion(
+      pending.generation,
+      pending.keyframes,
+      pending.shots,
+      {
+        cwd,
+        generator: overrides.imageGenerator,
+      },
+    )
+
+    return {
+      versionId: result.versionId,
+    }
+  })
+
+  return redirectTo(getArtifactDetailPath(descriptor))
 }
 
 async function handleSelect(pathname: string, request: Request, cwd: string) {
@@ -2204,9 +2613,31 @@ async function handleDelete(pathname: string, request: Request, cwd: string) {
   return redirectTo(getArtifactDetailPath(detail.descriptor))
 }
 
-export function startArtifactReviewServer(options: { cwd?: string; preferredPort?: number } = {}) {
-  const { cwd = process.cwd(), preferredPort = 3000 } = options
+async function handleRemove(pathname: string, cwd: string) {
+  const detail = await getDetailContext(pathname, cwd)
+
+  if (!detail) {
+    return renderErrorPage('keyframes', 'Missing Keyframe', 'Keyframe not found.', '/keyframes')
+  }
+
+  const descriptor = await removePlannedKeyframe(detail.descriptor.artifactId, cwd)
+  return redirectTo(getArtifactDetailPath(descriptor))
+}
+
+export function startArtifactReviewServer(
+  options: {
+    cwd?: string
+    preferredPort?: number
+    imageGenerator?: ImageGenerator
+    shotVideoGenerator?: ShotVideoGenerator
+  } = {},
+) {
+  const { cwd = process.cwd(), preferredPort = 3000, imageGenerator, shotVideoGenerator } = options
   const activeJobs = new Map<string, ArtifactJobState>()
+  const generatorOverrides: RegenerateActionGeneratorOverrides = {
+    imageGenerator,
+    shotVideoGenerator,
+  }
 
   const createServer = (port: number) =>
     Bun.serve({
@@ -2272,8 +2703,8 @@ export function startArtifactReviewServer(options: { cwd?: string; preferredPort
             (request.method === 'GET' || request.method === 'HEAD') &&
             /^\/keyframes\/[^/]+$/.test(url.pathname)
           ) {
-            const detail = await loadKeyframeDetail(
-              decodeURIComponent(url.pathname.split('/')[2]!),
+            const detail = await getDetailContext(
+              url.pathname,
               cwd,
               url.searchParams.get('version'),
             )
@@ -2361,24 +2792,43 @@ export function startArtifactReviewServer(options: { cwd?: string; preferredPort
           }
 
           if (request.method === 'POST' && /\/references$/.test(url.pathname)) {
-            return handleReferenceSave(url.pathname.replace(/\/references$/, ''), request, cwd)
+            return await handleReferenceSave(
+              url.pathname.replace(/\/references$/, ''),
+              request,
+              cwd,
+            )
+          }
+
+          if (request.method === 'POST' && /\/create$/.test(url.pathname)) {
+            return await handleCreate(
+              url.pathname.replace(/\/create$/, ''),
+              request,
+              cwd,
+              activeJobs,
+              generatorOverrides,
+            )
           }
 
           if (request.method === 'POST' && /\/regenerate$/.test(url.pathname)) {
-            return handleRegenerate(
+            return await handleRegenerate(
               url.pathname.replace(/\/regenerate$/, ''),
               request,
               cwd,
               activeJobs,
+              generatorOverrides,
             )
           }
 
           if (request.method === 'POST' && /\/select$/.test(url.pathname)) {
-            return handleSelect(url.pathname.replace(/\/select$/, ''), request, cwd)
+            return await handleSelect(url.pathname.replace(/\/select$/, ''), request, cwd)
           }
 
           if (request.method === 'POST' && /\/delete$/.test(url.pathname)) {
-            return handleDelete(url.pathname.replace(/\/delete$/, ''), request, cwd)
+            return await handleDelete(url.pathname.replace(/\/delete$/, ''), request, cwd)
+          }
+
+          if (request.method === 'POST' && /\/remove$/.test(url.pathname)) {
+            return await handleRemove(url.pathname.replace(/\/remove$/, ''), cwd)
           }
 
           if (

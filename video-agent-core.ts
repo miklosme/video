@@ -498,7 +498,7 @@ function buildRuntimeDirective(
     '- Keyframe sidecar schema is { keyframeId, shotId, frameType, model, prompt, status, references? }.',
   )
   lines.push(
-    '- frameType must be "start" or "end". By default plan both; when the shot begins and ends nearly the same, a deliberate one-anchor shot may use only one of them.',
+    '- frameType must be "start" or "end". By default plan a "start" anchor; add an "end" anchor only when the shot needs a materially different closing frame. One-anchor shots may use only one of them.',
   )
   lines.push(
     '- SHOTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, durationSeconds, incomingTransition: { type, notes }, keyframes: [{ keyframeId, frameType, imagePath }] }.',

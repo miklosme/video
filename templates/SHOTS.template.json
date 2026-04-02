@@ -13,11 +13,6 @@
         "keyframeId": "SHOT-01-START",
         "frameType": "start",
         "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png"
-      },
-      {
-        "keyframeId": "SHOT-01-END",
-        "frameType": "end",
-        "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png"
       }
     ]
   }
