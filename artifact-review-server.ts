@@ -88,6 +88,8 @@ interface ArtifactJobState {
   versionId: string | null
 }
 
+type PlaceholderVariant = 'missing' | 'omitted'
+
 type ImageGenerator = (input: GenerateImagenOptionsInput) => Promise<GenerateImagenOptionsResult>
 
 interface RegenerateActionGeneratorOverrides {
@@ -114,6 +116,7 @@ interface KeyframeReviewSlot {
   imageUrl: string
   imageExists: boolean
   placeholderLabel: string | null
+  placeholderVariant: PlaceholderVariant
 }
 
 interface KeyframeReviewShot {
@@ -166,6 +169,7 @@ interface ArtifactDetailContext {
   mediaUrl: string | null
   mediaExists: boolean
   mediaPlaceholder: string
+  mediaPlaceholderVariant: PlaceholderVariant
   sourceReferences: ArtifactReferenceEntry[]
   sourcePrompt: string | null
   sourceModel: string | null
@@ -710,15 +714,33 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
         text-align: center;
         color: var(--soft);
         font-size: 13px;
+        background-color: #0d1116;
+      }
+
+      .placeholder-missing {
+        color: rgba(215, 227, 241, 0.84);
         background:
-          linear-gradient(135deg, rgba(159,232,112,0.06), transparent 50%),
+          linear-gradient(135deg, rgba(159,232,112,0.12), transparent 38%),
           repeating-linear-gradient(
             -45deg,
-            rgba(255,255,255,0.02),
-            rgba(255,255,255,0.02) 8px,
-            transparent 8px,
-            transparent 16px
-          );
+            rgba(255,255,255,0.05),
+            rgba(255,255,255,0.05) 10px,
+            transparent 10px,
+            transparent 20px
+          ),
+          linear-gradient(180deg, rgba(12,15,20,0.98), rgba(9,12,16,0.98));
+        box-shadow:
+          inset 0 0 0 1px rgba(159,232,112,0.14),
+          inset 0 24px 40px rgba(255,255,255,0.02);
+      }
+
+      .placeholder-omitted {
+        color: rgba(168, 181, 165, 0.72);
+        background:
+          radial-gradient(circle at 22% 20%, rgba(126, 146, 120, 0.08), transparent 0 24%),
+          radial-gradient(circle at 78% 78%, rgba(98, 116, 96, 0.06), transparent 0 22%),
+          linear-gradient(180deg, rgba(11,14,15,0.97), rgba(9,11,12,0.97));
+        box-shadow: inset 0 0 0 1px rgba(168, 181, 165, 0.05);
       }
 
       .card-copy,
@@ -1163,16 +1185,21 @@ function formatDurationSeconds(durationSeconds: number) {
     : `${durationSeconds.toFixed(1)}s`
 }
 
+function renderPlaceholder(label: string, variant: PlaceholderVariant = 'missing') {
+  return `<div class="placeholder placeholder-${variant}">${escapeHtml(label)}</div>`
+}
+
 function renderMediaBlock(options: {
   mediaType: 'image' | 'video'
   mediaUrl: string | null
   mediaExists: boolean
   alt: string
   placeholder: string
+  placeholderVariant?: PlaceholderVariant
   className: string
 }) {
   if (!options.mediaUrl || !options.mediaExists) {
-    return `<div class="placeholder">${escapeHtml(options.placeholder)}</div>`
+    return renderPlaceholder(options.placeholder, options.placeholderVariant)
   }
 
   if (options.mediaType === 'video') {
@@ -1211,7 +1238,7 @@ function buildVersionRailItems(context: ArtifactDetailContext): VersionRailItem[
 
 function renderVersionRailMedia(context: ArtifactDetailContext, item: VersionRailItem) {
   if (!item.mediaUrl || !item.mediaExists) {
-    return `<div class="placeholder">${escapeHtml(context.mediaPlaceholder)}</div>`
+    return renderPlaceholder(context.mediaPlaceholder, context.mediaPlaceholderVariant)
   }
 
   if (context.mediaType === 'video') {
@@ -1450,6 +1477,7 @@ function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState 
               mediaExists: context.mediaExists,
               alt: context.title,
               placeholder: context.mediaPlaceholder,
+              placeholderVariant: context.mediaPlaceholderVariant,
               className: '',
             })}
           </div>
@@ -1544,6 +1572,7 @@ function buildOmittedSlot(
     imageUrl: '',
     imageExists: false,
     placeholderLabel: `No ${frameType} keyframe planned`,
+    placeholderVariant: 'omitted',
   }
 }
 
@@ -1558,9 +1587,10 @@ function renderKeyframeSlot(slot: KeyframeReviewSlot) {
               mediaExists: slot.imageExists,
               alt: slot.keyframeId,
               placeholder: slot.placeholderLabel ?? 'No image',
+              placeholderVariant: slot.placeholderVariant,
               className: '',
             })
-          : `<div class="placeholder">${escapeHtml(slot.placeholderLabel ?? 'No image')}</div>`
+          : renderPlaceholder(slot.placeholderLabel ?? 'No image', slot.placeholderVariant)
       }
     </div>
     <p class="title">${escapeHtml(slot.title)}</p>
@@ -1817,6 +1847,7 @@ async function buildReviewShots(cwd: string): Promise<KeyframeReviewShot[]> {
           imageUrl: `/${encodeAssetUrl(entry.imagePath)}`,
           imageExists: await fileExists(resolveRepoPath(entry.imagePath, cwd)),
           placeholderLabel: null,
+          placeholderVariant: 'missing',
         })
       }
 
@@ -1898,6 +1929,7 @@ async function loadCharacterDetail(
       : getCanonicalMediaUrl(descriptor),
     mediaExists: activeVersionId !== null ? true : historyState.currentExists,
     mediaPlaceholder: 'No character image yet',
+    mediaPlaceholderVariant: 'missing',
     sourceReferences: character.references ?? [],
     sourcePrompt: character.prompt,
     sourceModel: character.model,
@@ -1954,6 +1986,7 @@ async function loadKeyframeDetail(
       : getCanonicalMediaUrl(descriptor),
     mediaExists: activeVersionId !== null ? true : historyState.currentExists,
     mediaPlaceholder: 'No keyframe image yet',
+    mediaPlaceholderVariant: 'missing',
     sourceReferences: artifact?.references ?? [],
     sourcePrompt: artifact?.prompt ?? null,
     sourceModel: artifact?.model ?? null,
@@ -2019,6 +2052,7 @@ async function loadOmittedKeyframeDetail(
     mediaUrl: null,
     mediaExists: false,
     mediaPlaceholder: `No ${match.frameType} keyframe planned`,
+    mediaPlaceholderVariant: 'omitted',
     sourceReferences: [],
     sourcePrompt: null,
     sourceModel: config?.imageModel ?? null,
@@ -2068,6 +2102,7 @@ async function loadShotDetail(shotId: string, cwd: string, requestedVersionId?: 
       : getCanonicalMediaUrl(descriptor),
     mediaExists: activeVersionId !== null ? true : historyState.currentExists,
     mediaPlaceholder: 'No shot video yet',
+    mediaPlaceholderVariant: 'missing',
     sourceReferences: artifact?.references ?? [],
     sourcePrompt: artifact?.prompt ?? null,
     sourceModel: artifact?.model ?? null,
@@ -2115,6 +2150,7 @@ async function loadStoryboardDetail(cwd: string, requestedVersionId?: string | n
       : getCanonicalMediaUrl(descriptor),
     mediaExists: activeVersionId !== null ? true : historyState.currentExists,
     mediaPlaceholder: 'No storyboard image yet',
+    mediaPlaceholderVariant: 'missing',
     sourceReferences: storyboardSidecar?.references ?? [],
     sourcePrompt: markdown,
     sourceModel: config?.imageModel ?? null,

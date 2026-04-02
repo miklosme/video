@@ -1,0 +1,109 @@
+[
+  {
+    "shotId": "SHOT-01",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-01.mp4",
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "opening",
+      "notes": "Open already in motion on the merchant riding the donkey, with immediate urgency and no prior visual continuity to preserve."
+    },
+    "keyframes": [
+      {
+        "keyframeId": "SHOT-01-START",
+        "frameType": "start",
+        "imagePath": "workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png"
+      }
+    ]
+  },
+  {
+    "shotId": "SHOT-02",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-02.mp4",
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "continuity",
+      "notes": "Carry forward the merchant on the donkey moving urgently through Florence, preserving his satchel grip and left-to-right travel into tighter market congestion."
+    },
+    "keyframes": [
+      {
+        "keyframeId": "SHOT-02-START",
+        "frameType": "start",
+        "imagePath": "workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png"
+      }
+    ]
+  },
+  {
+    "shotId": "SHOT-03",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-03.mp4",
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "continuity",
+      "notes": "Maintain the same urgent ride and character continuity, but open the frame into a broader city view with the unfinished Duomo dominating the background."
+    },
+    "keyframes": [
+      {
+        "keyframeId": "SHOT-03-START",
+        "frameType": "start",
+        "imagePath": "workspace/KEYFRAMES/SHOT-03/SHOT-03-START.png"
+      }
+    ]
+  },
+  {
+    "shotId": "SHOT-04",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-04.mp4",
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "continuity",
+      "notes": "Continue the merchant's approach from the city ride into the final stop outside the building, preserving his panic and the donkey as the same pair arriving in one rush."
+    },
+    "keyframes": [
+      {
+        "keyframeId": "SHOT-04-START",
+        "frameType": "start",
+        "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-START.png"
+      },
+      {
+        "keyframeId": "SHOT-04-END",
+        "frameType": "end",
+        "imagePath": "workspace/KEYFRAMES/SHOT-04/SHOT-04-END.png"
+      }
+    ]
+  },
+  {
+    "shotId": "SHOT-05",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-05.mp4",
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "scene-change",
+      "notes": "Reset from the exterior arrival to a quiet interior library setup, carrying only the merchant, satchel, and payoff that the errand is just an overdue book return."
+    },
+    "keyframes": [
+      {
+        "keyframeId": "SHOT-05-START",
+        "frameType": "start",
+        "imagePath": "workspace/KEYFRAMES/SHOT-05/SHOT-05-START.png"
+      }
+    ]
+  },
+  {
+    "shotId": "SHOT-06",
+    "status": "planned",
+    "videoPath": "workspace/SHOTS/SHOT-06.mp4",
+    "durationSeconds": 4,
+    "incomingTransition": {
+      "type": "continuity",
+      "notes": "Hold the interior library situation and librarian judgment, adding the donkey outside the window eating flowers as the final visual button."
+    },
+    "keyframes": [
+      {
+        "keyframeId": "SHOT-06-START",
+        "frameType": "start",
+        "imagePath": "workspace/KEYFRAMES/SHOT-06/SHOT-06-START.png"
+      }
+    ]
+  }
+]

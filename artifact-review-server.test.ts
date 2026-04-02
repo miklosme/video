@@ -167,6 +167,7 @@ test('artifact review server renders a neutral placeholder for an omitted keyfra
       expect(response.status).toBe(200)
       expect(html).toContain('SHOT-01-END')
       expect(html).toContain('No start keyframe planned')
+      expect(html).toContain('placeholder-omitted')
       expect(html).toContain('href="/keyframes/SHOT-01-START"')
       expect(html).not.toContain('Missing start frame')
     } finally {
@@ -613,6 +614,7 @@ test('artifact review server renders the shots tab with prompt metadata and a mi
       expect(html).toContain('The camera glides from the start frame into the end frame.')
       expect(html).toContain('SHOT-01-START -&gt; SHOT-01-END')
       expect(html).toContain('No video yet')
+      expect(html).toContain('placeholder-missing')
     } finally {
       await server.stop()
     }

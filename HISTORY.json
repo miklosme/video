@@ -95,8 +95,113 @@
       "id": "assistant-1775142320144-h63pvr",
       "role": "assistant",
       "text": "I turned this into a six-shot storyboard that leans into the fake-historical-thriller setup, then drops hard into the library reveal.\n\nThe shape is:\n\n1. urgent departure on the donkey  \n2. weaving through market congestion  \n3. wider Florence scale with the Duomo under construction  \n4. frantic arrival and dismount  \n5. hard-cut reveal: overdue book at the library desk  \n6. final donkey-through-the-window flower-eating button\n\nWhat’s working creatively is the progression of scale:\n- start personal and stressed\n- expand into civic grandeur\n- hit peak urgency at the doorway\n- then collapse into stillness and embarrassment\n\nThe next move is to generate the storyboard board and review it before we lock keyframes."
+    },
+    {
+      "id": "user-1775144462267-99zciw",
+      "role": "user",
+      "text": "great, please plan the keyframes"
+    },
+    {
+      "id": "tool-1775144464972-90nggt",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1775144464973-klf3gr",
+      "role": "tool",
+      "text": "Running readPromptingGuide"
+    },
+    {
+      "id": "tool-1775144464974-lptmo1",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1775144464974-j0jxo3",
+      "role": "tool",
+      "text": "Running readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1775144464975-sqafsa",
+      "role": "tool",
+      "text": "Running readWorkspaceFile"
+    },
+    {
+      "id": "tool-1775144464976-2gi1nh",
+      "role": "tool",
+      "text": "Read MODEL_PROMPTING_GUIDE.md"
+    },
+    {
+      "id": "tool-1775144464976-uehelc",
+      "role": "tool",
+      "text": "Completed readPromptingGuide"
+    },
+    {
+      "id": "tool-1775144464982-3jvng9",
+      "role": "tool",
+      "text": "Read CHARACTERS/"
+    },
+    {
+      "id": "tool-1775144464982-x5istg",
+      "role": "tool",
+      "text": "Completed readWorkspaceArtifact"
+    },
+    {
+      "id": "tool-1775144464982-709mum",
+      "role": "tool",
+      "text": "Read CONFIG.json"
+    },
+    {
+      "id": "tool-1775144464982-3m27xg",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1775144464982-gac5nb",
+      "role": "tool",
+      "text": "Read SHOTS.json"
+    },
+    {
+      "id": "tool-1775144464982-5vssnz",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1775144464983-btucxn",
+      "role": "tool",
+      "text": "Read STORYBOARD.md"
+    },
+    {
+      "id": "tool-1775144464983-19rs2o",
+      "role": "tool",
+      "text": "Completed readWorkspaceFile"
+    },
+    {
+      "id": "tool-1775144479224-ph2kp7",
+      "role": "tool",
+      "text": "Running writeWorkspaceFile"
+    },
+    {
+      "id": "tool-1775144479240-yv2ncm",
+      "role": "tool",
+      "text": "Updated SHOTS.json (+97 -7)"
+    },
+    {
+      "id": "tool-1775144479240-7p4day",
+      "role": "tool",
+      "text": "Prepared next milestone files: KEYFRAMES/"
+    },
+    {
+      "id": "tool-1775144479241-v2lmml",
+      "role": "tool",
+      "text": "Completed writeWorkspaceFile"
+    },
+    {
+      "id": "assistant-1775144462267-f9r1kk",
+      "role": "assistant",
+      "text": "I’ve planned the keyframes across the six-shot sequence.\n\nCurrent shape:\n- SHOT-01: 1 start keyframe\n- SHOT-02: 1 start keyframe\n- SHOT-03: 1 start keyframe\n- SHOT-04: 2 keyframes — start and end, because this shot has a meaningful change from rushing arrival to dismount-and-bolt\n- SHOT-05: 1 start keyframe\n- SHOT-06: 1 start keyframe\n\nSo the sequence uses 7 keyframes total.\n\nCreatively, that’s the right balance:\n- the chase beats mostly need one strong anchor each\n- the arrival shot is the only one that really benefits from a second frame\n- the library reveal and donkey button work better with clean, controlled single anchors rather than overcomplicating them\n\nNext I’d move straight into preparing the keyframe prompts so the stills are ready to generate."
     }
   ],
-  "recentChanges": ["STORYBOARD.json", "STORYBOARD.md"],
+  "recentChanges": ["KEYFRAMES/", "SHOTS.json", "STORYBOARD.json", "STORYBOARD.md"],
   "runtimeError": null
 }

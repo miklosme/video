@@ -38,13 +38,13 @@
   {
     "title": "Review storyboard",
     "instruction": "Generate and review one full-project storyboard board from STORYBOARD.md before committing to keyframes.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["STORYBOARD.md", "STORYBOARD.json", "STORYBOARD.png"]
   },
   {
     "title": "Plan keyframes",
     "instruction": "Create SHOTS.json after storyboard review, planning distinct keyframes for each shot and defaulting to one start frame; add an end frame only when a distinct closing anchor is deliberately needed.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["SHOTS.json"]
   },
   {
@@ -62,7 +62,7 @@
   {
     "title": "Plan shots",
     "instruction": "Refine the existing SHOTS.json entries only when shot-level planning details such as duration, transitions, or output paths still need adjustment after keyframe planning.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["SHOTS.json"]
   },
   {
@@ -80,7 +80,7 @@
   {
     "title": "Prepare final cut",
     "instruction": "Bootstrap the Remotion final-cut manifest so the approved shot videos can be assembled, trimmed, and rendered in Remotion Studio.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["FINAL-CUT.json"]
   }
 ]
