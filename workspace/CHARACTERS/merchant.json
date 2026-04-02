@@ -1,7 +1,0 @@
-{
-  "characterId": "merchant",
-  "displayName": "The Merchant",
-  "model": "google/gemini-3.1-flash-image-preview",
-  "prompt": "A clean studio reference photo of a lean middle-aged Florentine Renaissance merchant, single subject, full body visible in a neutral standing pose with a slight three-quarter view. He has a narrow expressive face, tired eyes, a prominent nose, short dark wavy hair, and trimmed beard stubble. He wears a practical dark wool doublet, muted hose, weathered leather boots, and a worn soft travel cap, and he clutches a worn leather satchel close to his body. Plain seamless neutral background, soft even lighting, sharp detail, clear silhouette, readable face, sympathetic but frazzled expression, stable travel clothing suitable for downstream character consistency.",
-  "status": "draft"
-}
