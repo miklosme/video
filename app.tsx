@@ -53,6 +53,7 @@ const COPY_NOTIFICATION_DURATION_MS = 2200
 interface AppProps {
   initialWorkflow: WorkflowSummary
   initialSession: PersistedAgentState
+  projectName: string | null
   artifactReviewUrl: string
   remotionStudioUrl: string | null
   remotionStudioStatus: string
@@ -468,12 +469,14 @@ function insertTranscriptEntryBefore(
 function App({
   initialWorkflow,
   initialSession,
+  projectName,
   artifactReviewUrl,
   remotionStudioUrl,
   remotionStudioStatus,
   runtime,
   statePersistence,
 }: AppProps) {
+  const projectTitle = projectName ?? 'Workspace'
   const renderer = useRenderer()
   const [transcript, setTranscript] = useState<TranscriptEntry[]>(initialSession.transcript)
   const [composerValue, setComposerValue] = useState('')
@@ -918,7 +921,7 @@ function App({
         flexGrow={3}
         flexShrink={1}
         border
-        title="Creative Partner"
+        title={projectTitle}
         padding={1}
         flexDirection="column"
         onMouseDown={focusComposerInput}
@@ -1262,7 +1265,7 @@ function App({
 }
 
 async function main() {
-  await ensureActiveWorkspace()
+  const activeWorkspace = await ensureActiveWorkspace()
 
   if (!process.env.AI_GATEWAY_API_KEY) {
     throw new Error('AI_GATEWAY_API_KEY is required to run app.tsx with the Vercel AI Gateway.')
@@ -1344,6 +1347,7 @@ async function main() {
     <App
       initialWorkflow={initialWorkflow}
       initialSession={initialSession}
+      projectName={activeWorkspace.projectName}
       artifactReviewUrl={artifactReviewServer.url}
       remotionStudioUrl={remotionStudio?.url ?? null}
       remotionStudioStatus={remotionStudioStatus}
