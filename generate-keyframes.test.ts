@@ -274,6 +274,50 @@ test('selectPendingKeyframeGenerations supports one-anchor start-only and end-on
   ).toEqual(['SHOT-01-START', 'SHOT-01-END', 'SHOT-02-END', 'SHOT-03-START'])
 })
 
+test('generate-keyframes explains when a planned keyframe sidecar is missing', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-generate-keyframes-missing-sidecar-'))
+  const scriptPath = fileURLToPath(new URL('./generate-keyframes.ts', import.meta.url))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/CONFIG.json',
+      `${JSON.stringify(
+        {
+          agentModel: 'agent-test',
+          imageModel: 'image-test',
+          videoModel: 'video-test',
+          variantCount: 1,
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(createShots().slice(0, 1), null, 2)}\n`,
+    )
+
+    const result = Bun.spawnSync({
+      cmd: [process.execPath, scriptPath, '--keyframe-id', 'SHOT-01-START'],
+      cwd: rootDir,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(new TextDecoder().decode(result.stderr)).toContain(
+      'Planned keyframe anchors are missing generation sidecars in workspace/KEYFRAMES/.',
+    )
+    expect(new TextDecoder().decode(result.stderr)).toContain(
+      '- SHOT-01-START: workspace/KEYFRAMES/SHOT-01/SHOT-01-START.json',
+    )
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('planKeyframeGenerationReferences uses previous shot end for continuity and skips it for scene changes', () => {
   const shots = createShots()
   const keyframes = createKeyframes()

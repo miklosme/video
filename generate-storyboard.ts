@@ -22,6 +22,7 @@ import {
   loadStoryboardSidecar,
   resolveWorkflowPath,
   WORKFLOW_FILES,
+  workspacePathExists,
 } from './workflow-data'
 
 export interface PendingStoryboardGeneration {
@@ -331,22 +332,35 @@ export async function syncStoryboardGeneration(options: {
 }
 
 async function main() {
-  const [config, storyboardMarkdown, storyboardSidecar] = await Promise.all([
-    loadConfig(),
-    readFile(resolveWorkflowPath(WORKFLOW_FILES.storyboard), 'utf8'),
-    loadStoryboardSidecar(),
-  ])
-
-  if (!storyboardSidecar || (storyboardSidecar.references?.length ?? 0) === 0) {
+  if (!(await workspacePathExists(WORKFLOW_FILES.storyboard))) {
     throw new Error(
-      'workspace/STORYBOARD.json must declare explicit storyboard generation references.',
+      'workspace/STORYBOARD.md is required before running bun run generate:storyboard.',
     )
   }
+
+  const storyboardSidecar = await loadStoryboardSidecar()
+
+  if (!storyboardSidecar) {
+    throw new Error(
+      'workspace/STORYBOARD.json is required before running bun run generate:storyboard.',
+    )
+  }
+
+  if ((storyboardSidecar.references?.length ?? 0) === 0) {
+    throw new Error(
+      'workspace/STORYBOARD.json must declare explicit storyboard generation references before running bun run generate:storyboard.',
+    )
+  }
+
+  const [config, storyboardMarkdown] = await Promise.all([
+    loadConfig(),
+    readFile(resolveWorkflowPath(WORKFLOW_FILES.storyboard), 'utf8'),
+  ])
 
   await syncStoryboardGeneration({
     storyboardMarkdown,
     model: config.imageModel,
-    userReferences: storyboardSidecar?.references ?? [],
+    userReferences: storyboardSidecar.references ?? [],
     variantCount: config.variantCount,
   })
 }

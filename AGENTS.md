@@ -51,9 +51,12 @@ Do not silently rewrite story canon, storyboard content, prompt content, or stru
 - If a workflow requires storyboard, character, continuity, or other still-image references, make them explicit in the relevant sidecar instead of relying on runtime defaults.
 - If you change a canonical `workspace/` file's expected structure, update the matching template in the same change.
 - If a requested technical change conflicts with established creative content, stop and surface the conflict instead of guessing.
-- After finishing technical work, run the relevant QA scripts to validate correctness before handing off: `bun run validate:data` and `bun run typecheck`.
-- After both validation commands succeed, put a commit message about this change to `.current-commit-message`. Just override the file, only write one line. Keep it terse and sharp, do not include a semantic prefix, and do not end with a period. The commit hook consumes and clears this file during the next normal commit attempt.
 - When writing prompts for image generation models, consult the documentation on the matter: `MODEL_PROMPTING_GUIDE.md`.
+
+After finishing technical work:
+
+- Run the relevant QA scripts to validate correctness before handing off: `bun run validate:data` and `bun run typecheck`.
+- Put a commit message about this change to `.current-commit-message`. Don't care about the content, just write one line. Keep it terse and sharp, do not include a semantic prefix, and do not end with a period. The commit hook consumes and clears this file during the next normal commit attempt.
 
 ## Script Notes
 

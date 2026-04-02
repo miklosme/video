@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { getCharacterArtifactDescriptor } from './artifact-control'
 import {
@@ -15,6 +16,42 @@ async function writeRepoFile(rootDir: string, relativePath: string, content: str
   await mkdir(path.dirname(filePath), { recursive: true })
   await writeFile(filePath, content)
 }
+
+test('generate-character-sheets explains when a requested character sidecar is missing', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-character-missing-sidecar-'))
+  const scriptPath = fileURLToPath(new URL('./generate-character-sheets.ts', import.meta.url))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/CONFIG.json',
+      `${JSON.stringify(
+        {
+          agentModel: 'agent-test',
+          imageModel: 'image-test',
+          videoModel: 'video-test',
+          variantCount: 1,
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = Bun.spawnSync({
+      cmd: [process.execPath, scriptPath, '--character-id', 'hero'],
+      cwd: rootDir,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(new TextDecoder().decode(result.stderr)).toContain(
+      'Character "hero" is missing its generation sidecar at workspace/CHARACTERS/hero.json.',
+    )
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
 
 test('runCharacterSheetRegeneration uses only the selected character image and the approved request', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-character-regenerate-'))

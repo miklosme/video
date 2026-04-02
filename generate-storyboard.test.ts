@@ -152,6 +152,47 @@ test('generate-storyboard skips when the canonical storyboard image already exis
   }
 })
 
+test('generate-storyboard explains when the storyboard sidecar is missing', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-missing-sidecar-'))
+  const scriptPath = fileURLToPath(new URL('./generate-storyboard.ts', import.meta.url))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/CONFIG.json',
+      `${JSON.stringify(
+        {
+          agentModel: 'agent-test',
+          imageModel: 'image-test',
+          videoModel: 'video-test',
+          variantCount: 1,
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.md',
+      '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
+    )
+
+    const result = Bun.spawnSync({
+      cmd: [process.execPath, scriptPath],
+      cwd: rootDir,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(new TextDecoder().decode(result.stderr)).toContain(
+      'workspace/STORYBOARD.json is required before running bun run generate:storyboard.',
+    )
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('syncStoryboardGeneration renders variantCount retained versions and selects the last one', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-variants-'))
   const descriptor = getStoryboardArtifactDescriptor()

@@ -79,6 +79,56 @@ function resolvePath(maybeRelativePath: string, cwd = process.cwd()) {
   return path.resolve(cwd, maybeRelativePath)
 }
 
+function selectPlannedShotsForGeneration(
+  shots: ShotEntry[],
+  filters: Pick<GenerateShotsArgs, 'shotId'> = {},
+) {
+  return shots.filter((entry) => !filters.shotId || entry.shotId === filters.shotId)
+}
+
+function buildMissingShotSidecarError(missingShots: ReadonlyArray<Pick<ShotEntry, 'shotId'>>) {
+  const missingLines = missingShots.map((entry) => {
+    const descriptor = getShotArtifactDescriptor(entry.shotId)
+    return `- ${entry.shotId}: ${descriptor.sidecarPath}`
+  })
+
+  return [
+    'Planned shots are missing generation sidecars in workspace/SHOTS/.',
+    'Missing sidecars:',
+    ...missingLines,
+    'Write the missing shot prompt sidecars before running bun run generate:shots.',
+  ].join('\n')
+}
+
+function buildEmptyShotGenerationError(
+  shots: ShotEntry[],
+  shotArtifacts: ShotArtifactEntry[],
+  filters: Pick<GenerateShotsArgs, 'shotId'> = {},
+) {
+  const plannedShots = selectPlannedShotsForGeneration(shots, filters)
+
+  if (plannedShots.length === 0) {
+    if (filters.shotId) {
+      return shots.some((entry) => entry.shotId === filters.shotId)
+        ? `Shot "${filters.shotId}" is present but not planned for generation in workspace/SHOTS.json.`
+        : `No planned shot matched shot "${filters.shotId}" in workspace/SHOTS.json.`
+    }
+
+    return 'workspace/SHOTS.json has no planned shots.'
+  }
+
+  const artifactIds = new Set(shotArtifacts.map((entry) => entry.shotId))
+  const missingShots = plannedShots.filter((entry) => !artifactIds.has(entry.shotId))
+
+  if (missingShots.length > 0) {
+    return buildMissingShotSidecarError(missingShots)
+  }
+
+  return `No shot artifact matched${
+    filters.shotId ? ` shot ${filters.shotId}` : ' the provided filters'
+  }.`
+}
+
 function resolveDefaultLogFile(cwd = process.cwd()) {
   return path.resolve(cwd, 'workspace', 'GENERATION-LOG.jsonl')
 }
@@ -557,11 +607,7 @@ async function main() {
   const plannedGenerations = selectPendingShotGenerations(shots, shotArtifacts, filters)
 
   if (plannedGenerations.length === 0) {
-    throw new Error(
-      `No shot artifact matched${
-        filters.shotId ? ` shot ${filters.shotId}` : ' the provided filters'
-      }.`,
-    )
+    throw new Error(buildEmptyShotGenerationError(shots, shotArtifacts, filters))
   }
 
   await syncShotGenerations(plannedGenerations, keyframes, characterSheets, {

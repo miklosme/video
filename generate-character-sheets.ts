@@ -65,6 +65,16 @@ async function fileExists(filePath: string) {
   }
 }
 
+function buildEmptyCharacterSheetGenerationError(filters: GenerateCharacterSheetsArgs) {
+  if (filters.characterId) {
+    const descriptor = getCharacterArtifactDescriptor(filters.characterId)
+
+    return `Character "${filters.characterId}" is missing its generation sidecar at ${descriptor.sidecarPath}. Write that sidecar prompt before running bun run generate:characters.`
+  }
+
+  return 'No character sheet generation sidecars were found in workspace/CHARACTERS/. Add workspace/CHARACTERS/<characterId>.json before running bun run generate:characters.'
+}
+
 export function selectPendingCharacterSheetGenerations(
   characterSheets: CharacterSheetEntry[],
   filters: GenerateCharacterSheetsArgs = {},
@@ -337,11 +347,7 @@ async function main() {
   const plannedGenerations = selectPendingCharacterSheetGenerations(characterSheets, filters)
 
   if (plannedGenerations.length === 0) {
-    throw new Error(
-      `No character sheet matched${
-        filters.characterId ? ` character ${filters.characterId}` : ' the provided filters'
-      }.`,
-    )
+    throw new Error(buildEmptyCharacterSheetGenerationError(filters))
   }
 
   await syncCharacterSheetGenerations(plannedGenerations, {

@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { getShotArtifactDescriptor } from './artifact-control'
 import {
@@ -28,6 +29,66 @@ async function createTestRepo() {
     },
   }
 }
+
+test('generate-shots explains when a planned shot sidecar is missing', async () => {
+  const repo = await createTestRepo()
+  const scriptPath = fileURLToPath(new URL('./generate-shots.ts', import.meta.url))
+
+  try {
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/CONFIG.json',
+      `${JSON.stringify(
+        {
+          agentModel: 'agent-test',
+          imageModel: 'image-test',
+          videoModel: 'video-test',
+          variantCount: 1,
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = Bun.spawnSync({
+      cmd: [process.execPath, scriptPath, '--shot-id', 'SHOT-01'],
+      cwd: repo.rootDir,
+      stdout: 'pipe',
+      stderr: 'pipe',
+    })
+
+    expect(result.exitCode).toBe(1)
+    expect(new TextDecoder().decode(result.stderr)).toContain(
+      'Planned shots are missing generation sidecars in workspace/SHOTS/.',
+    )
+    expect(new TextDecoder().decode(result.stderr)).toContain(
+      '- SHOT-01: workspace/SHOTS/SHOT-01.json',
+    )
+  } finally {
+    await repo.cleanup()
+  }
+})
 
 function createPlannedKeyframes(keyframeIds: string[]) {
   return keyframeIds.map((keyframeId) => ({

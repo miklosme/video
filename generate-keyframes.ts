@@ -78,6 +78,82 @@ async function fileExists(filePath: string) {
   }
 }
 
+function selectPlannedKeyframesForGeneration(
+  keyframes: KeyframeEntry[],
+  shots: ShotEntry[],
+  filters: GenerateKeyframesArgs = {},
+) {
+  const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
+
+  return shots.flatMap((shot) =>
+    orderShotKeyframesForGeneration(shot, keyframeById).filter((entry) => {
+      if (filters.keyframeId && entry.keyframeId !== filters.keyframeId) {
+        return false
+      }
+
+      if (filters.shotId && entry.shotId !== filters.shotId) {
+        return false
+      }
+
+      return true
+    }),
+  )
+}
+
+function buildMissingKeyframeSidecarError(
+  missingKeyframes: ReadonlyArray<Pick<KeyframeEntry, 'keyframeId' | 'shotId'>>,
+) {
+  const missingLines = missingKeyframes.map((entry) => {
+    const descriptor = getKeyframeArtifactDescriptor(entry)
+    return `- ${entry.keyframeId}: ${descriptor.sidecarPath}`
+  })
+
+  return [
+    'Planned keyframe anchors are missing generation sidecars in workspace/KEYFRAMES/.',
+    'Missing sidecars:',
+    ...missingLines,
+    'Write the missing keyframe prompt sidecars before running bun run generate:keyframes.',
+  ].join('\n')
+}
+
+function buildEmptyKeyframeGenerationError(
+  keyframes: KeyframeEntry[],
+  artifacts: KeyframeArtifactEntry[],
+  shots: ShotEntry[],
+  filters: GenerateKeyframesArgs = {},
+) {
+  const plannedKeyframes = selectPlannedKeyframesForGeneration(keyframes, shots, filters)
+
+  if (plannedKeyframes.length === 0) {
+    if (filters.keyframeId) {
+      return `No planned keyframe anchor matched keyframe "${filters.keyframeId}" in workspace/SHOTS.json.`
+    }
+
+    if (filters.shotId) {
+      return shots.some((entry) => entry.shotId === filters.shotId)
+        ? `Shot "${filters.shotId}" has no planned keyframe anchors in workspace/SHOTS.json.`
+        : `No planned shot matched shot "${filters.shotId}" in workspace/SHOTS.json.`
+    }
+
+    return 'workspace/SHOTS.json has no planned keyframe anchors.'
+  }
+
+  const artifactIds = new Set(artifacts.map((entry) => entry.keyframeId))
+  const missingKeyframes = plannedKeyframes.filter((entry) => !artifactIds.has(entry.keyframeId))
+
+  if (missingKeyframes.length > 0) {
+    return buildMissingKeyframeSidecarError(missingKeyframes)
+  }
+
+  return `No keyframe artifact matched${
+    filters.keyframeId
+      ? ` keyframe ${filters.keyframeId}`
+      : filters.shotId
+        ? ` shot ${filters.shotId}`
+        : ' the provided filters'
+  }.`
+}
+
 export function selectPendingKeyframeGenerations(
   keyframes: KeyframeEntry[],
   artifacts: KeyframeArtifactEntry[],
@@ -508,15 +584,7 @@ async function main() {
   const plannedGenerations = selectPendingKeyframeGenerations(keyframes, artifacts, shots, filters)
 
   if (plannedGenerations.length === 0) {
-    throw new Error(
-      `No keyframe artifact matched${
-        filters.keyframeId
-          ? ` keyframe ${filters.keyframeId}`
-          : filters.shotId
-            ? ` shot ${filters.shotId}`
-            : ' the provided filters'
-      }.`,
-    )
+    throw new Error(buildEmptyKeyframeGenerationError(keyframes, artifacts, shots, filters))
   }
 
   await syncKeyframeGenerations(plannedGenerations, keyframes, shots, {
