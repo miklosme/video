@@ -18,7 +18,8 @@
     "typecheck": "tsc --noEmit --pretty",
     "format": "prettier --write .",
     "reset": "bun reset-history.ts",
-    "reset:all": "rm -f workspace/HISTORY.json"
+    "reset:all": "rm -f workspace/HISTORY.json",
+    "start": "bun switch && bun app"
   },
   "devDependencies": {
     "@types/bun": "latest",
