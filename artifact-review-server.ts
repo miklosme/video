@@ -38,6 +38,7 @@ import {
   type ShotVideoGenerator,
 } from './generate-shots'
 import { regenerateStoryboardArtifactVersion } from './generate-storyboard'
+import { renderTimelineContent } from './timeline-component'
 import {
   AUTHORED_REFERENCE_KINDS,
   getCharacterSheetImagePath,
@@ -76,7 +77,7 @@ const HTML_HEADERS = {
 
 const CURRENT_BASE_VERSION_ID = 'current'
 
-type Tab = 'characters' | 'storyboard' | 'keyframes' | 'shots'
+type Tab = 'characters' | 'storyboard' | 'keyframes' | 'shots' | 'timeline'
 
 type ArtifactJobStatus = 'running' | 'success' | 'error'
 
@@ -473,6 +474,7 @@ function renderTabs(activeTab: Tab) {
     { id: 'characters', label: 'Characters', href: '/' },
     { id: 'storyboard', label: 'Storyboard', href: '/storyboard' },
     { id: 'keyframes', label: 'Keyframes', href: '/keyframes' },
+    { id: 'timeline', label: 'Timeline', href: '/keyframes2' },
     { id: 'shots', label: 'Shots', href: '/shots' },
   ]
 
@@ -2707,6 +2709,22 @@ export function startArtifactReviewServer(
             url.pathname === '/shots'
           ) {
             return renderShotsSummary(await buildShotReviewCards(cwd))
+          }
+
+          if (
+            (request.method === 'GET' || request.method === 'HEAD') &&
+            url.pathname === '/keyframes2'
+          ) {
+            return new Response(
+              renderPage(
+                'timeline',
+                `<div class="stack">
+                  ${renderHero('Timeline', 'Drag keyframe pointers to adjust positions on the timeline.', 'Prototype')}
+                  ${renderTimelineContent()}
+                </div>`,
+              ),
+              { headers: HTML_HEADERS },
+            )
           }
 
           if (

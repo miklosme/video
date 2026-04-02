@@ -45,3 +45,5 @@ workspace/**/*.mp4
 
 workspace-panda/
 workspaces/
+
+.claude/
