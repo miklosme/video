@@ -41,6 +41,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `workspace/SHOTS.json` is the planning manifest for shots and keyframe anchors and should use the exact shape `{ shotId, status, videoPath, durationSeconds, incomingTransition: { type, notes }, keyframes: [{ keyframeId, frameType, imagePath }] }`.
 - `workspace/SHOTS/` stores one sidecar JSON and one generated `.mp4` per shot, sharing the same `shotId` basename. Shot sidecars may include optional `references`.
 - `workspace/FINAL-CUT.json` stores the saved Remotion edit manifest for the final assembly step and should use the exact shape `{ version, shots, soundtrack }`.
+- `workspace/HISTORY.json` stores the app's persisted chat/session state for the current project.
 - Visual artifacts retain linear history under nearby `HISTORY/` folders. The public artifact path is always the current version, and older retained media files are stored as `vN.png` or `vN.mp4`.
 - Use `TBD` for unresolved creative information and `TODO` for coding work.
 

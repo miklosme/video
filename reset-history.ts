@@ -1,7 +1,8 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { access, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
-const historyPath = path.resolve(process.cwd(), 'HISTORY.json')
+const WORKSPACE_HISTORY_PATH = path.resolve(process.cwd(), 'workspace/HISTORY.json')
+const LEGACY_HISTORY_PATH = path.resolve(process.cwd(), 'HISTORY.json')
 
 type TranscriptRole = 'assistant' | 'user' | 'tool'
 
@@ -19,7 +20,20 @@ interface PersistedAgentState {
   runtimeError?: string | null
 }
 
+async function fileExists(targetPath: string) {
+  try {
+    await access(targetPath)
+    return true
+  } catch {
+    return false
+  }
+}
+
 async function main() {
+  const historyPath =
+    (await fileExists(WORKSPACE_HISTORY_PATH)) || !(await fileExists(LEGACY_HISTORY_PATH))
+      ? WORKSPACE_HISTORY_PATH
+      : LEGACY_HISTORY_PATH
   const raw = await readFile(historyPath, 'utf8')
   const state = JSON.parse(raw) as PersistedAgentState
 

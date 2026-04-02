@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process'
-import { access, readFile, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, writeFile } from 'node:fs/promises'
+import path from 'node:path'
 import process from 'node:process'
 
 import {
@@ -41,7 +42,8 @@ import {
   type ModelOptionsData,
 } from './workflow-data'
 
-const AGENT_STATE_PATH = 'HISTORY.json'
+const AGENT_STATE_PATH = 'workspace/HISTORY.json'
+const LEGACY_AGENT_STATE_PATH = 'HISTORY.json'
 // Bump this when agent/runtime behavior changes enough that old transcript context
 // should not be replayed into new turns.
 const PERSISTED_AGENT_STATE_VERSION = 2
@@ -367,13 +369,16 @@ function clonePersistedAgentState(state: PersistedAgentState): PersistedAgentSta
 
 async function loadPersistedAgentState(workflow: WorkflowSummary): Promise<PersistedAgentState> {
   const fallback = createDefaultPersistedAgentState(workflow)
+  const persistedStatePath = (await fileExists(AGENT_STATE_PATH))
+    ? AGENT_STATE_PATH
+    : LEGACY_AGENT_STATE_PATH
 
-  if (!(await fileExists(AGENT_STATE_PATH))) {
+  if (!(await fileExists(persistedStatePath))) {
     return fallback
   }
 
   try {
-    const raw = await readFile(AGENT_STATE_PATH, 'utf8')
+    const raw = await readFile(persistedStatePath, 'utf8')
     const parsed = persistedAgentStateSchema.parse(JSON.parse(raw))
 
     return {
@@ -387,6 +392,7 @@ async function loadPersistedAgentState(workflow: WorkflowSummary): Promise<Persi
 }
 
 async function writePersistedAgentState(state: PersistedAgentState) {
+  await mkdir(path.dirname(AGENT_STATE_PATH), { recursive: true })
   await writeFile(AGENT_STATE_PATH, `${JSON.stringify(state, null, 2)}\n`, 'utf8')
 }
 
