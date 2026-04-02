@@ -1,0 +1,28 @@
+{
+  "keyframeId": "SHOT-04-START",
+  "shotId": "SHOT-04",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A cinematic photo of the same Florentine Renaissance merchant and donkey in the final approach to a sober public building, forward-rushing street-level composition, destination visible ahead, the merchant tense and locked forward with the leather satchel clutched to his body, the donkey just beginning to slow near the entrance, period stone facade, urgent arrival energy, grounded realism, the visual peak of a falsely high-stakes chase.",
+  "status": "draft",
+  "references": [
+    {
+      "path": "workspace/CHARACTERS/merchant.png",
+      "kind": "character-sheet",
+      "label": "Merchant reference",
+      "notes": "Keep merchant identity, wardrobe, satchel, and peak-stress read consistent."
+    },
+    {
+      "path": "workspace/CHARACTERS/donkey.png",
+      "kind": "character-sheet",
+      "label": "Donkey reference",
+      "notes": "Keep donkey appearance and tack consistent during arrival."
+    },
+    {
+      "path": "workspace/KEYFRAMES/SHOT-03/SHOT-03-START.png",
+      "kind": "previous-shot-end-frame",
+      "label": "Previous shot continuity",
+      "notes": "Carry forward the same pair, motion direction, and urgency into the stopping point outside the building."
+    }
+  ]
+}

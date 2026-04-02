@@ -50,7 +50,7 @@
   {
     "title": "Prepare keyframes",
     "instruction": "Write one sidecar JSON file per keyframe so still-image generation has stable prompts, IDs, and model metadata.",
-    "checked": false,
+    "checked": true,
     "relatedFiles": ["SHOTS.json", "KEYFRAMES/"]
   },
   {

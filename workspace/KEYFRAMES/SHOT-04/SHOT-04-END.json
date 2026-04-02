@@ -1,0 +1,28 @@
+{
+  "keyframeId": "SHOT-04-END",
+  "shotId": "SHOT-04",
+  "frameType": "end",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A cinematic photo of the same Florentine Renaissance merchant mid-scramble after dismounting outside the public building, the donkey stopped beside him and unfazed, the merchant nearly stumbling as he rushes toward the entrance while still gripping the worn leather satchel, dynamic but readable composition, stone doorway close at hand, the last instant before he bursts inside, grounded period realism, maximum dramatic urgency just before the comic reveal.",
+  "status": "draft",
+  "references": [
+    {
+      "path": "workspace/CHARACTERS/merchant.png",
+      "kind": "character-sheet",
+      "label": "Merchant reference",
+      "notes": "Preserve merchant identity, wardrobe, satchel, and frantic body language."
+    },
+    {
+      "path": "workspace/CHARACTERS/donkey.png",
+      "kind": "character-sheet",
+      "label": "Donkey reference",
+      "notes": "Preserve donkey appearance, calm demeanor, and position beside the building."
+    },
+    {
+      "path": "workspace/KEYFRAMES/SHOT-04/SHOT-04-START.png",
+      "kind": "start-frame",
+      "label": "Same-shot continuity",
+      "notes": "Evolve the approach into a stopped dismount and rush for the door while preserving location and character continuity."
+    }
+  ]
+}

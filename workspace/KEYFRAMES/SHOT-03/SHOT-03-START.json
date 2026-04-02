@@ -1,0 +1,28 @@
+{
+  "keyframeId": "SHOT-03-START",
+  "shotId": "SHOT-03",
+  "frameType": "start",
+  "model": "google/gemini-3.1-flash-image-preview",
+  "prompt": "A cinematic wide photo of the same Florentine Renaissance merchant riding the same small donkey across a more open stretch of Florence, the unfinished Duomo dominating the background with visible scaffolds, cranes, and raw masonry under construction, the merchant gripping the worn leather satchel tightly and scanning ahead with near-desperate intensity, broad civic scale, historic street textures, soft daylight, grounded realism, grand epic framing that humorously oversells the importance of his errand.",
+  "status": "draft",
+  "references": [
+    {
+      "path": "workspace/CHARACTERS/merchant.png",
+      "kind": "character-sheet",
+      "label": "Merchant reference",
+      "notes": "Keep merchant face, travel clothes, and satchel consistent."
+    },
+    {
+      "path": "workspace/CHARACTERS/donkey.png",
+      "kind": "character-sheet",
+      "label": "Donkey reference",
+      "notes": "Keep the donkey's size, coat, and tack consistent."
+    },
+    {
+      "path": "workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png",
+      "kind": "previous-shot-end-frame",
+      "label": "Previous shot continuity",
+      "notes": "Maintain movement direction and escalating urgency while opening into a broader city view."
+    }
+  ]
+}
