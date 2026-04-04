@@ -714,20 +714,9 @@ export function renderTimelineContent(
     }
   });
 
-  document.addEventListener('click', function (e) {
+  document.addEventListener('click', function () {
     if (didDrag) {
       didDrag = false;
-      return;
-    }
-
-    if (e.target.closest('.tl-pointer') || e.target.closest('.tl-section')) {
-      return;
-    }
-
-    if (selected) {
-      selected = null;
-      render();
-      refreshDetail(false);
     }
   });
 
