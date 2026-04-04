@@ -1069,7 +1069,6 @@ function renderPage(
       }
 
       .version-tile:hover {
-        transform: translateY(-1px);
         border-color: rgba(125,211,252,0.34);
       }
 

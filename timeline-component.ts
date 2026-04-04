@@ -213,9 +213,6 @@ export function renderTimelineContent(
     letter-spacing: normal;
     text-transform: none;
   }
-  .tl-keyframe-tile:hover {
-    transform: translateY(-1px);
-  }
   .tl-keyframe-tile-pair-start {
     border-radius: 16px 4px 4px 16px;
   }
