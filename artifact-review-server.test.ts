@@ -83,6 +83,46 @@ function createPlannedKeyframes(keyframeIds: string[]) {
   }))
 }
 
+test('artifact review server renders idea and story document pages and puts them first in the top nav', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/IDEA.md',
+      '# IDEA\n\nA lonely lighthouse keeps watch over a flooded city.\n',
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORY.md',
+      '# STORY\n\nThe keeper must choose between rescue and memory.\n',
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const ideaResponse = await fetch(new URL('/idea', server.url))
+      const ideaHtml = await ideaResponse.text()
+      const storyResponse = await fetch(new URL('/story', server.url))
+      const storyHtml = await storyResponse.text()
+
+      expect(ideaResponse.status).toBe(200)
+      expect(ideaHtml).toContain('workspace/IDEA.md')
+      expect(ideaHtml).toContain('# IDEA')
+      expect(ideaHtml.indexOf('href="/idea"')).toBeLessThan(ideaHtml.indexOf('href="/story"'))
+      expect(ideaHtml.indexOf('href="/story"')).toBeLessThan(ideaHtml.indexOf('href="/"'))
+
+      expect(storyResponse.status).toBe(200)
+      expect(storyHtml).toContain('workspace/STORY.md')
+      expect(storyHtml).toContain('# STORY')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('artifact review server renders the storyboard tab with a placeholder and raw markdown', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 

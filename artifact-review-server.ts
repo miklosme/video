@@ -82,7 +82,7 @@ const JSON_HEADERS = {
 
 const CURRENT_BASE_VERSION_ID = 'current'
 
-type Tab = 'characters' | 'storyboard' | 'timeline'
+type Tab = 'idea' | 'story' | 'characters' | 'storyboard' | 'timeline'
 
 type ArtifactJobStatus = 'running' | 'success' | 'error'
 
@@ -577,6 +577,8 @@ async function loadShotArtifactsOrEmpty(cwd: string) {
 
 function renderTabs(activeTab: Tab) {
   const tabs: { id: Tab; label: string; href: string }[] = [
+    { id: 'idea', label: 'Idea', href: '/idea' },
+    { id: 'story', label: 'Story', href: '/story' },
     { id: 'characters', label: 'Characters', href: '/' },
     { id: 'storyboard', label: 'Storyboard', href: '/storyboard' },
     { id: 'timeline', label: 'Timeline', href: '/timeline' },
@@ -1689,6 +1691,48 @@ function renderCharactersSummary(cards: CharacterReviewCard[]) {
   )
 }
 
+async function loadWorkspaceMarkdownDocument(fileName: string, cwd: string) {
+  try {
+    return await readFile(resolveWorkflowPath(fileName, cwd), 'utf8')
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      return null
+    }
+
+    throw error
+  }
+}
+
+function renderWorkspaceMarkdownDocumentPage(options: {
+  activeTab: Tab
+  title: string
+  eyebrow: string
+  subtitle: string
+  sectionTitle: string
+  markdown: string | null
+  emptyState: string
+}) {
+  return new Response(
+    renderPage(
+      options.activeTab,
+      `<div class="stack">
+        ${renderHero(options.title, options.subtitle, options.eyebrow)}
+        <section class="panel">
+          <p class="section-title">${escapeHtml(options.sectionTitle)}</p>
+          ${
+            options.markdown
+              ? `<pre class="storyboard-markdown">${escapeHtml(options.markdown.trim())}</pre>`
+              : `<div class="empty-state">${escapeHtml(options.emptyState)}</div>`
+          }
+        </section>
+      </div>`,
+    ),
+    {
+      headers: HTML_HEADERS,
+    },
+  )
+}
+
 function getArtifactDetailPath(descriptor: ArtifactDescriptor) {
   switch (descriptor.artifactType) {
     case 'storyboard':
@@ -2679,6 +2723,35 @@ export function startArtifactReviewServer(
             return renderCharactersSummary(await buildCharacterCards(cwd))
           }
 
+          if ((request.method === 'GET' || request.method === 'HEAD') && url.pathname === '/idea') {
+            return renderWorkspaceMarkdownDocumentPage({
+              activeTab: 'idea',
+              title: 'Idea',
+              eyebrow: 'Creative Brief',
+              subtitle:
+                'Review the current project idea and brief before moving into story, storyboard, and downstream artifact work.',
+              sectionTitle: 'workspace/IDEA.md',
+              markdown: await loadWorkspaceMarkdownDocument('IDEA.md', cwd),
+              emptyState: 'No idea markdown yet.',
+            })
+          }
+
+          if (
+            (request.method === 'GET' || request.method === 'HEAD') &&
+            url.pathname === '/story'
+          ) {
+            return renderWorkspaceMarkdownDocumentPage({
+              activeTab: 'story',
+              title: 'Story',
+              eyebrow: 'Narrative Draft',
+              subtitle:
+                'Review the current story draft in its canonical workspace file before locking storyboard and shot planning.',
+              sectionTitle: 'workspace/STORY.md',
+              markdown: await loadWorkspaceMarkdownDocument('STORY.md', cwd),
+              emptyState: 'No story markdown yet.',
+            })
+          }
+
           if (
             (request.method === 'GET' || request.method === 'HEAD') &&
             (url.pathname === '/keyframes' || url.pathname === '/shots')
@@ -2919,7 +2992,11 @@ export function startArtifactReviewServer(
               ? 'timeline'
               : url.pathname.startsWith('/storyboard')
                 ? 'storyboard'
-                : 'characters'
+                : url.pathname.startsWith('/story')
+                  ? 'story'
+                  : url.pathname.startsWith('/idea')
+                    ? 'idea'
+                    : 'characters'
 
           return new Response(
             renderPage(
