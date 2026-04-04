@@ -53,6 +53,7 @@ test('renderTimelineContent keeps the current selection when clicking outside th
         detailUrl: '/shots/SHOT-02?embed=1',
       },
     ],
+    keyframeGroups: [],
     saveUrl: '/timeline/save',
   })
 
@@ -61,4 +62,111 @@ test('renderTimelineContent keeps the current selection when clicking outside th
   expect(html).not.toContain(
     'if (selected) {\n      selected = null;\n      render();\n      refreshDetail(false);\n    }',
   )
+})
+
+test('renderTimelineContent renders grouped keyframe thumbnails and wires them to pointer selection', () => {
+  const html = renderTimelineContent({
+    pointers: [
+      {
+        id: 'pointer-0',
+        position: 0,
+        canDrag: false,
+        left: null,
+        right: {
+          keyframeId: 'SHOT-01-START',
+          detailUrl: '/keyframes/SHOT-01-START?embed=1',
+          omitted: false,
+        },
+      },
+      {
+        id: 'pointer-1',
+        position: 6,
+        canDrag: true,
+        left: {
+          keyframeId: 'SHOT-01-END',
+          detailUrl: '/keyframes/SHOT-01-END?embed=1',
+          omitted: false,
+        },
+        right: {
+          keyframeId: 'SHOT-02-START',
+          detailUrl: '/keyframes/SHOT-02-START?embed=1',
+          omitted: false,
+        },
+      },
+      {
+        id: 'pointer-2',
+        position: 12,
+        canDrag: false,
+        left: {
+          keyframeId: 'SHOT-02-END',
+          detailUrl: '/keyframes/SHOT-02-END?embed=1',
+          omitted: false,
+        },
+        right: null,
+      },
+    ],
+    sections: [
+      {
+        shotId: 'SHOT-01',
+        detailUrl: '/shots/SHOT-01?embed=1',
+      },
+      {
+        shotId: 'SHOT-02',
+        detailUrl: '/shots/SHOT-02?embed=1',
+      },
+    ],
+    keyframeGroups: [
+      {
+        shotId: 'SHOT-01',
+        items: [
+          {
+            keyframeId: 'SHOT-01-START',
+            shotId: 'SHOT-01',
+            frameType: 'start',
+            pointerId: 'pointer-0',
+            side: 'right',
+            detailUrl: '/keyframes/SHOT-01-START?embed=1',
+            imageUrl: '/workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+            imageExists: true,
+          },
+          {
+            keyframeId: 'SHOT-01-END',
+            shotId: 'SHOT-01',
+            frameType: 'end',
+            pointerId: 'pointer-1',
+            side: 'left',
+            detailUrl: '/keyframes/SHOT-01-END?embed=1',
+            imageUrl: '/workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
+            imageExists: false,
+          },
+        ],
+      },
+      {
+        shotId: 'SHOT-02',
+        items: [
+          {
+            keyframeId: 'SHOT-02-START',
+            shotId: 'SHOT-02',
+            frameType: 'start',
+            pointerId: 'pointer-1',
+            side: 'right',
+            detailUrl: '/keyframes/SHOT-02-START?embed=1',
+            imageUrl: '/workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png',
+            imageExists: true,
+          },
+        ],
+      },
+    ],
+    saveUrl: '/timeline/save',
+  })
+
+  expect(html).toContain('tl-keyframe-groups')
+  expect(html).toContain('data-keyframe-rail-id="SHOT-01-START"')
+  expect(html).toContain('data-pointer-id="pointer-1"')
+  expect(html).toContain('tl-keyframe-tile-pair-start')
+  expect(html).toContain('tl-keyframe-tile-pair-end')
+  expect(html).toContain('Not generated yet')
+  expect(html).not.toContain('<span class="pill pill-info">SHOT-01</span>')
+  expect(html).not.toContain('<span class="pill">Start</span>')
+  expect(html).toContain("keyframeRail.addEventListener('click', function (e) {")
 })

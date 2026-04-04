@@ -25,6 +25,22 @@ export interface TimelinePointerSide {
   omitted: boolean
 }
 
+export interface TimelineKeyframeTile {
+  keyframeId: string
+  shotId: string
+  frameType: 'start' | 'end'
+  pointerId: string
+  side: 'left' | 'right'
+  detailUrl: string
+  imageUrl: string
+  imageExists: boolean
+}
+
+export interface TimelineKeyframeGroup {
+  shotId: string
+  items: TimelineKeyframeTile[]
+}
+
 export interface TimelinePointer {
   id: string
   position: number
@@ -41,6 +57,7 @@ export interface TimelineSection {
 export interface TimelineData {
   pointers: TimelinePointer[]
   sections: TimelineSection[]
+  keyframeGroups: TimelineKeyframeGroup[]
   saveUrl: string
 }
 
@@ -50,6 +67,15 @@ const DEFAULT_CONFIG: TimelineConfig = {
   allowedDurations: [4, 6, 8],
 }
 
+function escapeHtml(value: string) {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;')
+}
+
 function renderEmptyTimelineState() {
   return `
 <section class="panel">
@@ -57,6 +83,70 @@ function renderEmptyTimelineState() {
   <p class="muted">No planned shots yet. Create <code>workspace/SHOTS.json</code> entries to populate the timeline.</p>
 </section>
 `
+}
+
+function renderKeyframeTile(
+  tile: TimelineKeyframeTile,
+  options: {
+    groupedIndex: number
+    groupedCount: number
+  },
+) {
+  const pairClass =
+    options.groupedCount > 1
+      ? options.groupedIndex === 0
+        ? ' tl-keyframe-tile-pair-start'
+        : options.groupedIndex === options.groupedCount - 1
+          ? ' tl-keyframe-tile-pair-end'
+          : ' tl-keyframe-tile-pair-middle'
+      : ''
+  const media = tile.imageExists
+    ? `<img class="version-media" src="${tile.imageUrl}" alt="${escapeHtml(tile.keyframeId)}" loading="lazy">`
+    : `<div class="placeholder placeholder-missing tl-keyframe-placeholder">Not generated yet</div>`
+
+  return `
+    <button
+      class="version-tile tl-keyframe-tile${pairClass}"
+      type="button"
+      data-keyframe-rail-id="${escapeHtml(tile.keyframeId)}"
+      data-pointer-id="${escapeHtml(tile.pointerId)}"
+      data-side="${escapeHtml(tile.side)}"
+      aria-label="Select keyframe ${escapeHtml(tile.keyframeId)}"
+    >
+      <div class="version-visual tl-keyframe-visual">
+        ${media}
+      </div>
+    </button>
+  `
+}
+
+function renderKeyframeRail(groups: TimelineKeyframeGroup[]) {
+  if (groups.length === 0) {
+    return ''
+  }
+
+  return `
+    <section class="panel version-rail-shell tl-keyframe-rail-shell">
+      <div class="tl-keyframe-groups" id="tl-keyframe-groups">
+        ${groups
+          .map(
+            (group) => `
+              <div class="tl-keyframe-group" data-shot-id="${escapeHtml(group.shotId)}">
+                ${group.items
+                  .map((item, index) =>
+                    renderKeyframeTile(item, {
+                      groupedIndex: index,
+                      groupedCount: group.items.length,
+                    }),
+                  )
+                  .join('')}
+              </div>
+            `,
+          )
+          .join('')}
+      </div>
+    </section>
+  `
 }
 
 export function renderTimelineContent(
@@ -94,10 +184,75 @@ export function renderTimelineContent(
   return /* html */ `
 <style>
   .tl-container {
-    padding: 48px 20px 20px;
     display: flex;
     flex-direction: column;
     gap: 18px;
+  }
+  .tl-keyframe-rail-shell {
+    padding: 12px;
+  }
+  .tl-keyframe-groups {
+    display: flex;
+    gap: 18px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    padding-bottom: 2px;
+    scrollbar-width: thin;
+  }
+  .tl-keyframe-group {
+    display: flex;
+    gap: 2px;
+    flex: 0 0 auto;
+  }
+  .tl-keyframe-tile {
+    flex: 0 0 176px;
+    display: block;
+    padding: 0;
+    text-align: left;
+    color: inherit;
+    letter-spacing: normal;
+    text-transform: none;
+  }
+  .tl-keyframe-tile:hover {
+    transform: translateY(-1px);
+  }
+  .tl-keyframe-tile-pair-start {
+    border-radius: 16px 4px 4px 16px;
+  }
+  .tl-keyframe-tile-pair-end {
+    border-radius: 4px 16px 16px 4px;
+  }
+  .tl-keyframe-tile-pair-middle {
+    border-radius: 4px;
+  }
+  .tl-keyframe-tile.tl-selected {
+    border-color: rgba(159,232,112,0.42);
+    background:
+      linear-gradient(180deg, rgba(159,232,112,0.14), rgba(255,255,255,0.02)),
+      rgba(255,255,255,0.025);
+    box-shadow:
+      inset 0 0 0 1px rgba(159,232,112,0.12),
+      0 8px 18px rgba(10, 15, 10, 0.28);
+  }
+  .tl-keyframe-tile:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .tl-keyframe-visual {
+    aspect-ratio: 16 / 9;
+  }
+  .tl-keyframe-tile-pair-start .tl-keyframe-visual {
+    border-radius: 15px 3px 3px 15px;
+  }
+  .tl-keyframe-tile-pair-end .tl-keyframe-visual {
+    border-radius: 3px 15px 15px 3px;
+  }
+  .tl-keyframe-tile-pair-middle .tl-keyframe-visual {
+    border-radius: 3px;
+  }
+  .tl-keyframe-placeholder {
+    height: 100%;
+    font-size: 12px;
   }
   .tl-scroll {
     overflow-x: auto;
@@ -299,7 +454,13 @@ export function renderTimelineContent(
 
   @media (max-width: 720px) {
     .tl-container {
-      padding: 28px 12px 12px;
+      padding: 0px;
+    }
+    .tl-keyframe-groups {
+      gap: 14px;
+    }
+    .tl-keyframe-tile {
+      flex-basis: 152px;
     }
     .tl-detail-frame {
       min-height: 760px;
@@ -308,6 +469,7 @@ export function renderTimelineContent(
 </style>
 
 <div class="tl-container">
+  ${renderKeyframeRail(data.keyframeGroups)}
   <div class="tl-scroll">
     <div class="tl-area" id="tl-area">
       <div class="tl-labels">${labels.join('')}</div>
@@ -348,6 +510,7 @@ export function renderTimelineContent(
 
   var layer = document.getElementById('tl-layer');
   var ruler = document.getElementById('tl-ruler');
+  var keyframeRail = document.getElementById('tl-keyframe-groups');
   var detailFrame = document.getElementById('tl-detail-frame');
   var detailEmpty = document.getElementById('tl-detail-empty');
 
@@ -459,6 +622,23 @@ export function renderTimelineContent(
 
     if (forceReload || detailFrame.getAttribute('src') !== nextUrl) {
       detailFrame.setAttribute('src', nextUrl);
+    }
+  }
+
+  function syncKeyframeRailSelection() {
+    if (!keyframeRail) return;
+
+    var tiles = keyframeRail.querySelectorAll('.tl-keyframe-tile');
+
+    for (var i = 0; i < tiles.length; i++) {
+      var tile = tiles[i];
+      var isSelected = selectedMatchesPointer(
+        tile.getAttribute('data-pointer-id'),
+        tile.getAttribute('data-side')
+      );
+
+      tile.classList.toggle('tl-selected', isSelected);
+      tile.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
     }
   }
 
@@ -637,6 +817,25 @@ export function renderTimelineContent(
 
       layer.appendChild(el);
     }
+
+    syncKeyframeRailSelection();
+  }
+
+  if (keyframeRail) {
+    keyframeRail.addEventListener('click', function (e) {
+      var tile = e.target.closest('.tl-keyframe-tile');
+      if (!tile) return;
+
+      selected = buildPointerSelection(
+        tile.getAttribute('data-pointer-id'),
+        tile.getAttribute('data-side')
+      );
+      drag = null;
+      didDrag = false;
+      render();
+      refreshDetail(false);
+      e.preventDefault();
+    });
   }
 
   layer.addEventListener('mousedown', function (e) {

@@ -659,6 +659,11 @@ test('artifact review server renders the timeline from SHOTS.json with embedded 
         2,
       )}\n`,
     )
+    await writeRepoFile(
+      rootDir,
+      'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+      'shot-01-start-image',
+    )
 
     const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
 
@@ -673,6 +678,12 @@ test('artifact review server renders the timeline from SHOTS.json with embedded 
       expect(html).toContain('/shots/SHOT-01?embed=1')
       expect(html).toContain('/keyframes/SHOT-01-END?embed=1')
       expect(html).toContain('"omitted":true')
+      expect(html).toContain('data-keyframe-rail-id="SHOT-01-START"')
+      expect(html).toContain('data-keyframe-rail-id="SHOT-02-START"')
+      expect(html).toContain('data-keyframe-rail-id="SHOT-02-END"')
+      expect(html).not.toContain('data-keyframe-rail-id="SHOT-01-END"')
+      expect(html).toContain('/workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png')
+      expect(html).toContain('Not generated yet')
       expect(html).toContain('tl-detail-frame')
       expect(html).not.toContain('mockPointers')
     } finally {

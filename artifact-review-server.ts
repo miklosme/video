@@ -336,11 +336,12 @@ function buildEmbeddedShotDetailUrl(shotId: string) {
   return `/shots/${encodeURIComponent(shotId)}?embed=1`
 }
 
-function buildTimelineData(shots: ShotEntry[]) {
+async function buildTimelineData(shots: ShotEntry[], cwd: string) {
   if (shots.length === 0) {
     return {
       pointers: [],
       sections: [],
+      keyframeGroups: [],
       saveUrl: '/timeline/update',
     }
   }
@@ -409,9 +410,50 @@ function buildTimelineData(shots: ShotEntry[]) {
     })
   }
 
+  const keyframeGroups = (
+    await Promise.all(
+      shots.map(async (shot, index) => {
+        const plannedEntriesById = new Map(
+          (shot.keyframes ?? []).map((entry) => [entry.keyframeId, entry]),
+        )
+        const items = await Promise.all(
+          (['start', 'end'] as const)
+            .filter((frameType) =>
+              shot.keyframeIds.includes(getCanonicalKeyframeId(shot.shotId, frameType)),
+            )
+            .map(async (frameType) => {
+              const keyframeId = getCanonicalKeyframeId(shot.shotId, frameType)
+              const plannedEntry = plannedEntriesById.get(keyframeId)
+              const imagePath =
+                plannedEntry?.imagePath ?? getKeyframeImagePath({ shotId: shot.shotId, keyframeId })
+
+              return {
+                keyframeId,
+                shotId: shot.shotId,
+                frameType,
+                pointerId: frameType === 'start' ? `pointer-${index}` : `pointer-${index + 1}`,
+                side: frameType === 'start' ? 'right' : 'left',
+                detailUrl: buildEmbeddedKeyframeDetailUrl(keyframeId),
+                imageUrl: `/${encodeAssetUrl(imagePath)}`,
+                imageExists: await fileExists(resolveRepoPath(imagePath, cwd)),
+              } as const
+            }),
+        )
+
+        return items.length > 0
+          ? {
+              shotId: shot.shotId,
+              items,
+            }
+          : null
+      }),
+    )
+  ).filter((group): group is NonNullable<typeof group> => group !== null)
+
   return {
     pointers,
     sections,
+    keyframeGroups,
     saveUrl: '/timeline/update',
   }
 }
@@ -2896,8 +2938,7 @@ export function startArtifactReviewServer(
               renderPage(
                 'timeline',
                 `<div class="stack">
-                  ${renderHero('Timeline', 'Drag boundaries to resize planned shots. Selecting a keyframe side or shot section loads its existing review controls underneath.', 'Prototype')}
-                  ${renderTimelineContent(buildTimelineData(shots))}
+                  ${renderTimelineContent(await buildTimelineData(shots, cwd))}
                 </div>`,
               ),
               { headers: HTML_HEADERS },
