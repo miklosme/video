@@ -331,7 +331,6 @@ test('loadWorkflowSummary distinguishes keyframe preparation from keyframe revie
           keyframeId: 'SHOT-01-START',
           shotId: 'SHOT-01',
           frameType: 'start',
-          model: 'image-test',
           prompt: 'A calm opening frame.',
           status: 'planned',
         },
@@ -488,7 +487,7 @@ test('writeWorkspaceFile bootstraps storyboard sidecar after storyboard markdown
   }
 })
 
-test('writeWorkspaceArtifact aligns image sidecar models to config', async () => {
+test('writeWorkspaceArtifact strips model fields from image sidecars', async () => {
   const repo = await createTestRepo()
 
   try {
@@ -514,15 +513,15 @@ test('writeWorkspaceArtifact aligns image sidecar models to config', async () =>
 
     const savedArtifact = JSON.parse(
       await readFile(path.resolve(repo.rootDir, 'workspace/CHARACTERS/test-dog.json'), 'utf8'),
-    ) as { model: string }
+    ) as { model?: string }
 
-    expect(savedArtifact.model).toBe('image-test')
+    expect(savedArtifact.model).toBeUndefined()
   } finally {
     await repo.cleanup()
   }
 })
 
-test('writeWorkspaceArtifact aligns shot sidecar models to config', async () => {
+test('writeWorkspaceArtifact strips model fields from shot sidecars', async () => {
   const repo = await createTestRepo()
 
   try {
@@ -547,9 +546,9 @@ test('writeWorkspaceArtifact aligns shot sidecar models to config', async () => 
 
     const savedArtifact = JSON.parse(
       await readFile(path.resolve(repo.rootDir, 'workspace/SHOTS/SHOT-01.json'), 'utf8'),
-    ) as { model: string }
+    ) as { model?: string }
 
-    expect(savedArtifact.model).toBe('video-test')
+    expect(savedArtifact.model).toBeUndefined()
   } finally {
     await repo.cleanup()
   }
@@ -584,7 +583,6 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
         keyframeId: 'SHOT-01-START',
         shotId: 'SHOT-01',
         frameType: 'start',
-        model: 'image-test',
         prompt: 'A calm opening frame.',
         status: 'planned',
       },
@@ -592,7 +590,6 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
         keyframeId: 'ORPHAN-FRAME',
         shotId: 'SHOT-99',
         frameType: 'end',
-        model: 'image-test',
         prompt: 'Unused.',
         status: 'planned',
       },
@@ -611,17 +608,20 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
         },
       },
     ],
+    'image-test',
   )
 
-  const characterGenerations = selectPendingCharacterSheetGenerations([
-    {
-      characterId: 'test-dog',
-      displayName: 'Test Dog',
-      model: 'image-test',
-      prompt: 'Character sheet prompt.',
-      status: 'planned',
-    },
-  ])
+  const characterGenerations = selectPendingCharacterSheetGenerations(
+    [
+      {
+        characterId: 'test-dog',
+        displayName: 'Test Dog',
+        prompt: 'Character sheet prompt.',
+        status: 'planned',
+      },
+    ],
+    'image-test',
+  )
 
   expect(keyframeGenerations).toEqual([
     {
@@ -745,7 +745,6 @@ test('loadWorkflowSummary distinguishes shot planning from shot preparation and 
       `${JSON.stringify(
         {
           shotId: 'SHOT-01',
-          model: 'video-test',
           prompt: 'A clean shot prompt.',
           status: 'planned',
         },

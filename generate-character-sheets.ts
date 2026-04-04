@@ -78,6 +78,7 @@ function buildEmptyCharacterSheetGenerationError(filters: GenerateCharacterSheet
 
 export function selectPendingCharacterSheetGenerations(
   characterSheets: CharacterSheetEntry[],
+  model: string,
   filters: GenerateCharacterSheetsArgs = {},
 ) {
   return characterSheets
@@ -85,7 +86,7 @@ export function selectPendingCharacterSheetGenerations(
     .map<PendingCharacterSheetGeneration>((entry) => ({
       characterId: entry.characterId,
       displayName: entry.displayName,
-      model: entry.model,
+      model,
       prompt: entry.prompt,
       outputPath: getCharacterSheetImagePath(entry.characterId),
       userReferences: entry.references,
@@ -346,7 +347,11 @@ async function main() {
   await ensureActiveWorkspace()
   const filters = parseArgs()
   const [config, characterSheets] = await Promise.all([loadConfig(), loadCharacterSheets()])
-  const plannedGenerations = selectPendingCharacterSheetGenerations(characterSheets, filters)
+  const plannedGenerations = selectPendingCharacterSheetGenerations(
+    characterSheets,
+    config.imageModel,
+    filters,
+  )
 
   if (plannedGenerations.length === 0) {
     throw new Error(buildEmptyCharacterSheetGenerationError(filters))

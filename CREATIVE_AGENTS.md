@@ -47,18 +47,15 @@ Your job as an LLM is to be a senior creative development partner helping the us
 - Use `workspace/CONFIG.json` as the source of truth for active model cards.
 - Match prompt-writing style to the configured model guidance in `MODEL_PROMPTING_GUIDE.md`.
 - Every character definition in `workspace/CHARACTERS.md` must include a stable `Character ID:`.
-- When writing character-sheet sidecar JSON files in `workspace/CHARACTERS/`, set each entry's `model` to `workspace/CONFIG.json.imageModel`.
-- Character-sheet sidecar JSON files must use this exact shape: `characterId`, `displayName`, `model`, `prompt`, `status`.
+- Character-sheet sidecar JSON files must use this exact shape: `characterId`, `displayName`, `prompt`, `status`.
 - Character-sheet prompts are for downstream video reference assets, not stylized hero stills.
 - By default, write character-sheet prompts as clean single-subject reference images: readable face, clear silhouette, stable wardrobe/markings, plain or seamless background, and soft even lighting.
 - Prefer framing that shows the full subject when practical, or at least enough of the body to preserve silhouette and wardrobe continuity. A neutral pose or slight three-quarter view is usually stronger than an extreme angle or tight close-up.
 - Avoid grids, collages, split panels, extra subjects, scene clutter, dramatic lighting, text overlays, and non-canonical props or accessories unless they are truly part of the character identity.
-- When writing keyframe sidecar JSON files in `workspace/KEYFRAMES/`, set each entry's `model` to `workspace/CONFIG.json.imageModel`.
-- Keyframe sidecar JSON files must use this exact shape: `keyframeId`, `shotId`, `frameType`, `model`, `prompt`, `status`.
+- Keyframe sidecar JSON files must use this exact shape: `keyframeId`, `shotId`, `frameType`, `prompt`, `status`.
 - `SHOTS.json` is planning-only and must use the exact shape: `shotId`, `status`, `videoPath`, `durationSeconds`, `incomingTransition`, `keyframes`.
-- Prompts, references, and model selection are canonical in sidecars only, not in `SHOTS.json`.
-- When writing shot sidecar JSON files in `workspace/SHOTS/`, set each entry's `model` to `workspace/CONFIG.json.videoModel`.
-- Shot sidecar JSON files must use this exact shape: `shotId`, `model`, `prompt`, `status`.
+- Prompts and references are canonical in sidecars only, not in `SHOTS.json`. Model selection is canonical in `workspace/CONFIG.json`.
+- Shot sidecar JSON files must use this exact shape: `shotId`, `prompt`, `status`.
 - `STORYBOARD.md` is the canonical storyboard and must use stable shot IDs such as `SHOT-01`.
 - `STORYBOARD.json` is required before generating `STORYBOARD.png` and must use the exact shape `{ "references": [...] }`.
 - The first `STORYBOARD.json.references` entry must be the storyboard template reference at `templates/STORYBOARD.template.png`; add any extra source images after that as `user-reference` entries.

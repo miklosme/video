@@ -138,7 +138,6 @@ function createArtifacts(): KeyframeArtifactEntry[] {
     keyframeId: entry.keyframeId,
     shotId: entry.shotId,
     frameType: entry.frameType,
-    model: 'image-test',
     prompt: `Prompt for ${entry.keyframeId}.`,
     status: 'planned',
   }))
@@ -150,6 +149,7 @@ test('runKeyframeRegeneration uses only the selected keyframe image and the appr
   const generation = {
     ...createArtifacts()[0]!,
     ...keyframe,
+    model: 'image-test',
     outputPath: keyframe.imagePath,
     incomingTransition: createShots()[0]!.incomingTransition,
   }
@@ -188,9 +188,12 @@ test('runKeyframeRegeneration uses only the selected keyframe image and the appr
 
 test('selectPendingKeyframeGenerations follows SHOTS order and start-before-end sequencing', () => {
   expect(
-    selectPendingKeyframeGenerations(createKeyframes(), createArtifacts(), createShots()).map(
-      (entry) => entry.keyframeId,
-    ),
+    selectPendingKeyframeGenerations(
+      createKeyframes(),
+      createArtifacts(),
+      createShots(),
+      'image-test',
+    ).map((entry) => entry.keyframeId),
   ).toEqual([
     'SHOT-01-START',
     'SHOT-01-END',
@@ -264,13 +267,14 @@ test('selectPendingKeyframeGenerations supports one-anchor start-only and end-on
     keyframeId: entry.keyframeId,
     shotId: entry.shotId,
     frameType: entry.frameType,
-    model: 'image-test',
     prompt: `Prompt for ${entry.keyframeId}.`,
     status: 'planned',
   }))
 
   expect(
-    selectPendingKeyframeGenerations(keyframes, artifacts, shots).map((entry) => entry.keyframeId),
+    selectPendingKeyframeGenerations(keyframes, artifacts, shots, 'image-test').map(
+      (entry) => entry.keyframeId,
+    ),
   ).toEqual(['SHOT-01-START', 'SHOT-01-END', 'SHOT-02-END', 'SHOT-03-START'])
 })
 
@@ -461,7 +465,6 @@ test('generate-keyframes fails for a continuity shot when the previous shot end 
           keyframeId: 'SHOT-02-START',
           shotId: 'SHOT-02',
           frameType: 'start',
-          model: 'image-test',
           prompt: 'Prompt for SHOT-02-START.',
           status: 'planned',
           references: [
@@ -534,7 +537,6 @@ test('generate-keyframes fails for an end keyframe when the same-shot start imag
           keyframeId: 'SHOT-01-END',
           shotId: 'SHOT-01',
           frameType: 'end',
-          model: 'image-test',
           prompt: 'Prompt for SHOT-01-END.',
           status: 'planned',
           references: [

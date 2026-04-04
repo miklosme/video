@@ -81,6 +81,36 @@ function createPlannedKeyframes(keyframeIds: string[]) {
   }))
 }
 
+test('validate-workflow-data tolerates legacy sidecar model fields', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
+
+  try {
+    await writeValidationBaseFiles(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/CHARACTERS/hero.json',
+      `${JSON.stringify(
+        {
+          characterId: 'hero',
+          displayName: 'Hero',
+          model: 'image-test',
+          prompt: 'A clean reference.',
+          status: 'ready',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'workspace/CHARACTERS/hero.png', 'hero')
+
+    const result = runValidation(rootDir)
+
+    expect(result.exitCode).toBe(0)
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('validate-workflow-data rejects keyframe references without a typed kind', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
 
@@ -95,7 +125,6 @@ test('validate-workflow-data rejects keyframe references without a typed kind', 
         {
           characterId: 'hero',
           displayName: 'Hero',
-          model: 'image-test',
           prompt: 'A clean reference.',
           status: 'ready',
         },
@@ -133,7 +162,6 @@ test('validate-workflow-data rejects keyframe references without a typed kind', 
           keyframeId: 'SHOT-01-START',
           shotId: 'SHOT-01',
           frameType: 'start',
-          model: 'image-test',
           prompt: 'Prompt.',
           status: 'planned',
           references: [
@@ -231,7 +259,6 @@ test('validate-workflow-data accepts explicit multi-character end-keyframe refer
           {
             characterId,
             displayName: characterId,
-            model: 'image-test',
             prompt: `Reference for ${characterId}.`,
             status: 'ready',
           },
@@ -272,7 +299,6 @@ test('validate-workflow-data accepts explicit multi-character end-keyframe refer
           keyframeId: 'SHOT-01-END',
           shotId: 'SHOT-01',
           frameType: 'end',
-          model: 'image-test',
           prompt: 'Prompt.',
           status: 'planned',
           references: [

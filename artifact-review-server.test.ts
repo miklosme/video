@@ -19,7 +19,6 @@ async function writeCharacterArtifactFixture(rootDir: string) {
       {
         characterId: 'hero',
         displayName: 'Hero',
-        model: 'image-test',
         prompt: 'A clean character reference.',
         status: 'ready',
       },
@@ -369,7 +368,6 @@ test('artifact review server creates an omitted keyframe, saves the prompt sidec
         keyframeId: 'SHOT-01-END',
         shotId: 'SHOT-01',
         frameType: 'end',
-        model: 'image-test',
         prompt: 'A fully distinct closing frame with the rider turning toward camera.',
         status: 'draft',
       })
@@ -415,7 +413,6 @@ test('artifact review server removes an end keyframe and leaves the shot start-o
           keyframeId: 'SHOT-01-END',
           shotId: 'SHOT-01',
           frameType: 'end',
-          model: 'image-test',
           prompt: 'A distinct closing frame.',
           status: 'draft',
         },
@@ -512,7 +509,6 @@ test('artifact review server removes a start keyframe and leaves the shot end-on
           keyframeId: 'SHOT-01-START',
           shotId: 'SHOT-01',
           frameType: 'start',
-          model: 'image-test',
           prompt: 'An opening frame.',
           status: 'draft',
         },
@@ -584,7 +580,6 @@ test('artifact review server rejects removing the last remaining anchor', async 
           keyframeId: 'SHOT-01-START',
           shotId: 'SHOT-01',
           frameType: 'start',
-          model: 'image-test',
           prompt: 'An opening frame.',
           status: 'draft',
         },
@@ -642,7 +637,6 @@ test('artifact review server keeps shot prompt and anchor details on the shot co
       `${JSON.stringify(
         {
           shotId: 'SHOT-01',
-          model: 'video-test',
           prompt: 'The camera glides from the start frame into the end frame.',
           status: 'ready',
         },
@@ -1158,7 +1152,6 @@ test('artifact review server uses silent video thumbnails in the version rail wh
       `${JSON.stringify(
         {
           shotId: 'SHOT-01',
-          model: 'video-test',
           prompt: 'The camera glides from the start frame into the end frame.',
           status: 'ready',
         },

@@ -19,7 +19,7 @@
   },
   {
     "title": "Prepare character sheets",
-    "instruction": "Write one sidecar JSON file per character so character-sheet generation produces a clean single-subject reference image for downstream Veo consistency, with stable prompts, IDs, and model metadata.",
+    "instruction": "Write one sidecar JSON file per character so character-sheet generation produces a clean single-subject reference image for downstream Veo consistency, with stable prompts, IDs, and explicit references.",
     "checked": false,
     "relatedFiles": ["CHARACTERS.md", "CHARACTERS/"]
   },
@@ -49,7 +49,7 @@
   },
   {
     "title": "Prepare keyframes",
-    "instruction": "Write one sidecar JSON file per keyframe so still-image generation has stable prompts, IDs, and model metadata.",
+    "instruction": "Write one sidecar JSON file per keyframe so still-image generation has stable prompts, IDs, and explicit references.",
     "checked": false,
     "relatedFiles": ["SHOTS.json", "KEYFRAMES/"]
   },
@@ -67,7 +67,7 @@
   },
   {
     "title": "Prepare shots",
-    "instruction": "Write one sidecar JSON file per shot so video generation has stable prompts, IDs, and model metadata.",
+    "instruction": "Write one sidecar JSON file per shot so video generation has stable prompts, IDs, and explicit references.",
     "checked": false,
     "relatedFiles": ["SHOTS.json", "SHOTS/"]
   },

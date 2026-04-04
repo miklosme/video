@@ -159,6 +159,7 @@ export function selectPendingKeyframeGenerations(
   keyframes: KeyframeEntry[],
   artifacts: KeyframeArtifactEntry[],
   shots: ShotEntry[],
+  model: string,
   filters: GenerateKeyframesArgs = {},
 ) {
   const artifactById = new Map(artifacts.map((entry) => [entry.keyframeId, entry]))
@@ -190,7 +191,7 @@ export function selectPendingKeyframeGenerations(
           keyframeId: entry.keyframeId,
           shotId: entry.shotId,
           frameType: entry.frameType,
-          model: artifact.model,
+          model,
           prompt: artifact.prompt,
           outputPath: entry.imagePath,
           incomingTransition: shot.incomingTransition,
@@ -583,7 +584,13 @@ async function main() {
     loadKeyframeArtifacts(),
     loadShotPrompts(),
   ])
-  const plannedGenerations = selectPendingKeyframeGenerations(keyframes, artifacts, shots, filters)
+  const plannedGenerations = selectPendingKeyframeGenerations(
+    keyframes,
+    artifacts,
+    shots,
+    config.imageModel,
+    filters,
+  )
 
   if (plannedGenerations.length === 0) {
     throw new Error(buildEmptyKeyframeGenerationError(keyframes, artifacts, shots, filters))

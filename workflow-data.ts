@@ -68,7 +68,6 @@ export interface KeyframeArtifactEntry {
   keyframeId: string
   shotId: string
   frameType: FrameType
-  model: string
   prompt: string
   status: string
   references?: ArtifactReferenceEntry[]
@@ -79,7 +78,6 @@ export type KeyframeArtifactsData = KeyframeArtifactEntry[]
 export interface CharacterSheetEntry {
   characterId: string
   displayName: string
-  model: string
   prompt: string
   status: string
   references?: ArtifactReferenceEntry[]
@@ -112,7 +110,6 @@ export type ShotsData = ShotEntry[]
 
 export interface ShotArtifactEntry {
   shotId: string
-  model: string
   prompt: string
   status: string
   references?: ArtifactReferenceEntry[]
@@ -555,7 +552,6 @@ export function parseKeyframeArtifactEntry(value: unknown, context: string): Key
     keyframeId: expectString(object.keyframeId, `${context}.keyframeId`),
     shotId: expectString(object.shotId, `${context}.shotId`),
     frameType: expectFrameType(object.frameType, `${context}.frameType`),
-    model: expectString(object.model, `${context}.model`),
     prompt: expectString(object.prompt, `${context}.prompt`),
     status: expectString(object.status, `${context}.status`),
     references:
@@ -571,7 +567,6 @@ export function parseCharacterSheetEntry(value: unknown, context: string): Chara
   return {
     characterId: expectString(object.characterId, `${context}.characterId`),
     displayName: expectString(object.displayName, `${context}.displayName`),
-    model: expectString(object.model, `${context}.model`),
     prompt: expectString(object.prompt, `${context}.prompt`),
     status: expectString(object.status, `${context}.status`),
     references:
@@ -643,7 +638,6 @@ export function parseShotArtifactEntry(value: unknown, context: string): ShotArt
 
   return {
     shotId: expectString(object.shotId, `${context}.shotId`),
-    model: expectString(object.model, `${context}.model`),
     prompt: expectString(object.prompt, `${context}.prompt`),
     status: expectString(object.status, `${context}.status`),
     references:

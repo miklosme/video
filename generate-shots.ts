@@ -196,6 +196,7 @@ async function appendGenerationLog(entry: GenerationLogEntry) {
 export function selectPendingShotGenerations(
   shots: ShotEntry[],
   artifacts: ShotArtifactEntry[],
+  model: string,
   filters: Pick<GenerateShotsArgs, 'shotId'> = {},
 ) {
   const artifactById = new Map(artifacts.map((entry) => [entry.shotId, entry]))
@@ -212,7 +213,7 @@ export function selectPendingShotGenerations(
 
       return {
         shotId: entry.shotId,
-        model: artifact.model,
+        model,
         prompt: artifact.prompt,
         outputPath: entry.videoPath,
         keyframeIds: entry.keyframeIds,
@@ -606,7 +607,12 @@ async function main() {
     loadKeyframes(),
     loadCharacterSheets(),
   ])
-  const plannedGenerations = selectPendingShotGenerations(shots, shotArtifacts, filters)
+  const plannedGenerations = selectPendingShotGenerations(
+    shots,
+    shotArtifacts,
+    config.videoModel,
+    filters,
+  )
 
   if (plannedGenerations.length === 0) {
     throw new Error(buildEmptyShotGenerationError(shots, shotArtifacts, filters))

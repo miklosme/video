@@ -188,7 +188,6 @@ test('loadShotArtifacts parses shot sidecars', async () => {
       `${JSON.stringify(
         {
           shotId: 'SHOT-01',
-          model: 'video-test',
           prompt: 'A concise motion prompt.',
           status: 'planned',
         },
@@ -202,7 +201,6 @@ test('loadShotArtifacts parses shot sidecars', async () => {
     expect(artifacts).toEqual([
       {
         shotId: 'SHOT-01',
-        model: 'video-test',
         prompt: 'A concise motion prompt.',
         status: 'planned',
       },
@@ -231,17 +229,16 @@ test('selectPendingShotGenerations uses shot sidecars and canonical output paths
       [
         {
           shotId: 'SHOT-01',
-          model: 'video-test',
           prompt: 'A concise motion prompt.',
           status: 'planned',
         },
         {
           shotId: 'SHOT-99',
-          model: 'video-test',
           prompt: 'Unused.',
           status: 'planned',
         },
       ],
+      'video-test',
     ),
   ).toEqual([
     {
@@ -541,7 +538,6 @@ test('syncShotGenerations honors firstOnly after skipping existing outputs', asy
         {
           characterId: 'dog',
           displayName: 'Dog',
-          model: 'image-test',
           prompt: 'Dog sheet.',
           status: 'planned',
         },
@@ -619,7 +615,6 @@ test('syncShotGenerations fails fast and logs provider errors', async () => {
           {
             characterId: 'dog',
             displayName: 'Dog',
-            model: 'image-test',
             prompt: 'Dog sheet.',
             status: 'planned',
           },
@@ -702,7 +697,6 @@ test('syncShotGenerations renders variantCount retained versions, selects the la
         {
           characterId: 'dog',
           displayName: 'Dog',
-          model: 'image-test',
           prompt: 'Dog sheet.',
           status: 'planned',
         },

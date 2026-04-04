@@ -460,7 +460,7 @@ async function createOmittedKeyframe(
     throw new Error('A prompt is required to create a keyframe.')
   }
 
-  const [config, shots] = await Promise.all([loadConfig(cwd), loadShotPrompts(cwd)])
+  const shots = await loadShotPrompts(cwd)
   const match = getShotByCanonicalKeyframeId(shots, keyframeId)
 
   if (!match) {
@@ -506,7 +506,6 @@ async function createOmittedKeyframe(
         keyframeId,
         shotId,
         frameType,
-        model: config.imageModel,
         prompt: trimmedPrompt,
         status: 'draft',
       },
@@ -1871,9 +1870,11 @@ async function loadCharacterDetail(
   cwd: string,
   requestedVersionId?: string | null,
 ) {
-  const character = (await loadCharacterSheetsOrEmpty(cwd)).find(
-    (entry) => entry.characterId === characterId,
-  )
+  const [config, characters] = await Promise.all([
+    loadConfig(cwd).catch(() => null),
+    loadCharacterSheetsOrEmpty(cwd),
+  ])
+  const character = characters.find((entry) => entry.characterId === characterId)
 
   if (!character) {
     return null
@@ -1902,7 +1903,7 @@ async function loadCharacterDetail(
     mediaPlaceholderVariant: 'missing',
     sourceReferences: character.references ?? [],
     sourcePrompt: character.prompt,
-    sourceModel: character.model,
+    sourceModel: config?.imageModel ?? null,
     sourceStatus: character.status,
     historyState,
     notesHtml: `<section class="panel"><p class="section-title">Current Prompt</p><p class="muted">${escapeHtml(character.prompt)}</p></section>`,
@@ -1922,7 +1923,8 @@ async function loadKeyframeDetail(
   cwd: string,
   requestedVersionId?: string | null,
 ) {
-  const [keyframes, artifacts, shots] = await Promise.all([
+  const [config, keyframes, artifacts, shots] = await Promise.all([
+    loadConfig(cwd).catch(() => null),
     loadKeyframesOrEmpty(cwd),
     loadKeyframeArtifactsOrEmpty(cwd),
     loadShotPromptsOrEmpty(cwd),
@@ -1959,7 +1961,7 @@ async function loadKeyframeDetail(
     mediaPlaceholderVariant: 'missing',
     sourceReferences: artifact?.references ?? [],
     sourcePrompt: artifact?.prompt ?? null,
-    sourceModel: artifact?.model ?? null,
+    sourceModel: config?.imageModel ?? null,
     sourceStatus: artifact?.status ?? 'planned',
     historyState,
     notesHtml: `<section class="panel"><p class="section-title">Keyframe Plan</p><p class="muted">Shot: ${escapeHtml(keyframe.shotId)}</p><p class="small">Frame type: ${escapeHtml(keyframe.frameType)}</p></section>`,
@@ -2041,7 +2043,8 @@ async function loadOmittedKeyframeDetail(
 }
 
 async function loadShotDetail(shotId: string, cwd: string, requestedVersionId?: string | null) {
-  const [shots, artifacts] = await Promise.all([
+  const [config, shots, artifacts] = await Promise.all([
+    loadConfig(cwd).catch(() => null),
     loadShotPromptsOrEmpty(cwd),
     loadShotArtifactsOrEmpty(cwd),
   ])
@@ -2075,7 +2078,7 @@ async function loadShotDetail(shotId: string, cwd: string, requestedVersionId?: 
     mediaPlaceholderVariant: 'missing',
     sourceReferences: artifact?.references ?? [],
     sourcePrompt: artifact?.prompt ?? null,
-    sourceModel: artifact?.model ?? null,
+    sourceModel: config?.videoModel ?? null,
     sourceStatus: artifact?.status ?? shot.status,
     historyState,
     notesHtml: `<section class="panel"><p class="section-title">Shot Plan</p><p class="muted">Anchors: ${escapeHtml(shot.keyframeIds.join(' -> '))}</p><p class="small">Duration: ${escapeHtml(formatDurationSeconds(shot.durationSeconds))}</p></section>`,
@@ -2191,12 +2194,13 @@ async function buildCharacterPendingGeneration(
   characterId: string,
   cwd: string,
 ): Promise<PendingCharacterSheetGeneration | null> {
-  const generations = selectPendingCharacterSheetGenerations(
-    await loadCharacterSheetsOrEmpty(cwd),
-    {
-      characterId,
-    },
-  )
+  const [config, characterSheets] = await Promise.all([
+    loadConfig(cwd),
+    loadCharacterSheetsOrEmpty(cwd),
+  ])
+  const generations = selectPendingCharacterSheetGenerations(characterSheets, config.imageModel, {
+    characterId,
+  })
 
   return generations[0] ?? null
 }
@@ -2209,14 +2213,21 @@ async function buildKeyframePendingGeneration(
   keyframes: KeyframeEntry[]
   shots: ShotEntry[]
 } | null> {
-  const [keyframes, artifacts, shots] = await Promise.all([
+  const [config, keyframes, artifacts, shots] = await Promise.all([
+    loadConfig(cwd),
     loadKeyframesOrEmpty(cwd),
     loadKeyframeArtifactsOrEmpty(cwd),
     loadShotPromptsOrEmpty(cwd),
   ])
-  const generations = selectPendingKeyframeGenerations(keyframes, artifacts, shots, {
-    keyframeId,
-  })
+  const generations = selectPendingKeyframeGenerations(
+    keyframes,
+    artifacts,
+    shots,
+    config.imageModel,
+    {
+      keyframeId,
+    },
+  )
 
   return generations[0]
     ? {
@@ -2235,15 +2246,14 @@ async function buildShotPendingGeneration(
   keyframes: KeyframeEntry[]
   characterSheets: CharacterSheetEntry[]
 } | null> {
-  const [shots, artifacts, keyframes, characterSheets] = await Promise.all([
+  const [config, shots, artifacts, keyframes, characterSheets] = await Promise.all([
+    loadConfig(cwd),
     loadShotPromptsOrEmpty(cwd),
     loadShotArtifactsOrEmpty(cwd),
     loadKeyframesOrEmpty(cwd),
     loadCharacterSheetsOrEmpty(cwd),
   ])
-  const generations = selectPendingShotGenerations(shots, artifacts, {
-    shotId,
-  })
+  const generations = selectPendingShotGenerations(shots, artifacts, config.videoModel, { shotId })
 
   return generations[0]
     ? {

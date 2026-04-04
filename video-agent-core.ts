@@ -477,7 +477,7 @@ function buildRuntimeDirective(
     '- workspace/STORYBOARD.json is required before storyboard generation. It must declare explicit storyboard references, starting with the storyboard template reference to templates/STORYBOARD.template.png.',
   )
   lines.push(
-    '- Use workspace/CONFIG.json.imageModel for workspace/KEYFRAMES/*.json and workspace/CHARACTERS/*.json model fields and still-image prompting style.',
+    '- Use workspace/CONFIG.json.imageModel for still-image prompting style and generation. Do not store model fields in workspace/KEYFRAMES/*.json or workspace/CHARACTERS/*.json sidecars.',
   )
   lines.push(
     '- Character-sheet prompts are for downstream Veo reference assets, not hero shots: prefer one clean single-subject reference image with readable face, clear silhouette, stable wardrobe/markings, plain background, and soft even lighting.',
@@ -486,7 +486,7 @@ function buildRuntimeDirective(
     '- Avoid grid or collage layouts, split panels, extra subjects, scene clutter, dramatic lighting, text overlays, and non-canonical props in character-sheet prompts unless they are part of identity.',
   )
   lines.push(
-    '- SHOTS.json is the only planning manifest after storyboard review. Keep it generation-agnostic: prompts, references, and model fields live only in sidecars.',
+    '- SHOTS.json is the only planning manifest after storyboard review. Keep it generation-agnostic: prompts and references live in sidecars, while model selection lives only in workspace/CONFIG.json.',
   )
   lines.push(
     '- Sidecar references are the source of truth for still-image generation inputs. Do not assume runtime will append storyboard, character, or continuity references for fresh generations.',
@@ -495,7 +495,10 @@ function buildRuntimeDirective(
     '- Character and keyframe sidecar references use the shape { path, kind, label?, notes? }. The references array order is the exact generation priority order.',
   )
   lines.push(
-    '- Keyframe sidecar schema is { keyframeId, shotId, frameType, model, prompt, status, references? }.',
+    '- Character sidecar schema is { characterId, displayName, prompt, status, references? }.',
+  )
+  lines.push(
+    '- Keyframe sidecar schema is { keyframeId, shotId, frameType, prompt, status, references? }.',
   )
   lines.push(
     '- frameType must be "start" or "end". By default plan a "start" anchor; add an "end" anchor only when the shot needs a materially different closing frame. One-anchor shots may use only one of them.',
@@ -519,10 +522,10 @@ function buildRuntimeDirective(
     '- FINAL-CUT.json stores the saved Remotion edit manifest and should use the exact shape: { version, shots, soundtrack }, where each shot entry is { shotId, enabled, trimStartFrames, trimEndFrames, transition: { type, durationFrames } }.',
   )
   lines.push(
-    '- Use workspace/CONFIG.json.videoModel for workspace/SHOTS/*.json model fields and shot-motion prompting style.',
+    '- Use workspace/CONFIG.json.videoModel for shot-motion prompting style and generation. Do not store model fields in workspace/SHOTS/*.json sidecars.',
   )
   lines.push(
-    '- Shot sidecar schema is { shotId, model, prompt, status, references? }. workspace/STORYBOARD.json uses the shape { references }.',
+    '- Shot sidecar schema is { shotId, prompt, status, references? }. workspace/STORYBOARD.json uses the shape { references }.',
   )
   lines.push(
     '- Do not auto-run paid image or video generation. When sidecar JSON is ready but PNGs or MP4s are missing, tell the user they have to run the generation script and continue after review.',
@@ -1207,7 +1210,6 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
   }
 
   const applyWorkspaceArtifactWriteRules = async (artifactPath: string, content: string) => {
-    const config = await loadConfig(rootDir)
     const normalizedPath = path.posix.normalize(artifactPath.replace(/\\/g, '/'))
     const parsed = JSON.parse(content)
 
@@ -1217,27 +1219,13 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
 
     if (
       normalizedPath.startsWith(WORKFLOW_FOLDERS.characters) ||
-      normalizedPath.startsWith(WORKFLOW_FOLDERS.keyframes)
+      normalizedPath.startsWith(WORKFLOW_FOLDERS.keyframes) ||
+      normalizedPath.startsWith(WORKFLOW_FOLDERS.shots)
     ) {
-      return JSON.stringify(
-        {
-          ...parsed,
-          model: config.imageModel,
-        },
-        null,
-        2,
-      )
-    }
+      const normalized = { ...parsed } as Record<string, unknown>
+      delete normalized.model
 
-    if (normalizedPath.startsWith(WORKFLOW_FOLDERS.shots)) {
-      return JSON.stringify(
-        {
-          ...parsed,
-          model: config.videoModel,
-        },
-        null,
-        2,
-      )
+      return JSON.stringify(normalized, null, 2)
     }
 
     return content
@@ -1562,7 +1550,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         readWorkspaceArtifact: tool({
           description:
-            'Read one JSON sidecar artifact or list one canonical workspace folder such as CHARACTERS/, KEYFRAMES/, or SHOTS/. Character sidecars use { characterId, displayName, model, prompt, status, references? }. Keyframe sidecars use { keyframeId, shotId, frameType, model, prompt, status, references? }, where frameType is "start" or "end". Shot sidecars use { shotId, model, prompt, status, references? }.',
+            'Read one JSON sidecar artifact or list one canonical workspace folder such as CHARACTERS/, KEYFRAMES/, or SHOTS/. Character sidecars use { characterId, displayName, prompt, status, references? }. Keyframe sidecars use { keyframeId, shotId, frameType, prompt, status, references? }, where frameType is "start" or "end". Shot sidecars use { shotId, prompt, status, references? }.',
           inputSchema: z.object({
             artifactPath: z
               .string()
@@ -1610,7 +1598,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         writeWorkspaceArtifact: tool({
           description:
-            'Write one JSON sidecar artifact in CHARACTERS/, KEYFRAMES/, or SHOTS/ while keeping model fields aligned to workspace/CONFIG.json. CHARACTERS/<id>.json must contain characterId, displayName, model, prompt, status, and optional references; its prompt should target a clean single-subject reference image for downstream video consistency rather than a stylized hero scene. KEYFRAMES/<shot-id>/<keyframe-id>.json must contain keyframeId, shotId, frameType, model, prompt, status, and optional references, where frameType is "start" or "end". SHOTS/<shot-id>.json must contain shotId, model, prompt, status, and optional references.',
+            'Write one JSON sidecar artifact in CHARACTERS/, KEYFRAMES/, or SHOTS/ while using workspace/CONFIG.json as the only model-selection source. CHARACTERS/<id>.json must contain characterId, displayName, prompt, status, and optional references; its prompt should target a clean single-subject reference image for downstream video consistency rather than a stylized hero scene. KEYFRAMES/<shot-id>/<keyframe-id>.json must contain keyframeId, shotId, frameType, prompt, status, and optional references, where frameType is "start" or "end". SHOTS/<shot-id>.json must contain shotId, prompt, status, and optional references.',
           inputSchema: z.object({
             artifactPath: z
               .string()
