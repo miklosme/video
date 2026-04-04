@@ -180,6 +180,7 @@ export function renderTimelineContent(
   const pointerData = JSON.stringify(data.pointers)
   const sectionData = JSON.stringify(data.sections)
   const saveUrl = JSON.stringify(data.saveUrl)
+  const allowedDurationData = JSON.stringify(cfg.allowedDurations)
 
   return /* html */ `
 <style>
@@ -312,6 +313,17 @@ export function renderTimelineContent(
   .tl-section.tl-selected {
     z-index: 5;
     box-shadow: 0 0 0 2px var(--accent), inset 0 1px 0 rgba(255,255,255,0.32), 0 8px 16px rgba(22, 101, 52, 0.22);
+  }
+  .tl-section.tl-invalid-duration {
+    border-color: rgba(194, 65, 12, 0.62);
+    background: linear-gradient(180deg, rgba(251, 191, 36, 0.96) 0%, rgba(249, 115, 22, 0.9) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 6px 14px rgba(194, 65, 12, 0.18);
+  }
+  .tl-section.tl-invalid-duration:hover {
+    background: linear-gradient(180deg, rgba(252, 211, 77, 0.98) 0%, rgba(251, 146, 60, 0.92) 100%);
+  }
+  .tl-section.tl-invalid-duration.tl-selected {
+    box-shadow: 0 0 0 2px var(--accent), inset 0 1px 0 rgba(255,255,255,0.32), 0 8px 16px rgba(194, 65, 12, 0.28);
   }
 
   .tl-ruler {
@@ -499,6 +511,7 @@ export function renderTimelineContent(
   var pointers = ${pointerData};
   var sections = ${sectionData};
   var saveUrl = ${saveUrl};
+  var allowedDurations = ${allowedDurationData};
   var selected = null;
   var drag = null;
   var didDrag = false;
@@ -534,6 +547,10 @@ export function renderTimelineContent(
       if (sections[i].shotId === shotId) return sections[i];
     }
     return null;
+  }
+
+  function isAllowedDuration(durationSeconds) {
+    return allowedDurations.indexOf(durationSeconds) !== -1;
   }
 
   function getPointerSide(pointer, side) {
@@ -763,14 +780,16 @@ export function renderTimelineContent(
 
     for (var i = 0; i < sections.length; i++) {
       var section = sections[i];
+      var durationSeconds = pointers[i + 1].position - pointers[i].position;
       var startX = pointers[i].position * PPS;
-      var width = (pointers[i + 1].position - pointers[i].position) * PPS;
+      var width = durationSeconds * PPS;
 
       if (width <= 0) continue;
 
       var sectionEl = document.createElement('button');
       sectionEl.type = 'button';
       sectionEl.className = 'tl-section'
+        + (!isAllowedDuration(durationSeconds) ? ' tl-invalid-duration' : '')
         + (selectedMatchesSection(section.shotId) ? ' tl-selected' : '');
       sectionEl.setAttribute('data-shot-id', section.shotId);
       sectionEl.setAttribute('aria-label', 'Select shot ' + section.shotId);

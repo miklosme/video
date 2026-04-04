@@ -170,3 +170,64 @@ test('renderTimelineContent renders grouped keyframe thumbnails and wires them t
   expect(html).not.toContain('<span class="pill">Start</span>')
   expect(html).toContain("keyframeRail.addEventListener('click', function (e) {")
 })
+
+test('renderTimelineContent marks invalid shot durations with an orange timeline state', () => {
+  const html = renderTimelineContent({
+    pointers: [
+      {
+        id: 'pointer-0',
+        position: 0,
+        canDrag: false,
+        left: null,
+        right: {
+          keyframeId: 'SHOT-01-START',
+          detailUrl: '/keyframes/SHOT-01-START?embed=1',
+          omitted: false,
+        },
+      },
+      {
+        id: 'pointer-1',
+        position: 5,
+        canDrag: true,
+        left: {
+          keyframeId: 'SHOT-01-END',
+          detailUrl: '/keyframes/SHOT-01-END?embed=1',
+          omitted: false,
+        },
+        right: {
+          keyframeId: 'SHOT-02-START',
+          detailUrl: '/keyframes/SHOT-02-START?embed=1',
+          omitted: false,
+        },
+      },
+      {
+        id: 'pointer-2',
+        position: 11,
+        canDrag: false,
+        left: {
+          keyframeId: 'SHOT-02-END',
+          detailUrl: '/keyframes/SHOT-02-END?embed=1',
+          omitted: false,
+        },
+        right: null,
+      },
+    ],
+    sections: [
+      {
+        shotId: 'SHOT-01',
+        detailUrl: '/shots/SHOT-01?embed=1',
+      },
+      {
+        shotId: 'SHOT-02',
+        detailUrl: '/shots/SHOT-02?embed=1',
+      },
+    ],
+    keyframeGroups: [],
+    saveUrl: '/timeline/save',
+  })
+
+  expect(html).toContain('.tl-section.tl-invalid-duration')
+  expect(html).toContain('var allowedDurations = [4,6,8];')
+  expect(html).toContain('function isAllowedDuration(durationSeconds) {')
+  expect(html).toContain("+ (!isAllowedDuration(durationSeconds) ? ' tl-invalid-duration' : '')")
+})
