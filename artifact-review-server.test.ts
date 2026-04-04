@@ -111,19 +111,24 @@ test('artifact review server renders the storyboard tab with a placeholder and r
   }
 })
 
-test('artifact review server renders an empty keyframes placeholder when KEYFRAMES.json is missing', async () => {
+test('artifact review server redirects legacy keyframe and shot summary routes to the timeline', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
     const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
 
     try {
-      const response = await fetch(new URL('/keyframes', server.url))
-      const html = await response.text()
+      const keyframesResponse = await fetch(new URL('/keyframes', server.url), {
+        redirect: 'manual',
+      })
+      const shotsResponse = await fetch(new URL('/shots', server.url), {
+        redirect: 'manual',
+      })
 
-      expect(response.status).toBe(200)
-      expect(html).toContain('No keyframes yet.')
-      expect(html).toContain('Keyframes')
+      expect(keyframesResponse.status).toBe(302)
+      expect(keyframesResponse.headers.get('location')).toBe('/timeline')
+      expect(shotsResponse.status).toBe(302)
+      expect(shotsResponse.headers.get('location')).toBe('/timeline')
     } finally {
       await server.stop()
     }
@@ -132,7 +137,7 @@ test('artifact review server renders an empty keyframes placeholder when KEYFRAM
   }
 })
 
-test('artifact review server renders a neutral placeholder for an omitted keyframe anchor', async () => {
+test('artifact review server exposes omitted keyframe anchors from the timeline', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
@@ -161,15 +166,14 @@ test('artifact review server renders a neutral placeholder for an omitted keyfra
     const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
 
     try {
-      const response = await fetch(new URL('/keyframes', server.url))
+      const response = await fetch(new URL('/timeline', server.url))
       const html = await response.text()
 
       expect(response.status).toBe(200)
+      expect(html).toContain('Timeline')
       expect(html).toContain('SHOT-01-END')
-      expect(html).toContain('No start keyframe planned')
-      expect(html).toContain('placeholder-omitted')
-      expect(html).toContain('href="/keyframes/SHOT-01-START"')
-      expect(html).not.toContain('Missing start frame')
+      expect(html).toContain('/keyframes/SHOT-01-START?embed=1')
+      expect(html).toContain('"omitted":true')
     } finally {
       await server.stop()
     }
@@ -210,6 +214,8 @@ test('artifact review server renders an omitted keyframe detail page with a crea
     try {
       const response = await fetch(new URL('/keyframes/SHOT-01-END', server.url))
       const html = await response.text()
+      const embeddedResponse = await fetch(new URL('/keyframes/SHOT-01-END?embed=1', server.url))
+      const embeddedHtml = await embeddedResponse.text()
 
       expect(response.status).toBe(200)
       expect(html).toContain('SHOT-01-END')
@@ -217,6 +223,9 @@ test('artifact review server renders an omitted keyframe detail page with a crea
       expect(html).toContain('action="/keyframes/SHOT-01-END/create"')
       expect(html).toContain('Create keyframe')
       expect(html).toContain('No source prompt available for this artifact.')
+      expect(html).toContain('Back to timeline')
+      expect(embeddedResponse.status).toBe(200)
+      expect(embeddedHtml).not.toContain('Back to timeline')
     } finally {
       await server.stop()
     }
@@ -562,7 +571,7 @@ test('artifact review server rejects removing the last remaining anchor', async 
   }
 })
 
-test('artifact review server renders the shots tab with prompt metadata and a missing-video placeholder', async () => {
+test('artifact review server keeps shot prompt and anchor details on the shot control page', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
@@ -605,15 +614,15 @@ test('artifact review server renders the shots tab with prompt metadata and a mi
     const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
 
     try {
-      const response = await fetch(new URL('/shots', server.url))
+      const response = await fetch(new URL('/shots/SHOT-01', server.url))
       const html = await response.text()
 
       expect(response.status).toBe(200)
-      expect(html).toContain('Shots')
       expect(html).toContain('SHOT-01')
+      expect(html).toContain('Back to timeline')
       expect(html).toContain('The camera glides from the start frame into the end frame.')
       expect(html).toContain('SHOT-01-START -&gt; SHOT-01-END')
-      expect(html).toContain('No video yet')
+      expect(html).toContain('No shot video yet')
       expect(html).toContain('placeholder-missing')
     } finally {
       await server.stop()

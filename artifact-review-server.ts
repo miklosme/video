@@ -82,7 +82,7 @@ const JSON_HEADERS = {
 
 const CURRENT_BASE_VERSION_ID = 'current'
 
-type Tab = 'characters' | 'storyboard' | 'keyframes' | 'shots' | 'timeline'
+type Tab = 'characters' | 'storyboard' | 'timeline'
 
 type ArtifactJobStatus = 'running' | 'success' | 'error'
 
@@ -110,35 +110,6 @@ interface CharacterReviewCard {
   status: string
   imageUrl: string
   imageExists: boolean
-}
-
-interface KeyframeReviewSlot {
-  keyframeId: string
-  frameType: FrameType
-  title: string
-  goal: string
-  status: string
-  href: string | null
-  imageUrl: string
-  imageExists: boolean
-  placeholderLabel: string | null
-  placeholderVariant: PlaceholderVariant
-}
-
-interface KeyframeReviewShot {
-  shotId: string
-  slots: KeyframeReviewSlot[]
-}
-
-interface ShotReviewCard {
-  shotId: string
-  status: string
-  durationSeconds: number
-  keyframeIds: string[]
-  prompt: string | null
-  model: string | null
-  videoUrl: string
-  videoExists: boolean
 }
 
 interface VersionRailItem {
@@ -608,9 +579,7 @@ function renderTabs(activeTab: Tab) {
   const tabs: { id: Tab; label: string; href: string }[] = [
     { id: 'characters', label: 'Characters', href: '/' },
     { id: 'storyboard', label: 'Storyboard', href: '/storyboard' },
-    { id: 'keyframes', label: 'Keyframes', href: '/keyframes' },
     { id: 'timeline', label: 'Timeline', href: '/timeline' },
-    { id: 'shots', label: 'Shots', href: '/shots' },
   ]
 
   return `
@@ -1295,9 +1264,9 @@ function renderPage(
 </html>`
 }
 
-function redirectTo(location: string) {
+function redirectTo(location: string, status = 303) {
   return new Response(null, {
-    status: 303,
+    status,
     headers: {
       location,
     },
@@ -1497,7 +1466,11 @@ function renderArtifactMeta(context: ArtifactDetailContext) {
   `
 }
 
-function renderDetailSideNav(context: ArtifactDetailContext) {
+function renderDetailSideNav(context: ArtifactDetailContext, options: { embedded?: boolean } = {}) {
+  if (options.embedded) {
+    return ''
+  }
+
   if (context.summaryHref === getArtifactDetailPath(context.descriptor)) {
     return ''
   }
@@ -1649,7 +1622,7 @@ function renderDetailPage(
           ${context.notesHtml}
         </div>
         <div class="detail-side">
-          ${renderDetailSideNav(context)}
+          ${renderDetailSideNav(context, options)}
           ${renderHistoricalVersionActions(context)}
           ${renderEditComposer(context)}
           ${renderRemoveAction(context)}
@@ -1707,133 +1680,6 @@ function renderCharactersSummary(cards: CharacterReviewCard[]) {
           cards.length === 0
             ? '<div class="empty-state">No characters yet.</div>'
             : `<div class="character-grid">${cards.map(renderCharacterCard).join('')}</div>`
-        }
-      </div>`,
-    ),
-    {
-      headers: HTML_HEADERS,
-    },
-  )
-}
-
-function buildOmittedSlot(
-  shotId: string,
-  frameType: Extract<FrameType, 'start' | 'end'>,
-): KeyframeReviewSlot {
-  const keyframeId = getCanonicalKeyframeId(shotId, frameType)
-
-  return {
-    keyframeId,
-    frameType,
-    title: keyframeId,
-    goal: '',
-    status: 'omitted',
-    href: `/keyframes/${encodeURIComponent(keyframeId)}`,
-    imageUrl: '',
-    imageExists: false,
-    placeholderLabel: `No ${frameType} keyframe planned`,
-    placeholderVariant: 'omitted',
-  }
-}
-
-function renderKeyframeSlot(slot: KeyframeReviewSlot) {
-  const content = `
-    <div class="slot-visual">
-      ${
-        slot.imageUrl
-          ? renderMediaBlock({
-              mediaType: 'image',
-              mediaUrl: slot.imageUrl,
-              mediaExists: slot.imageExists,
-              alt: slot.keyframeId,
-              placeholder: slot.placeholderLabel ?? 'No image',
-              placeholderVariant: slot.placeholderVariant,
-              className: '',
-            })
-          : renderPlaceholder(slot.placeholderLabel ?? 'No image', slot.placeholderVariant)
-      }
-    </div>
-    <p class="title">${escapeHtml(slot.title)}</p>
-    ${slot.goal ? `<p class="small">${escapeHtml(slot.goal)}</p>` : ''}
-  `
-
-  if (!slot.href) {
-    return `<div class="slot">${content}</div>`
-  }
-
-  return `<a class="slot slot-link" href="${slot.href}">${content}</a>`
-}
-
-function renderKeyframeShot(shot: KeyframeReviewShot) {
-  return `
-    <section class="summary-card">
-      <div class="shot">
-        <div class="shot-id">${escapeHtml(shot.shotId)}</div>
-        <div class="shot-frames">${shot.slots.map(renderKeyframeSlot).join('')}</div>
-      </div>
-    </section>
-  `
-}
-
-function renderKeyframesSummary(shots: KeyframeReviewShot[]) {
-  return new Response(
-    renderPage(
-      'keyframes',
-      `<div class="stack">
-        ${renderHero('Keyframes', 'Each keyframe or omitted anchor opens into its own control page so you can regenerate, add, or remove anchors without editing files manually.', 'Review Surface')}
-        ${shots.length === 0 ? '<div class="empty-state">No keyframes yet.</div>' : shots.map(renderKeyframeShot).join('')}
-      </div>`,
-    ),
-    {
-      headers: HTML_HEADERS,
-    },
-  )
-}
-
-function renderShotsSummary(cards: ShotReviewCard[]) {
-  return new Response(
-    renderPage(
-      'shots',
-      `<div class="stack">
-        ${renderHero('Shots', 'Open a shot to inspect the current cut, retained versions, sidecar references, and direct regenerate flow.', 'Review Surface')}
-        ${
-          cards.length === 0
-            ? '<div class="empty-state">No shots yet.</div>'
-            : `<div class="shot-review-grid">${cards
-                .map(
-                  (card) => `
-                    <section class="shot-review-card">
-                      <div class="shot-review-header">
-                        <div class="meta-stack">
-                          <p class="eyebrow">${escapeHtml(card.status)}</p>
-                          <p class="title">${escapeHtml(card.shotId)}</p>
-                        </div>
-                        <a class="button button-secondary" href="/shots/${encodeURIComponent(card.shotId)}">Open controls</a>
-                      </div>
-                      <div class="shot-review-layout">
-                        <div class="shot-review-visual">
-                          ${renderMediaBlock({
-                            mediaType: 'video',
-                            mediaUrl: card.videoUrl,
-                            mediaExists: card.videoExists,
-                            alt: card.shotId,
-                            placeholder: 'No video yet',
-                            className: '',
-                          })}
-                        </div>
-                        <div class="card-copy">
-                          <div class="shot-meta-grid">
-                            <div class="shot-meta-item"><span class="small">Duration</span><span class="small">${escapeHtml(formatDurationSeconds(card.durationSeconds))}</span></div>
-                            <div class="shot-meta-item"><span class="small">Anchors</span><span class="small">${escapeHtml(card.keyframeIds.join(' -> '))}</span></div>
-                            <div class="shot-meta-item"><span class="small">Model</span><span class="small">${escapeHtml(card.model ?? 'No sidecar yet')}</span></div>
-                          </div>
-                          <p class="muted">${escapeHtml(card.prompt ?? 'No shot sidecar prompt yet.')}</p>
-                        </div>
-                      </div>
-                    </section>
-                  `,
-                )
-                .join('')}</div>`
         }
       </div>`,
     ),
@@ -1976,86 +1822,6 @@ async function buildCharacterCards(cwd: string) {
   )
 }
 
-async function buildReviewShots(cwd: string): Promise<KeyframeReviewShot[]> {
-  const [keyframes, artifacts] = await Promise.all([
-    loadKeyframesOrEmpty(cwd),
-    loadKeyframeArtifactsOrEmpty(cwd),
-  ])
-  const shots = new Map<string, KeyframeEntry[]>()
-  const artifactsByKeyframeId = new Map(artifacts.map((entry) => [entry.keyframeId, entry]))
-
-  for (const entry of keyframes) {
-    const existingShot = shots.get(entry.shotId) ?? []
-    existingShot.push(entry)
-    shots.set(entry.shotId, existingShot)
-  }
-
-  return Promise.all(
-    [...shots.entries()].map(async ([shotId, entries]) => {
-      const slotsByType = new Map<FrameType, KeyframeReviewSlot>()
-
-      for (const entry of entries) {
-        const artifact = artifactsByKeyframeId.get(entry.keyframeId)
-
-        slotsByType.set(entry.frameType, {
-          keyframeId: entry.keyframeId,
-          frameType: entry.frameType,
-          title: entry.keyframeId,
-          goal: `${entry.frameType === 'start' ? 'Start' : 'End'} anchor`,
-          status: artifact?.status ?? 'planned',
-          href: `/keyframes/${encodeURIComponent(entry.keyframeId)}`,
-          imageUrl: `/${encodeAssetUrl(entry.imagePath)}`,
-          imageExists: await fileExists(resolveRepoPath(entry.imagePath, cwd)),
-          placeholderLabel: null,
-          placeholderVariant: 'missing',
-        })
-      }
-
-      const orderedSlots: KeyframeReviewSlot[] = []
-      orderedSlots.push(
-        slotsByType.get('start') ?? buildOmittedSlot(shotId, 'start'),
-        slotsByType.get('end') ?? buildOmittedSlot(shotId, 'end'),
-      )
-
-      orderedSlots.sort(
-        (left, right) =>
-          FRAME_ORDER[left.frameType] - FRAME_ORDER[right.frameType] ||
-          left.keyframeId.localeCompare(right.keyframeId),
-      )
-
-      return {
-        shotId,
-        slots: orderedSlots,
-      } satisfies KeyframeReviewShot
-    }),
-  )
-}
-
-async function buildShotReviewCards(cwd: string) {
-  const [shots, artifacts] = await Promise.all([
-    loadShotPromptsOrEmpty(cwd),
-    loadShotArtifactsOrEmpty(cwd),
-  ])
-  const artifactsByShotId = new Map(artifacts.map((entry) => [entry.shotId, entry]))
-
-  return Promise.all(
-    shots.map(async (entry) => {
-      const artifact = artifactsByShotId.get(entry.shotId)
-
-      return {
-        shotId: entry.shotId,
-        status: artifact?.status ?? entry.status,
-        durationSeconds: entry.durationSeconds,
-        keyframeIds: entry.keyframeIds,
-        prompt: artifact?.prompt ?? null,
-        model: artifact?.model ?? null,
-        videoUrl: `/${encodeAssetUrl(entry.videoPath)}`,
-        videoExists: await fileExists(resolveRepoPath(entry.videoPath, cwd)),
-      } satisfies ShotReviewCard
-    }),
-  )
-}
-
 async function loadCharacterDetail(
   characterId: string,
   cwd: string,
@@ -2134,12 +1900,12 @@ async function loadKeyframeDetail(
 
   return {
     descriptor,
-    activeTab: 'keyframes' as const,
+    activeTab: 'timeline' as const,
     title: keyframe.keyframeId,
     subtitle:
       'Use the current artifact, retained versions, and explicit references to iterate on a single keyframe without manual file copying.',
-    summaryHref: '/keyframes',
-    summaryLabel: 'Back to keyframes',
+    summaryHref: '/timeline',
+    summaryLabel: 'Back to timeline',
     mediaType: 'image' as const,
     mediaUrl: activeVersionId
       ? getArtifactVersionMediaUrl(descriptor, activeVersionId)
@@ -2202,12 +1968,12 @@ async function loadOmittedKeyframeDetail(
 
   return {
     descriptor,
-    activeTab: 'keyframes' as const,
+    activeTab: 'timeline' as const,
     title: keyframeId,
     subtitle:
       'This anchor is currently omitted from the shot plan. Create it only when the shot needs a distinct extra start or end frame.',
-    summaryHref: '/keyframes',
-    summaryLabel: 'Back to keyframes',
+    summaryHref: '/timeline',
+    summaryLabel: 'Back to timeline',
     mediaType: 'image' as const,
     mediaUrl: null,
     mediaExists: false,
@@ -2250,12 +2016,12 @@ async function loadShotDetail(shotId: string, cwd: string, requestedVersionId?: 
 
   return {
     descriptor,
-    activeTab: 'shots' as const,
+    activeTab: 'timeline' as const,
     title: shotId,
     subtitle:
       'Review the current motion artifact, edit the source reference stack, and promote any retained version back to the stable public MP4 path.',
-    summaryHref: '/shots',
-    summaryLabel: 'Back to shots',
+    summaryHref: '/timeline',
+    summaryLabel: 'Back to timeline',
     mediaType: 'video' as const,
     mediaUrl: activeVersionId
       ? getArtifactVersionMediaUrl(descriptor, activeVersionId)
@@ -2732,7 +2498,7 @@ async function handleCreate(
   const detail = await getDetailContext(pathname, cwd)
 
   if (!detail) {
-    return renderErrorPage('keyframes', 'Missing Keyframe', 'Keyframe not found.', '/keyframes')
+    return renderErrorPage('timeline', 'Missing Keyframe', 'Keyframe not found.', '/timeline')
   }
 
   if (detail.primaryAction.kind !== 'create-keyframe') {
@@ -2813,7 +2579,7 @@ async function handleRemove(pathname: string, cwd: string) {
   const detail = await getDetailContext(pathname, cwd)
 
   if (!detail) {
-    return renderErrorPage('keyframes', 'Missing Keyframe', 'Keyframe not found.', '/keyframes')
+    return renderErrorPage('timeline', 'Missing Keyframe', 'Keyframe not found.', '/timeline')
   }
 
   const descriptor = await removePlannedKeyframe(detail.descriptor.artifactId, cwd)
@@ -2915,16 +2681,9 @@ export function startArtifactReviewServer(
 
           if (
             (request.method === 'GET' || request.method === 'HEAD') &&
-            url.pathname === '/keyframes'
+            (url.pathname === '/keyframes' || url.pathname === '/shots')
           ) {
-            return renderKeyframesSummary(await buildReviewShots(cwd))
-          }
-
-          if (
-            (request.method === 'GET' || request.method === 'HEAD') &&
-            url.pathname === '/shots'
-          ) {
-            return renderShotsSummary(await buildShotReviewCards(cwd))
+            return redirectTo('/timeline', 302)
           }
 
           if (
@@ -2986,10 +2745,10 @@ export function startArtifactReviewServer(
 
             if (!detail) {
               return renderErrorPage(
-                'keyframes',
+                'timeline',
                 'Missing Keyframe',
                 'Keyframe not found.',
-                '/keyframes',
+                '/timeline',
               )
             }
 
@@ -3009,7 +2768,7 @@ export function startArtifactReviewServer(
             )
 
             if (!detail) {
-              return renderErrorPage('shots', 'Missing Shot', 'Shot not found.', '/shots')
+              return renderErrorPage('timeline', 'Missing Shot', 'Shot not found.', '/timeline')
             }
 
             return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor), {
@@ -3156,13 +2915,11 @@ export function startArtifactReviewServer(
           const message = error instanceof Error ? error.message : String(error)
           const activeTab: Tab = url.pathname.startsWith('/timeline')
             ? 'timeline'
-            : url.pathname.startsWith('/shots')
-              ? 'shots'
-              : url.pathname.startsWith('/keyframes')
-                ? 'keyframes'
-                : url.pathname.startsWith('/storyboard')
-                  ? 'storyboard'
-                  : 'characters'
+            : url.pathname.startsWith('/shots') || url.pathname.startsWith('/keyframes')
+              ? 'timeline'
+              : url.pathname.startsWith('/storyboard')
+                ? 'storyboard'
+                : 'characters'
 
           return new Response(
             renderPage(
