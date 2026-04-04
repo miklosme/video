@@ -2,8 +2,9 @@
  * Timeline component for keyframe pointer placement.
  *
  * Renders a static second-ruler with draggable pointers that snap to
- * second boundaries. Two pointers can share a position (split-pill heads);
- * no more than two are allowed at the same boundary.
+ * second boundaries. Every pointer renders as a split head whose left and
+ * right halves can be selected independently, while each boundary can hold
+ * only one pointer.
  *
  * All HTML, CSS, and client-side JS are returned as a single string
  * so the artifact-review server can embed it inside `renderPage()`.
@@ -52,7 +53,7 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     { id: 'p3', position: 8 },
     { id: 'p4', position: 12 },
     { id: 'p5', position: 16 },
-    { id: 'p6', position: 16 }, // paired with p5 (hard cut)
+    { id: 'p6', position: 18 },
     { id: 'p7', position: 20 },
   ])
 
@@ -119,7 +120,7 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
   /* ── Pointer element ────────────────────────────────── */
   .tl-pointer {
     position: absolute;
-    top: 0;
+    bottom: 0;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -127,41 +128,47 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     z-index: 10;
     transition: left 0.07s ease;
   }
+  .tl-pointer.tl-selected {
+    z-index: 15;
+  }
   .tl-pointer.tl-dragging {
     cursor: grabbing;
     z-index: 20;
     transition: none;
   }
-  .tl-pointer.tl-selected .tl-head {
-    box-shadow: 0 0 0 2px var(--accent), 0 2px 8px rgba(0,0,0,0.4);
-  }
 
   /* ── Pointer head ───────────────────────────────────── */
   .tl-head {
+    display: flex;
     width: 28px;
     height: 22px;
+  }
+  .tl-head-half {
+    appearance: none;
+    width: 14px;
+    height: 22px;
+    margin: 0;
+    padding: 0;
     background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%);
-    border-radius: 11px;
     border: 1px solid rgba(0,0,0,0.18);
     box-shadow: 0 2px 6px rgba(0,0,0,0.28);
+    cursor: inherit;
   }
-  .tl-head.tl-pair-l {
-    width: 14px;
+  .tl-head-half:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .tl-head-half.tl-selected {
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 0 0 2px var(--accent), 0 2px 8px rgba(0,0,0,0.4);
+  }
+  .tl-head-half-l {
     border-radius: 11px 2px 2px 11px;
   }
-  .tl-head.tl-pair-r {
-    width: 14px;
+  .tl-head-half-r {
+    margin-left: -1px;
     border-radius: 2px 11px 11px 2px;
-  }
-
-  /* ── Paired stem alignment: push legs toward the shared boundary (1px gap) */
-  .tl-pair-l ~ .tl-stem {
-    align-self: flex-end;
-    margin-right: 0;
-  }
-  .tl-pair-r ~ .tl-stem {
-    align-self: flex-start;
-    margin-left: 1px;
   }
 
   /* ── Pointer stem ───────────────────────────────────── */
@@ -170,53 +177,6 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     height: 14px;
     background: #f59e0b;
     border-radius: 0 0 1px 1px;
-  }
-
-  /* ── Ghost pointer ──────────────────────────────────── */
-  .tl-ghost {
-    position: absolute;
-    top: 0;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    pointer-events: none;
-    z-index: 5;
-    opacity: 0;
-    transition: opacity 0.12s ease, left 0.05s ease;
-  }
-  .tl-ghost.tl-visible {
-    opacity: 0.28;
-  }
-  .tl-ghost .tl-head {
-    box-shadow: none;
-  }
-
-  /* ── Trash button ───────────────────────────────────── */
-  .tl-controls {
-    position: relative;
-    width: ${width}px;
-    margin: 0 auto;
-    height: 36px;
-  }
-  .tl-trash {
-    position: absolute;
-    top: 8px;
-    transform: translateX(-50%);
-    display: none;
-    background: var(--panel-strong);
-    border: 1px solid var(--line);
-    border-radius: 8px;
-    color: var(--error);
-    padding: 3px 14px;
-    font-size: 12px;
-    cursor: pointer;
-    white-space: nowrap;
-    font-family: inherit;
-    transition: background 0.12s, border-color 0.12s;
-  }
-  .tl-trash:hover {
-    background: rgba(248,115,115,0.10);
-    border-color: var(--error);
   }
 
   /* ── Hint text ──────────────────────────────────────── */
@@ -233,20 +193,12 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
   <div class="tl-scroll">
     <div class="tl-area" id="tl-area">
       <div class="tl-labels">${labels.join('')}</div>
-      <div class="tl-pointer-layer" id="tl-layer">
-        <div class="tl-ghost" id="tl-ghost">
-          <div class="tl-head"></div>
-          <div class="tl-stem"></div>
-        </div>
-      </div>
+      <div class="tl-pointer-layer" id="tl-layer"></div>
       <div class="tl-ruler" id="tl-ruler">${ticks.join('')}</div>
     </div>
   </div>
-  <div class="tl-controls">
-    <button class="tl-trash" id="tl-trash">Remove</button>
-  </div>
   <div class="tl-hint">
-    Double-click to add &middot; Click to select &middot; Drag to move
+    Click either half to select &middot; Drag to move
   </div>
 </div>
 
@@ -257,22 +209,16 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
   /* ── constants ─────────────────────────────────────── */
   var TOTAL  = ${totalSeconds};
   var PPS    = ${pxPerSecond};
-  var HEAD_W = 28;
   var HALF_W = 14;
 
   /* ── state ─────────────────────────────────────────── */
   var pointers  = ${mockPointers};
-  var nextId    = pointers.length + 1;
-  var selectedId = null;
-  var drag       = null;   // { id, startPos }
-  var didDrag    = false;
-  var deselectTimer = null;
+  var selected  = null; // { id, side }
+  var drag      = null; // { id, side, startPos }
+  var didDrag   = false;
 
   /* ── DOM refs ──────────────────────────────────────── */
-  var area  = document.getElementById('tl-area');
   var layer = document.getElementById('tl-layer');
-  var ghost = document.getElementById('tl-ghost');
-  var trash = document.getElementById('tl-trash');
   var ruler = document.getElementById('tl-ruler');
 
   /* ── helpers ───────────────────────────────────────── */
@@ -282,18 +228,6 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     return Math.max(0, Math.min(TOTAL, sec));
   }
 
-  function countAt(pos, excludeId) {
-    var n = 0;
-    for (var i = 0; i < pointers.length; i++) {
-      if (pointers[i].position === pos && pointers[i].id !== excludeId) n++;
-    }
-    return n;
-  }
-
-  function canPlace(pos, excludeId) {
-    return countAt(pos, excludeId) < 2;
-  }
-
   function find(id) {
     for (var i = 0; i < pointers.length; i++) {
       if (pointers[i].id === id) return pointers[i];
@@ -301,67 +235,65 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     return null;
   }
 
+  function countAt(pos, excludeId) {
+    var count = 0;
+    for (var i = 0; i < pointers.length; i++) {
+      if (pointers[i].position === pos && pointers[i].id !== excludeId) count++;
+    }
+    return count;
+  }
+
+  function canPlace(pos, excludeId) {
+    return countAt(pos, excludeId) === 0;
+  }
+
+  function selectedMatches(id, side) {
+    return !!selected && selected.id === id && selected.side === side;
+  }
+
   /* ── render ────────────────────────────────────────── */
   function render() {
     // remove old pointer DOM
     var old = layer.querySelectorAll('.tl-pointer');
     for (var i = 0; i < old.length; i++) old[i].remove();
+    layer.style.height = '36px';
 
-    // group by position
-    var byPos = {};
     for (var i = 0; i < pointers.length; i++) {
       var p = pointers[i];
-      if (!byPos[p.position]) byPos[p.position] = [];
-      byPos[p.position].push(p);
-    }
-
-    for (var i = 0; i < pointers.length; i++) {
-      var p     = pointers[i];
-      var group = byPos[p.position];
-      var paired = group.length === 2;
-      var isLeft  = paired && group[0].id === p.id;
-      var isRight = paired && group[1].id === p.id;
 
       var el = document.createElement('div');
       el.className = 'tl-pointer'
-        + (p.id === selectedId ? ' tl-selected' : '')
+        + (selected && selected.id === p.id ? ' tl-selected' : '')
         + (drag && drag.id === p.id ? ' tl-dragging' : '');
       el.setAttribute('data-id', p.id);
 
       var head = document.createElement('div');
-      head.className = 'tl-head'
-        + (isLeft  ? ' tl-pair-l' : '')
-        + (isRight ? ' tl-pair-r' : '');
+      head.className = 'tl-head';
+
+      var leftHead = document.createElement('button');
+      leftHead.type = 'button';
+      leftHead.className = 'tl-head-half tl-head-half-l'
+        + (selectedMatches(p.id, 'left') ? ' tl-selected' : '');
+      leftHead.setAttribute('data-side', 'left');
+      leftHead.setAttribute('aria-label', 'Select left side of pointer');
+
+      var rightHead = document.createElement('button');
+      rightHead.type = 'button';
+      rightHead.className = 'tl-head-half tl-head-half-r'
+        + (selectedMatches(p.id, 'right') ? ' tl-selected' : '');
+      rightHead.setAttribute('data-side', 'right');
+      rightHead.setAttribute('aria-label', 'Select right side of pointer');
 
       var stem = document.createElement('div');
       stem.className = 'tl-stem';
 
+      head.appendChild(leftHead);
+      head.appendChild(rightHead);
       el.appendChild(head);
       el.appendChild(stem);
-
-      // horizontal position
-      var px = p.position * PPS;
-      if (paired) {
-        el.style.left = (isLeft ? px - HALF_W : px) + 'px';
-      } else {
-        el.style.left = (px - HEAD_W / 2) + 'px';
-      }
+      el.style.left = (p.position * PPS - HALF_W) + 'px';
 
       layer.appendChild(el);
-    }
-
-    // trash button
-    if (selectedId) {
-      var sp = find(selectedId);
-      if (sp) {
-        trash.style.display = 'block';
-        trash.style.left = (sp.position * PPS) + 'px';
-      } else {
-        selectedId = null;
-        trash.style.display = 'none';
-      }
-    } else {
-      trash.style.display = 'none';
     }
   }
 
@@ -371,54 +303,31 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     if (!pEl) return;
 
     var id = pEl.getAttribute('data-id');
-    selectedId = id;
+    var sideEl = e.target.closest('.tl-head-half');
+    var side = sideEl
+      ? sideEl.getAttribute('data-side')
+      : (selected && selected.id === id ? selected.side : 'left');
+
+    selected = { id: id, side: side };
     didDrag = false;
 
     var p = find(id);
-    if (p) drag = { id: id, startPos: p.position };
+    if (p) drag = { id: id, side: side, startPos: p.position };
 
     e.preventDefault();
     render();
   });
 
-  /* ── mousemove → drag or ghost ─────────────────────── */
+  /* ── mousemove → drag ──────────────────────────────── */
   document.addEventListener('mousemove', function (e) {
-    /* dragging */
-    if (drag) {
-      var pos = snap(e.clientX);
-      var p = find(drag.id);
-      if (p && canPlace(pos, drag.id) && pos !== p.position) {
-        p.position = pos;
-        didDrag = true;
-        render();
-      }
-      ghost.classList.remove('tl-visible');
-      return;
-    }
+    if (!drag) return;
 
-    /* ghost preview */
-    var rect = ruler.getBoundingClientRect();
-    var x = e.clientX - rect.left;
-    var y = e.clientY - rect.top;
-
-    if (x >= 0 && x <= rect.width && y > -70 && y < 30) {
-      var pos = snap(e.clientX);
-      if (canPlace(pos, null)) {
-        ghost.classList.add('tl-visible');
-        var cnt = countAt(pos, null);
-        var headEl = ghost.querySelector('.tl-head');
-        if (cnt === 1) {
-          ghost.style.left = (pos * PPS) + 'px';
-          headEl.className = 'tl-head tl-pair-r';
-        } else {
-          ghost.style.left = (pos * PPS - HEAD_W / 2) + 'px';
-          headEl.className = 'tl-head';
-        }
-      } else {
-        ghost.classList.remove('tl-visible');
-      }
-    } else {
-      ghost.classList.remove('tl-visible');
+    var pos = snap(e.clientX);
+    var p = find(drag.id);
+    if (p && pos !== p.position && canPlace(pos, drag.id)) {
+      p.position = pos;
+      didDrag = true;
+      render();
     }
   });
 
@@ -430,44 +339,14 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     }
   });
 
-  /* ── click → deselect (with dblclick guard) ────────── */
+  /* ── click → deselect ──────────────────────────────── */
   document.addEventListener('click', function (e) {
     if (didDrag) { didDrag = false; return; }
-    if (e.target.closest('.tl-pointer') || e.target.closest('.tl-trash')) return;
-
-    if (deselectTimer) clearTimeout(deselectTimer);
-    deselectTimer = setTimeout(function () {
-      if (selectedId) { selectedId = null; render(); }
-      deselectTimer = null;
-    }, 220);
-  });
-
-  /* ── dblclick → add pointer ────────────────────────── */
-  area.addEventListener('dblclick', function (e) {
     if (e.target.closest('.tl-pointer')) return;
-    if (deselectTimer) { clearTimeout(deselectTimer); deselectTimer = null; }
-
-    var pos = snap(e.clientX);
-    if (!canPlace(pos, null)) return;
-
-    var id = 'p' + (nextId++);
-    pointers.push({ id: id, position: pos });
-    selectedId = id;
-    render();
-  });
-
-  /* ── trash ─────────────────────────────────────────── */
-  trash.addEventListener('click', function (e) {
-    e.stopPropagation();
-    if (!selectedId) return;
-    pointers = pointers.filter(function (p) { return p.id !== selectedId; });
-    selectedId = null;
-    render();
-  });
-
-  /* ── mouse leave → hide ghost ──────────────────────── */
-  area.addEventListener('mouseleave', function () {
-    ghost.classList.remove('tl-visible');
+    if (selected) {
+      selected = null;
+      render();
+    }
   });
 
   /* ── initial render ────────────────────────────────── */
