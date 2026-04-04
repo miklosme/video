@@ -203,6 +203,7 @@ export function renderTimelineContent(
 
   .tl-head {
     display: flex;
+    justify-content: center;
     width: 28px;
     height: 22px;
   }
@@ -221,7 +222,23 @@ export function renderTimelineContent(
     box-shadow: 0 2px 6px rgba(0,0,0,0.28);
     cursor: inherit;
   }
+  .tl-head-full {
+    appearance: none;
+    width: 22px;
+    height: 22px;
+    margin: 0 auto;
+    padding: 0;
+    background: linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%);
+    border: 1px solid rgba(0,0,0,0.18);
+    border-radius: 999px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.28);
+    cursor: inherit;
+  }
   .tl-head-half:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .tl-head-full:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 2px;
   }
@@ -230,8 +247,16 @@ export function renderTimelineContent(
     z-index: 1;
     box-shadow: 0 0 0 2px var(--accent), 0 2px 8px rgba(0,0,0,0.4);
   }
+  .tl-head-full.tl-selected {
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 0 0 2px var(--accent), 0 2px 8px rgba(0,0,0,0.4);
+  }
   .tl-head-half.tl-omitted {
-    background: linear-gradient(180deg, rgba(134, 239, 172, 0.94) 0%, rgba(74, 222, 128, 0.86) 100%);
+    background: linear-gradient(180deg, rgb(134, 239, 172) 0%, rgb(74, 222, 128) 100%);
+  }
+  .tl-head-full.tl-omitted {
+    background: linear-gradient(180deg, rgb(134, 239, 172) 0%, rgb(74, 222, 128) 100%);
   }
   .tl-head-half-l {
     border-radius: 11px 2px 2px 11px;
@@ -251,21 +276,6 @@ export function renderTimelineContent(
     opacity: 0.8;
   }
 
-  .tl-meta {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    gap: 10px 16px;
-    color: var(--soft);
-    font-size: 11px;
-    line-height: 1.45;
-  }
-  .tl-status {
-    color: var(--soft);
-  }
-  .tl-status.tl-status-error {
-    color: var(--error);
-  }
   .tl-detail {
     border: 1px solid var(--line);
     border-radius: 18px;
@@ -306,11 +316,6 @@ export function renderTimelineContent(
     </div>
   </div>
 
-  <div class="tl-meta">
-    <div>Click a keyframe side or shot section to inspect it below. Dashed keyframe sides are omitted anchors.</div>
-    <div class="tl-status" id="tl-status">Dragging a pointer syncs shot durations back to SHOTS.json.</div>
-  </div>
-
   <section class="tl-detail">
     <div class="tl-detail-empty" id="tl-detail-empty">
       Select a keyframe side or shot section to load its existing review page here.
@@ -340,13 +345,11 @@ export function renderTimelineContent(
   var didDrag = false;
   var lastSyncedPayload = null;
   var saveToken = 0;
-  var statusResetTimer = null;
 
   var layer = document.getElementById('tl-layer');
   var ruler = document.getElementById('tl-ruler');
   var detailFrame = document.getElementById('tl-detail-frame');
   var detailEmpty = document.getElementById('tl-detail-empty');
-  var statusEl = document.getElementById('tl-status');
 
   function snap(clientX) {
     var rect = ruler.getBoundingClientRect();
@@ -426,23 +429,6 @@ export function renderTimelineContent(
     };
   }
 
-  function setStatus(message, isError) {
-    statusEl.textContent = message;
-    statusEl.className = 'tl-status' + (isError ? ' tl-status-error' : '');
-
-    if (statusResetTimer) {
-      window.clearTimeout(statusResetTimer);
-      statusResetTimer = null;
-    }
-
-    if (isError || message !== 'Dragging a pointer syncs shot durations back to SHOTS.json.') {
-      statusResetTimer = window.setTimeout(function () {
-        statusEl.textContent = 'Dragging a pointer syncs shot durations back to SHOTS.json.';
-        statusEl.className = 'tl-status';
-      }, 2800);
-    }
-  }
-
   function computeTimelinePayload() {
     var shotDurations = [];
 
@@ -500,12 +486,10 @@ export function renderTimelineContent(
     var serialized = serializePayload(payload);
 
     if (serialized === lastSyncedPayload) {
-      setStatus('Shot durations are already in sync.', false);
       return;
     }
 
     var requestToken = ++saveToken;
-    setStatus('Saving shot durations to SHOTS.json...', false);
 
     window.fetch(saveUrl, {
       method: 'POST',
@@ -533,13 +517,12 @@ export function renderTimelineContent(
         if (requestToken !== saveToken) return;
 
         lastSyncedPayload = serialized;
-        setStatus('Saved shot durations to SHOTS.json.', false);
         refreshDetail(true);
       })
       .catch(function (error) {
         if (requestToken !== saveToken) return;
 
-        setStatus(error instanceof Error ? error.message : String(error), true);
+        console.error('Timeline update failed:', error instanceof Error ? error.message : String(error));
       });
   }
 
@@ -567,6 +550,25 @@ export function renderTimelineContent(
     var button = document.createElement('button');
     button.type = 'button';
     button.className = 'tl-head-half tl-head-half-' + side.charAt(0)
+      + (selectedMatchesPointer(pointerId, side) ? ' tl-selected' : '')
+      + (sideData.omitted ? ' tl-omitted' : '');
+    button.setAttribute('data-side', side);
+    button.setAttribute(
+      'aria-label',
+      (sideData.omitted ? 'Select omitted keyframe ' : 'Select keyframe ') + sideData.keyframeId
+    );
+
+    return button;
+  }
+
+  function createPointerFull(pointerId, side, sideData) {
+    if (!sideData) {
+      return null;
+    }
+
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tl-head-full'
       + (selectedMatchesPointer(pointerId, side) ? ' tl-selected' : '')
       + (sideData.omitted ? ' tl-omitted' : '');
     button.setAttribute('data-side', side);
@@ -613,9 +615,18 @@ export function renderTimelineContent(
 
       var head = document.createElement('div');
       head.className = 'tl-head';
-
-      head.appendChild(createPointerHalf(pointer.id, 'left', pointer.left));
-      head.appendChild(createPointerHalf(pointer.id, 'right', pointer.right));
+      if (pointer.left && pointer.right) {
+        head.appendChild(createPointerHalf(pointer.id, 'left', pointer.left));
+        head.appendChild(createPointerHalf(pointer.id, 'right', pointer.right));
+      } else {
+        var side = pointer.left ? 'left' : (pointer.right ? 'right' : null);
+        if (side) {
+          head.appendChild(createPointerFull(pointer.id, side, pointer[side]));
+        } else {
+          head.appendChild(createPointerHalf(pointer.id, 'left', pointer.left));
+          head.appendChild(createPointerHalf(pointer.id, 'right', pointer.right));
+        }
+      }
 
       var stem = document.createElement('div');
       stem.className = 'tl-stem';
@@ -645,7 +656,7 @@ export function renderTimelineContent(
 
     var pointerId = pointerEl.getAttribute('data-id');
     var pointer = getPointer(pointerId);
-    var sideEl = e.target.closest('.tl-head-half');
+    var sideEl = e.target.closest('.tl-head-half, .tl-head-full');
     var side = sideEl
       ? sideEl.getAttribute('data-side')
       : (
