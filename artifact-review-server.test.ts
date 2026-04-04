@@ -623,6 +623,175 @@ test('artifact review server renders the shots tab with prompt metadata and a mi
   }
 })
 
+test('artifact review server renders the timeline from SHOTS.json with embedded keyframe and shot detail targets', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+          {
+            shotId: 'SHOT-02',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-02.mp4',
+            durationSeconds: 6,
+            incomingTransition: {
+              type: 'continuity',
+              notes: 'Continue the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-02-START', 'SHOT-02-END']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/timeline', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('Timeline')
+      expect(html).toContain('SHOT-01')
+      expect(html).toContain('SHOT-02')
+      expect(html).toContain('/shots/SHOT-01?embed=1')
+      expect(html).toContain('/keyframes/SHOT-01-END?embed=1')
+      expect(html).toContain('"omitted":true')
+      expect(html).toContain('tl-detail-frame')
+      expect(html).not.toContain('mockPointers')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server timeline update syncs only shot durations back to SHOTS.json', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+          {
+            shotId: 'SHOT-02',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-02.mp4',
+            durationSeconds: 6,
+            incomingTransition: {
+              type: 'continuity',
+              notes: 'Continue the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-02-START', 'SHOT-02-END']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/timeline/update', server.url), {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          shots: [
+            { shotId: 'SHOT-01', durationSeconds: 5 },
+            { shotId: 'SHOT-02', durationSeconds: 7 },
+          ],
+        }),
+      })
+
+      expect(response.status).toBe(200)
+      expect(await response.json()).toEqual({ status: 'ok' })
+
+      const shots = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/SHOTS.json'), 'utf8'),
+      )
+
+      expect(shots).toEqual([
+        {
+          shotId: 'SHOT-01',
+          status: 'planned',
+          videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+          durationSeconds: 5,
+          incomingTransition: {
+            type: 'opening',
+            notes: 'Open the sequence.',
+          },
+          keyframes: [
+            {
+              keyframeId: 'SHOT-01-START',
+              frameType: 'start',
+              imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+            },
+          ],
+        },
+        {
+          shotId: 'SHOT-02',
+          status: 'planned',
+          videoPath: 'workspace/SHOTS/SHOT-02.mp4',
+          durationSeconds: 7,
+          incomingTransition: {
+            type: 'continuity',
+            notes: 'Continue the sequence.',
+          },
+          keyframes: [
+            {
+              keyframeId: 'SHOT-02-START',
+              frameType: 'start',
+              imagePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png',
+            },
+            {
+              keyframeId: 'SHOT-02-END',
+              frameType: 'end',
+              imagePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png',
+            },
+          ],
+        },
+      ])
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('artifact review server serves the canonical storyboard image', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 

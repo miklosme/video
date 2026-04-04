@@ -1,10 +1,10 @@
 /**
- * Timeline component for keyframe pointer placement.
+ * Timeline component for shot sections and keyframe boundary pointers.
  *
  * Renders a static second-ruler with draggable pointers that snap to
- * second boundaries. Every pointer renders as a split head whose left and
- * right halves can be selected independently, while each boundary can hold
- * only one pointer.
+ * second boundaries. Pointers represent the shared boundary between
+ * adjacent shots. Pointer sides map to canonical start/end keyframes,
+ * including omitted anchors. Sections between pointers map to shots.
  *
  * All HTML, CSS, and client-side JS are returned as a single string
  * so the artifact-review server can embed it inside `renderPage()`.
@@ -19,18 +19,60 @@ export interface TimelineConfig {
   allowedDurations: number[]
 }
 
+export interface TimelinePointerSide {
+  keyframeId: string
+  detailUrl: string
+  omitted: boolean
+}
+
+export interface TimelinePointer {
+  id: string
+  position: number
+  canDrag: boolean
+  left: TimelinePointerSide | null
+  right: TimelinePointerSide | null
+}
+
+export interface TimelineSection {
+  shotId: string
+  detailUrl: string
+}
+
+export interface TimelineData {
+  pointers: TimelinePointer[]
+  sections: TimelineSection[]
+  saveUrl: string
+}
+
 const DEFAULT_CONFIG: TimelineConfig = {
   totalSeconds: 60,
   pxPerSecond: 20,
   allowedDurations: [4, 6, 8],
 }
 
-export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): string {
+function renderEmptyTimelineState() {
+  return `
+<section class="panel">
+  <p class="section-title">Timeline</p>
+  <p class="muted">No planned shots yet. Create <code>workspace/SHOTS.json</code> entries to populate the timeline.</p>
+</section>
+`
+}
+
+export function renderTimelineContent(
+  data: TimelineData,
+  overrides: Partial<TimelineConfig> = {},
+): string {
+  if (data.sections.length === 0 || data.pointers.length === 0) {
+    return renderEmptyTimelineState()
+  }
+
+  const initialEnd = data.pointers[data.pointers.length - 1]?.position ?? 0
   const cfg: TimelineConfig = { ...DEFAULT_CONFIG, ...overrides }
-  const { totalSeconds, pxPerSecond } = cfg
+  const totalSeconds = Math.max(cfg.totalSeconds, initialEnd + 20, 20)
+  const { pxPerSecond } = cfg
   const width = totalSeconds * pxPerSecond
 
-  // --- Time labels (every 5 s) ---
   const labels: string[] = []
   for (let i = 0; i <= totalSeconds; i += 5) {
     const min = Math.floor(i / 60)
@@ -39,29 +81,23 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     labels.push(`<div class="tl-label" style="left:${i * pxPerSecond}px">${text}</div>`)
   }
 
-  // --- Tick blocks (one per second) ---
   const ticks: string[] = []
   for (let i = 0; i < totalSeconds; i++) {
     const cls = (i + 1) % 5 === 0 ? 'tl-tick tl-tick-major' : 'tl-tick'
     ticks.push(`<div class="${cls}"></div>`)
   }
 
-  // --- Mock pointers derived from SHOTS.json layout ---
-  const mockPointers = JSON.stringify([
-    { id: 'p1', position: 0 },
-    { id: 'p2', position: 4 },
-    { id: 'p3', position: 8 },
-    { id: 'p4', position: 12 },
-    { id: 'p5', position: 16 },
-    { id: 'p6', position: 18 },
-    { id: 'p7', position: 20 },
-  ])
+  const pointerData = JSON.stringify(data.pointers)
+  const sectionData = JSON.stringify(data.sections)
+  const saveUrl = JSON.stringify(data.saveUrl)
 
   return /* html */ `
 <style>
-  /* ── Timeline container ─────────────────────────────── */
   .tl-container {
     padding: 48px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
   }
   .tl-scroll {
     overflow-x: auto;
@@ -75,7 +111,6 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     -webkit-user-select: none;
   }
 
-  /* ── Time labels ────────────────────────────────────── */
   .tl-labels {
     position: relative;
     height: 18px;
@@ -92,14 +127,12 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     pointer-events: none;
   }
 
-  /* ── Pointer layer ──────────────────────────────────── */
   .tl-pointer-layer {
     position: relative;
-    height: 36px; /* head 22 + stem 14 */
+    height: 40px;
     margin-bottom: 0;
   }
 
-  /* ── Section element ───────────────────────────────── */
   .tl-section {
     appearance: none;
     position: absolute;
@@ -113,6 +146,9 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 6px 14px rgba(22, 101, 52, 0.14);
     cursor: pointer;
     z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
   .tl-section:hover {
     background: linear-gradient(180deg, rgba(153, 246, 183, 0.95) 0%, rgba(86, 233, 138, 0.86) 100%);
@@ -126,7 +162,6 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     box-shadow: 0 0 0 2px var(--accent), inset 0 1px 0 rgba(255,255,255,0.32), 0 8px 16px rgba(22, 101, 52, 0.22);
   }
 
-  /* ── Ruler ───────────────────────────────────────────── */
   .tl-ruler {
     display: flex;
     height: 10px;
@@ -144,7 +179,6 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     border-right-color: rgba(255,255,255,0.10);
   }
 
-  /* ── Pointer element ────────────────────────────────── */
   .tl-pointer {
     position: absolute;
     bottom: 0;
@@ -163,12 +197,18 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     z-index: 20;
     transition: none;
   }
+  .tl-pointer.tl-fixed {
+    cursor: default;
+  }
 
-  /* ── Pointer head ───────────────────────────────────── */
   .tl-head {
     display: flex;
     width: 28px;
     height: 22px;
+  }
+  .tl-head-spacer {
+    width: 14px;
+    pointer-events: none;
   }
   .tl-head-half {
     appearance: none;
@@ -190,6 +230,9 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     z-index: 1;
     box-shadow: 0 0 0 2px var(--accent), 0 2px 8px rgba(0,0,0,0.4);
   }
+  .tl-head-half.tl-omitted {
+    background: linear-gradient(180deg, rgba(134, 239, 172, 0.94) 0%, rgba(74, 222, 128, 0.86) 100%);
+  }
   .tl-head-half-l {
     border-radius: 11px 2px 2px 11px;
   }
@@ -198,21 +241,59 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     border-radius: 2px 11px 11px 2px;
   }
 
-  /* ── Pointer stem ───────────────────────────────────── */
   .tl-stem {
     width: 2px;
-    height: 14px;
+    height: 18px;
     background: #f59e0b;
     border-radius: 0 0 1px 1px;
   }
+  .tl-pointer.tl-fixed .tl-stem {
+    opacity: 0.8;
+  }
 
-  /* ── Hint text ──────────────────────────────────────── */
-  .tl-hint {
-    width: ${width}px;
-    margin: 4px auto 0;
-    font-size: 11px;
+  .tl-meta {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 10px 16px;
     color: var(--soft);
-    letter-spacing: 0.01em;
+    font-size: 11px;
+    line-height: 1.45;
+  }
+  .tl-status {
+    color: var(--soft);
+  }
+  .tl-status.tl-status-error {
+    color: var(--error);
+  }
+  .tl-detail {
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
+      var(--panel);
+    overflow: hidden;
+  }
+  .tl-detail-empty {
+    padding: 22px;
+    color: var(--soft);
+    line-height: 1.5;
+  }
+  .tl-detail-frame {
+    display: none;
+    width: 100%;
+    min-height: 840px;
+    border: 0;
+    background: transparent;
+  }
+
+  @media (max-width: 720px) {
+    .tl-container {
+      padding: 28px 12px 12px;
+    }
+    .tl-detail-frame {
+      min-height: 760px;
+    }
   }
 </style>
 
@@ -224,222 +305,430 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
       <div class="tl-ruler" id="tl-ruler">${ticks.join('')}</div>
     </div>
   </div>
-  <div class="tl-hint">
-    Click a pointer half or section to select &middot; Drag pointers to move
+
+  <div class="tl-meta">
+    <div>Click a keyframe side or shot section to inspect it below. Dashed keyframe sides are omitted anchors.</div>
+    <div class="tl-status" id="tl-status">Dragging a pointer syncs shot durations back to SHOTS.json.</div>
   </div>
+
+  <section class="tl-detail">
+    <div class="tl-detail-empty" id="tl-detail-empty">
+      Select a keyframe side or shot section to load its existing review page here.
+    </div>
+    <iframe
+      class="tl-detail-frame"
+      id="tl-detail-frame"
+      title="Timeline artifact detail"
+      loading="eager"
+    ></iframe>
+  </section>
 </div>
 
 <script>
 (function () {
   'use strict';
 
-  /* ── constants ─────────────────────────────────────── */
   var TOTAL  = ${totalSeconds};
   var PPS    = ${pxPerSecond};
   var HALF_W = 14;
 
-  /* ── state ─────────────────────────────────────────── */
-  var pointers  = ${mockPointers};
-  var selected  = null; // { type: 'pointer', id, side } | { type: 'section', id }
-  var drag      = null; // { id, side, startPos }
-  var didDrag   = false;
+  var pointers = ${pointerData};
+  var sections = ${sectionData};
+  var saveUrl = ${saveUrl};
+  var selected = null;
+  var drag = null;
+  var didDrag = false;
+  var lastSyncedPayload = null;
+  var saveToken = 0;
+  var statusResetTimer = null;
 
-  /* ── DOM refs ──────────────────────────────────────── */
   var layer = document.getElementById('tl-layer');
   var ruler = document.getElementById('tl-ruler');
+  var detailFrame = document.getElementById('tl-detail-frame');
+  var detailEmpty = document.getElementById('tl-detail-empty');
+  var statusEl = document.getElementById('tl-status');
 
-  /* ── helpers ───────────────────────────────────────── */
   function snap(clientX) {
     var rect = ruler.getBoundingClientRect();
-    var sec  = Math.round((clientX - rect.left) / PPS);
+    var sec = Math.round((clientX - rect.left) / PPS);
     return Math.max(0, Math.min(TOTAL, sec));
   }
 
-  function find(id) {
+  function getPointerIndex(id) {
     for (var i = 0; i < pointers.length; i++) {
-      if (pointers[i].id === id) return pointers[i];
+      if (pointers[i].id === id) return i;
+    }
+    return -1;
+  }
+
+  function getPointer(id) {
+    var index = getPointerIndex(id);
+    return index >= 0 ? pointers[index] : null;
+  }
+
+  function getSection(shotId) {
+    for (var i = 0; i < sections.length; i++) {
+      if (sections[i].shotId === shotId) return sections[i];
     }
     return null;
   }
 
-  function countAt(pos, excludeId) {
-    var count = 0;
-    for (var i = 0; i < pointers.length; i++) {
-      if (pointers[i].position === pos && pointers[i].id !== excludeId) count++;
-    }
-    return count;
+  function getPointerSide(pointer, side) {
+    if (!pointer) return null;
+    return side === 'left' ? pointer.left : pointer.right;
   }
 
-  function canPlace(pos, excludeId) {
-    return countAt(pos, excludeId) === 0;
+  function getDefaultSide(pointer) {
+    if (!pointer) return null;
+    if (pointer.left) return 'left';
+    if (pointer.right) return 'right';
+    return null;
   }
 
   function selectedMatchesPointer(id, side) {
     return !!selected
       && selected.type === 'pointer'
-      && selected.id === id
+      && selected.pointerId === id
       && selected.side === side;
   }
 
-  function selectedMatchesSection(id) {
-    return !!selected && selected.type === 'section' && selected.id === id;
+  function selectedMatchesSection(shotId) {
+    return !!selected && selected.type === 'section' && selected.shotId === shotId;
   }
 
-  function buildSections() {
-    var ordered = pointers.slice().sort(function (a, b) {
-      if (a.position !== b.position) return a.position - b.position;
-      return a.id.localeCompare(b.id);
-    });
-    var sections = [];
+  function buildPointerSelection(pointerId, side) {
+    var pointer = getPointer(pointerId);
+    var sideData = getPointerSide(pointer, side);
 
-    for (var i = 0; i < ordered.length - 1; i++) {
-      var left = ordered[i];
-      var right = ordered[i + 1];
-      sections.push({
-        id: left.id + '__' + right.id,
-        leftId: left.id,
-        rightId: right.id,
-        start: left.position,
-        end: right.position,
+    if (!pointer || !sideData) {
+      return null;
+    }
+
+    return {
+      type: 'pointer',
+      pointerId: pointerId,
+      side: side,
+      detailUrl: sideData.detailUrl,
+    };
+  }
+
+  function buildSectionSelection(shotId) {
+    var section = getSection(shotId);
+
+    if (!section) {
+      return null;
+    }
+
+    return {
+      type: 'section',
+      shotId: shotId,
+      detailUrl: section.detailUrl,
+    };
+  }
+
+  function setStatus(message, isError) {
+    statusEl.textContent = message;
+    statusEl.className = 'tl-status' + (isError ? ' tl-status-error' : '');
+
+    if (statusResetTimer) {
+      window.clearTimeout(statusResetTimer);
+      statusResetTimer = null;
+    }
+
+    if (isError || message !== 'Dragging a pointer syncs shot durations back to SHOTS.json.') {
+      statusResetTimer = window.setTimeout(function () {
+        statusEl.textContent = 'Dragging a pointer syncs shot durations back to SHOTS.json.';
+        statusEl.className = 'tl-status';
+      }, 2800);
+    }
+  }
+
+  function computeTimelinePayload() {
+    var shotDurations = [];
+
+    for (var i = 0; i < sections.length; i++) {
+      shotDurations.push({
+        shotId: sections[i].shotId,
+        durationSeconds: pointers[i + 1].position - pointers[i].position,
       });
     }
 
-    return sections;
+    return { shots: shotDurations };
   }
 
-  /* ── render ────────────────────────────────────────── */
+  function serializePayload(payload) {
+    return JSON.stringify(payload.shots);
+  }
+
+  function refreshDetail(forceReload) {
+    if (!selected) {
+      detailFrame.style.display = 'none';
+      detailEmpty.style.display = 'block';
+      return;
+    }
+
+    var nextUrl = selected.detailUrl;
+    detailEmpty.style.display = 'none';
+    detailFrame.style.display = 'block';
+
+    if (forceReload || detailFrame.getAttribute('src') !== nextUrl) {
+      detailFrame.setAttribute('src', nextUrl);
+    }
+  }
+
+  function resizeDetailFrame() {
+    if (!detailFrame.contentWindow) return;
+
+    try {
+      var doc = detailFrame.contentWindow.document;
+      if (!doc || !doc.body || !doc.documentElement) return;
+
+      var height = Math.max(
+        doc.body.scrollHeight,
+        doc.documentElement.scrollHeight,
+        720
+      );
+
+      detailFrame.style.height = height + 'px';
+    } catch (_error) {
+      // Same-origin detail pages are expected, but ignore resize failures.
+    }
+  }
+
+  function syncDurations() {
+    var payload = computeTimelinePayload();
+    var serialized = serializePayload(payload);
+
+    if (serialized === lastSyncedPayload) {
+      setStatus('Shot durations are already in sync.', false);
+      return;
+    }
+
+    var requestToken = ++saveToken;
+    setStatus('Saving shot durations to SHOTS.json...', false);
+
+    window.fetch(saveUrl, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    })
+      .then(function (response) {
+        if (response.ok) {
+          return response.json().catch(function () {
+            return {};
+          });
+        }
+
+        return response.json()
+          .catch(function () {
+            return { error: 'Timeline update failed.' };
+          })
+          .then(function (body) {
+            throw new Error(body && body.error ? body.error : 'Timeline update failed.');
+          });
+      })
+      .then(function () {
+        if (requestToken !== saveToken) return;
+
+        lastSyncedPayload = serialized;
+        setStatus('Saved shot durations to SHOTS.json.', false);
+        refreshDetail(true);
+      })
+      .catch(function (error) {
+        if (requestToken !== saveToken) return;
+
+        setStatus(error instanceof Error ? error.message : String(error), true);
+      });
+  }
+
+  function clampPointerPosition(index, pos) {
+    if (index <= 0) {
+      return pointers[index].position;
+    }
+
+    var min = pointers[index - 1].position + 1;
+    var max = index === pointers.length - 1
+      ? TOTAL
+      : pointers[index + 1].position - 1;
+
+    return Math.max(min, Math.min(max, pos));
+  }
+
+  function createPointerHalf(pointerId, side, sideData) {
+    if (!sideData) {
+      var spacer = document.createElement('span');
+      spacer.className = 'tl-head-spacer';
+      spacer.setAttribute('aria-hidden', 'true');
+      return spacer;
+    }
+
+    var button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'tl-head-half tl-head-half-' + side.charAt(0)
+      + (selectedMatchesPointer(pointerId, side) ? ' tl-selected' : '')
+      + (sideData.omitted ? ' tl-omitted' : '');
+    button.setAttribute('data-side', side);
+    button.setAttribute(
+      'aria-label',
+      (sideData.omitted ? 'Select omitted keyframe ' : 'Select keyframe ') + sideData.keyframeId
+    );
+
+    return button;
+  }
+
   function render() {
     layer.innerHTML = '';
-    layer.style.height = '36px';
+    layer.style.height = '40px';
 
-    var sections = buildSections();
     for (var i = 0; i < sections.length; i++) {
       var section = sections[i];
-      var startX = section.start * PPS;
-      var width = (section.end - section.start) * PPS;
+      var startX = pointers[i].position * PPS;
+      var width = (pointers[i + 1].position - pointers[i].position) * PPS;
 
       if (width <= 0) continue;
 
       var sectionEl = document.createElement('button');
       sectionEl.type = 'button';
       sectionEl.className = 'tl-section'
-        + (selectedMatchesSection(section.id) ? ' tl-selected' : '');
-      sectionEl.setAttribute('data-section-id', section.id);
-      sectionEl.setAttribute(
-        'aria-label',
-        'Select section between ' + section.start + 's and ' + section.end + 's'
-      );
+        + (selectedMatchesSection(section.shotId) ? ' tl-selected' : '');
+      sectionEl.setAttribute('data-shot-id', section.shotId);
+      sectionEl.setAttribute('aria-label', 'Select shot ' + section.shotId);
       sectionEl.style.left = startX + 'px';
       sectionEl.style.width = width + 'px';
+
       layer.appendChild(sectionEl);
     }
 
-    for (var i = 0; i < pointers.length; i++) {
-      var p = pointers[i];
+    for (var j = 0; j < pointers.length; j++) {
+      var pointer = pointers[j];
 
       var el = document.createElement('div');
       el.className = 'tl-pointer'
-        + (selected && selected.type === 'pointer' && selected.id === p.id ? ' tl-selected' : '')
-        + (drag && drag.id === p.id ? ' tl-dragging' : '');
-      el.setAttribute('data-id', p.id);
+        + (selected && selected.type === 'pointer' && selected.pointerId === pointer.id ? ' tl-selected' : '')
+        + (drag && drag.id === pointer.id ? ' tl-dragging' : '')
+        + (!pointer.canDrag ? ' tl-fixed' : '');
+      el.setAttribute('data-id', pointer.id);
 
       var head = document.createElement('div');
       head.className = 'tl-head';
 
-      var leftHead = document.createElement('button');
-      leftHead.type = 'button';
-      leftHead.className = 'tl-head-half tl-head-half-l'
-        + (selectedMatchesPointer(p.id, 'left') ? ' tl-selected' : '');
-      leftHead.setAttribute('data-side', 'left');
-      leftHead.setAttribute('aria-label', 'Select left side of pointer');
-
-      var rightHead = document.createElement('button');
-      rightHead.type = 'button';
-      rightHead.className = 'tl-head-half tl-head-half-r'
-        + (selectedMatchesPointer(p.id, 'right') ? ' tl-selected' : '');
-      rightHead.setAttribute('data-side', 'right');
-      rightHead.setAttribute('aria-label', 'Select right side of pointer');
+      head.appendChild(createPointerHalf(pointer.id, 'left', pointer.left));
+      head.appendChild(createPointerHalf(pointer.id, 'right', pointer.right));
 
       var stem = document.createElement('div');
       stem.className = 'tl-stem';
 
-      head.appendChild(leftHead);
-      head.appendChild(rightHead);
       el.appendChild(head);
       el.appendChild(stem);
-      el.style.left = (p.position * PPS - HALF_W) + 'px';
+      el.style.left = (pointer.position * PPS - HALF_W) + 'px';
 
       layer.appendChild(el);
     }
   }
 
-  /* ── pointer mousedown → select + drag ─────────────── */
   layer.addEventListener('mousedown', function (e) {
     var sectionEl = e.target.closest('.tl-section');
     if (sectionEl) {
-      selected = {
-        type: 'section',
-        id: sectionEl.getAttribute('data-section-id'),
-      };
+      selected = buildSectionSelection(sectionEl.getAttribute('data-shot-id'));
       drag = null;
       didDrag = false;
-      e.preventDefault();
       render();
+      refreshDetail(false);
+      e.preventDefault();
       return;
     }
 
-    var pEl = e.target.closest('.tl-pointer');
-    if (!pEl) return;
+    var pointerEl = e.target.closest('.tl-pointer');
+    if (!pointerEl) return;
 
-    var id = pEl.getAttribute('data-id');
+    var pointerId = pointerEl.getAttribute('data-id');
+    var pointer = getPointer(pointerId);
     var sideEl = e.target.closest('.tl-head-half');
     var side = sideEl
       ? sideEl.getAttribute('data-side')
-      : (selected && selected.type === 'pointer' && selected.id === id ? selected.side : 'left');
+      : (
+          selected
+          && selected.type === 'pointer'
+          && selected.pointerId === pointerId
+          && getPointerSide(pointer, selected.side)
+            ? selected.side
+            : getDefaultSide(pointer)
+        );
 
-    selected = { type: 'pointer', id: id, side: side };
+    if (!side) return;
+
+    selected = buildPointerSelection(pointerId, side);
     didDrag = false;
 
-    var p = find(id);
-    if (p) drag = { id: id, side: side, startPos: p.position };
+    if (pointer && pointer.canDrag) {
+      drag = {
+        id: pointerId,
+        index: getPointerIndex(pointerId),
+      };
+    } else {
+      drag = null;
+    }
 
-    e.preventDefault();
     render();
+    refreshDetail(false);
+    e.preventDefault();
   });
 
-  /* ── mousemove → drag ──────────────────────────────── */
   document.addEventListener('mousemove', function (e) {
     if (!drag) return;
 
-    var pos = snap(e.clientX);
-    var p = find(drag.id);
-    if (p && pos !== p.position && canPlace(pos, drag.id)) {
-      p.position = pos;
-      didDrag = true;
-      render();
-    }
+    var pointer = pointers[drag.index];
+    if (!pointer) return;
+
+    var nextPos = clampPointerPosition(drag.index, snap(e.clientX));
+    if (nextPos === pointer.position) return;
+
+    pointer.position = nextPos;
+    didDrag = true;
+    render();
   });
 
-  /* ── mouseup → end drag ────────────────────────────── */
   document.addEventListener('mouseup', function () {
+    var changed = didDrag;
+
     if (drag) {
       drag = null;
       render();
     }
-  });
 
-  /* ── click → deselect ──────────────────────────────── */
-  document.addEventListener('click', function (e) {
-    if (didDrag) { didDrag = false; return; }
-    if (e.target.closest('.tl-pointer') || e.target.closest('.tl-section')) return;
-    if (selected) {
-      selected = null;
-      render();
+    if (changed) {
+      syncDurations();
     }
   });
 
-  /* ── initial render ────────────────────────────────── */
+  document.addEventListener('click', function (e) {
+    if (didDrag) {
+      didDrag = false;
+      return;
+    }
+
+    if (e.target.closest('.tl-pointer') || e.target.closest('.tl-section')) {
+      return;
+    }
+
+    if (selected) {
+      selected = null;
+      render();
+      refreshDetail(false);
+    }
+  });
+
+  detailFrame.addEventListener('load', function () {
+    resizeDetailFrame();
+    window.setTimeout(resizeDetailFrame, 60);
+    window.setTimeout(resizeDetailFrame, 300);
+  });
+
+  lastSyncedPayload = serializePayload(computeTimelinePayload());
   render();
+  refreshDetail(false);
 })();
 </script>
 `

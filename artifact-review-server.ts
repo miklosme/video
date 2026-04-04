@@ -75,6 +75,11 @@ const HTML_HEADERS = {
   'cache-control': 'no-store',
 }
 
+const JSON_HEADERS = {
+  'content-type': 'application/json; charset=utf-8',
+  'cache-control': 'no-store',
+}
+
 const CURRENT_BASE_VERSION_ID = 'current'
 
 type Tab = 'characters' | 'storyboard' | 'keyframes' | 'shots' | 'timeline'
@@ -323,6 +328,94 @@ async function writeShotPromptsFile(shots: ShotEntry[], cwd: string) {
   await writeFile(outputPath, `${JSON.stringify(serialized, null, 2)}\n`, 'utf8')
 }
 
+function buildEmbeddedKeyframeDetailUrl(keyframeId: string) {
+  return `/keyframes/${encodeURIComponent(keyframeId)}?embed=1`
+}
+
+function buildEmbeddedShotDetailUrl(shotId: string) {
+  return `/shots/${encodeURIComponent(shotId)}?embed=1`
+}
+
+function buildTimelineData(shots: ShotEntry[]) {
+  if (shots.length === 0) {
+    return {
+      pointers: [],
+      sections: [],
+      saveUrl: '/timeline/update',
+    }
+  }
+
+  let position = 0
+  const pointers: Array<{
+    id: string
+    position: number
+    canDrag: boolean
+    left: {
+      keyframeId: string
+      detailUrl: string
+      omitted: boolean
+    } | null
+    right: {
+      keyframeId: string
+      detailUrl: string
+      omitted: boolean
+    } | null
+  }> = [
+    {
+      id: 'pointer-0',
+      position: 0,
+      canDrag: false,
+      left: null,
+      right: {
+        keyframeId: getCanonicalKeyframeId(shots[0]!.shotId, 'start'),
+        detailUrl: buildEmbeddedKeyframeDetailUrl(
+          getCanonicalKeyframeId(shots[0]!.shotId, 'start'),
+        ),
+        omitted: !shots[0]!.keyframeIds.includes(getCanonicalKeyframeId(shots[0]!.shotId, 'start')),
+      },
+    },
+  ]
+  const sections = shots.map((shot) => ({
+    shotId: shot.shotId,
+    detailUrl: buildEmbeddedShotDetailUrl(shot.shotId),
+  }))
+
+  for (let index = 0; index < shots.length; index += 1) {
+    const currentShot = shots[index]!
+    const nextShot = shots[index + 1] ?? null
+    const currentEndId = getCanonicalKeyframeId(currentShot.shotId, 'end')
+    position += currentShot.durationSeconds
+
+    pointers.push({
+      id: `pointer-${index + 1}`,
+      position,
+      canDrag: true,
+      left: {
+        keyframeId: currentEndId,
+        detailUrl: buildEmbeddedKeyframeDetailUrl(currentEndId),
+        omitted: !currentShot.keyframeIds.includes(currentEndId),
+      },
+      right: nextShot
+        ? {
+            keyframeId: getCanonicalKeyframeId(nextShot.shotId, 'start'),
+            detailUrl: buildEmbeddedKeyframeDetailUrl(
+              getCanonicalKeyframeId(nextShot.shotId, 'start'),
+            ),
+            omitted: !nextShot.keyframeIds.includes(
+              getCanonicalKeyframeId(nextShot.shotId, 'start'),
+            ),
+          }
+        : null,
+    })
+  }
+
+  return {
+    pointers,
+    sections,
+    saveUrl: '/timeline/update',
+  }
+}
+
 function getShotByCanonicalKeyframeId(shots: ShotEntry[], keyframeId: string) {
   const parsed = parseCanonicalKeyframeId(keyframeId)
 
@@ -490,8 +583,14 @@ function renderTabs(activeTab: Tab) {
   `
 }
 
-function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: boolean } = {}) {
+function renderPage(
+  activeTab: Tab,
+  content: string,
+  options: { autoRefresh?: boolean; embedded?: boolean } = {},
+) {
   const refreshTag = options.autoRefresh ? '<meta http-equiv="refresh" content="2">' : ''
+  const bodyClass = options.embedded ? 'page-embedded' : ''
+  const boardClass = options.embedded ? 'board board-embedded' : 'board'
 
   return `<!doctype html>
 <html lang="en">
@@ -528,6 +627,11 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
         -webkit-font-smoothing: antialiased;
       }
 
+      body.page-embedded {
+        min-height: auto;
+        background: transparent;
+      }
+
       a { color: inherit; }
 
       .board {
@@ -537,6 +641,12 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
         display: flex;
         flex-direction: column;
         gap: 20px;
+      }
+
+      .board-embedded {
+        max-width: none;
+        margin: 0;
+        padding: 0;
       }
 
       .tabs {
@@ -1135,9 +1245,9 @@ function renderPage(activeTab: Tab, content: string, options: { autoRefresh?: bo
       }
     </style>
   </head>
-  <body>
-    <div class="board">
-      ${renderTabs(activeTab)}
+  <body class="${bodyClass}">
+    <div class="${boardClass}">
+      ${options.embedded ? '' : renderTabs(activeTab)}
       ${content}
     </div>
   </body>
@@ -1465,7 +1575,11 @@ function renderRemoveAction(context: ArtifactDetailContext) {
   `
 }
 
-function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState | null) {
+function renderDetailPage(
+  context: ArtifactDetailContext,
+  job: ArtifactJobState | null,
+  options: { embedded?: boolean } = {},
+) {
   const content = `
     <div class="stack">
       ${renderVersionRail(context)}
@@ -1510,7 +1624,10 @@ function renderDetailPage(context: ArtifactDetailContext, job: ArtifactJobState 
   `
 
   return new Response(
-    renderPage(context.activeTab, content, { autoRefresh: job?.status === 'running' }),
+    renderPage(context.activeTab, content, {
+      autoRefresh: job?.status === 'running',
+      embedded: options.embedded,
+    }),
     {
       headers: HTML_HEADERS,
     },
@@ -2662,6 +2779,63 @@ async function handleRemove(pathname: string, cwd: string) {
   return redirectTo(getArtifactDetailPath(descriptor))
 }
 
+async function handleTimelineUpdate(request: Request, cwd: string) {
+  const payload = (await request.json()) as unknown
+
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new Error('Timeline update payload must be an object.')
+  }
+
+  const rawShots = (payload as { shots?: unknown }).shots
+
+  if (!Array.isArray(rawShots)) {
+    throw new Error('Timeline update payload must include a shots array.')
+  }
+
+  const shots = await loadShotPrompts(cwd)
+
+  if (rawShots.length !== shots.length) {
+    throw new Error('Timeline update must include exactly one duration for each shot.')
+  }
+
+  const nextShots = shots.map((shot, index) => {
+    const rawEntry = rawShots[index]
+
+    if (typeof rawEntry !== 'object' || rawEntry === null || Array.isArray(rawEntry)) {
+      throw new Error(`Timeline shot ${index + 1} must be an object.`)
+    }
+
+    const entry = rawEntry as {
+      shotId?: unknown
+      durationSeconds?: unknown
+    }
+
+    if (entry.shotId !== shot.shotId) {
+      throw new Error('Timeline update must preserve shot order and identity.')
+    }
+
+    if (
+      typeof entry.durationSeconds !== 'number' ||
+      !Number.isFinite(entry.durationSeconds) ||
+      !Number.isInteger(entry.durationSeconds) ||
+      entry.durationSeconds < 1
+    ) {
+      throw new Error(`Timeline duration for shot "${shot.shotId}" must be a positive integer.`)
+    }
+
+    return {
+      ...shot,
+      durationSeconds: entry.durationSeconds,
+    }
+  })
+
+  await writeShotPromptsFile(nextShots, cwd)
+
+  return new Response(JSON.stringify({ status: 'ok' }), {
+    headers: JSON_HEADERS,
+  })
+}
+
 export function startArtifactReviewServer(
   options: {
     cwd?: string
@@ -2682,6 +2856,7 @@ export function startArtifactReviewServer(
       port,
       async fetch(request) {
         const url = new URL(request.url)
+        const isEmbedded = url.searchParams.get('embed') === '1'
 
         if (!['GET', 'HEAD', 'POST'].includes(request.method)) {
           return new Response('Method Not Allowed', {
@@ -2715,12 +2890,14 @@ export function startArtifactReviewServer(
             (request.method === 'GET' || request.method === 'HEAD') &&
             url.pathname === '/timeline'
           ) {
+            const shots = await loadShotPromptsOrEmpty(cwd)
+
             return new Response(
               renderPage(
                 'timeline',
                 `<div class="stack">
-                  ${renderHero('Timeline', 'Drag keyframe pointers to adjust positions on the timeline.', 'Prototype')}
-                  ${renderTimelineContent()}
+                  ${renderHero('Timeline', 'Drag boundaries to resize planned shots. Selecting a keyframe side or shot section loads its existing review controls underneath.', 'Prototype')}
+                  ${renderTimelineContent(buildTimelineData(shots))}
                 </div>`,
               ),
               { headers: HTML_HEADERS },
@@ -2733,7 +2910,9 @@ export function startArtifactReviewServer(
           ) {
             const detail = await loadStoryboardDetail(cwd, url.searchParams.get('version'))
 
-            return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor))
+            return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor), {
+              embedded: isEmbedded,
+            })
           }
 
           if (
@@ -2750,7 +2929,9 @@ export function startArtifactReviewServer(
               return renderErrorPage('characters', 'Missing Character', 'Character not found.', '/')
             }
 
-            return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor))
+            return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor), {
+              embedded: isEmbedded,
+            })
           }
 
           if (
@@ -2772,7 +2953,9 @@ export function startArtifactReviewServer(
               )
             }
 
-            return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor))
+            return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor), {
+              embedded: isEmbedded,
+            })
           }
 
           if (
@@ -2789,7 +2972,9 @@ export function startArtifactReviewServer(
               return renderErrorPage('shots', 'Missing Shot', 'Shot not found.', '/shots')
             }
 
-            return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor))
+            return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor), {
+              embedded: isEmbedded,
+            })
           }
 
           if (
@@ -2843,6 +3028,19 @@ export function startArtifactReviewServer(
               decodeURIComponent(url.pathname.split('/')[4]!),
               cwd,
             )
+          }
+
+          if (request.method === 'POST' && url.pathname === '/timeline/update') {
+            try {
+              return await handleTimelineUpdate(request, cwd)
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error)
+
+              return new Response(JSON.stringify({ error: message }), {
+                status: 400,
+                headers: JSON_HEADERS,
+              })
+            }
           }
 
           if (request.method === 'POST' && /\/references$/.test(url.pathname)) {
@@ -2916,13 +3114,15 @@ export function startArtifactReviewServer(
           return new Response('Not Found', { status: 404 })
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
-          const activeTab: Tab = url.pathname.startsWith('/shots')
-            ? 'shots'
-            : url.pathname.startsWith('/keyframes')
-              ? 'keyframes'
-              : url.pathname.startsWith('/storyboard')
-                ? 'storyboard'
-                : 'characters'
+          const activeTab: Tab = url.pathname.startsWith('/timeline')
+            ? 'timeline'
+            : url.pathname.startsWith('/shots')
+              ? 'shots'
+              : url.pathname.startsWith('/keyframes')
+                ? 'keyframes'
+                : url.pathname.startsWith('/storyboard')
+                  ? 'storyboard'
+                  : 'characters'
 
           return new Response(
             renderPage(
@@ -2930,6 +3130,7 @@ export function startArtifactReviewServer(
               `<div class="stack">
                 ${renderHero('Artifact Review Error', message, 'Server Error')}
               </div>`,
+              { embedded: isEmbedded },
             ),
             {
               status: 400,
