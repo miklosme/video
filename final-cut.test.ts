@@ -104,7 +104,13 @@ async function createFinalCutTestRepo() {
           shotId: 'SHOT-01',
           status: 'planned',
           videoPath: 'workspace/SHOTS/SHOT-01.mp4',
-          keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+          keyframes: [
+            {
+              keyframeId: 'SHOT-01-START',
+              frameType: 'start',
+              imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+            },
+          ],
           durationSeconds: 2,
           incomingTransition: {
             type: 'opening',
@@ -115,7 +121,13 @@ async function createFinalCutTestRepo() {
           shotId: 'SHOT-02',
           status: 'planned',
           videoPath: 'workspace/SHOTS/SHOT-02.mp4',
-          keyframeIds: ['SHOT-02-START', 'SHOT-02-END'],
+          keyframes: [
+            {
+              keyframeId: 'SHOT-02-START',
+              frameType: 'start',
+              imagePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png',
+            },
+          ],
           durationSeconds: 2,
           incomingTransition: {
             type: 'continuity',

@@ -1,12 +1,13 @@
 import { access } from 'node:fs/promises'
 import path from 'node:path'
 
-import { resolveFinalCutProps } from './final-cut'
+import { resolveFinalCutProps, validateFinalCutManifestAgainstShots } from './final-cut'
 import { ensureActiveWorkspace } from './project-workspace'
 import {
   LEGACY_KEYFRAMES_FILE,
   loadCharacterSheets,
   loadConfig,
+  loadFinalCut,
   loadKeyframeArtifacts,
   loadKeyframes,
   loadModelOptions,
@@ -391,7 +392,28 @@ async function main() {
   await validateStoryboardSidecar(storyboardSidecar)
 
   if (finalCutExists) {
-    await resolveFinalCutProps(process.cwd(), { assetBaseUrl: 'http://127.0.0.1:1' })
+    const finalCut = await loadFinalCut()
+    const { enabledShots, shotPromptById } = validateFinalCutManifestAgainstShots(finalCut, shots)
+    const allEnabledShotVideosExist = (
+      await Promise.all(
+        enabledShots.map(async (shot) => {
+          const shotPrompt = shotPromptById.get(shot.shotId)
+
+          if (!shotPrompt) {
+            throw new Error(`Missing shot prompt for "${shot.shotId}".`)
+          }
+
+          return workspacePathExists(
+            shotPrompt.videoPath.replace(/^workspace\//, ''),
+            process.cwd(),
+          )
+        }),
+      )
+    ).every(Boolean)
+
+    if (allEnabledShotVideosExist) {
+      await resolveFinalCutProps(process.cwd(), { assetBaseUrl: 'http://127.0.0.1:1' })
+    }
   }
 
   console.log(

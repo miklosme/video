@@ -373,3 +373,119 @@ test('validate-workflow-data rejects the legacy KEYFRAMES.json manifest', async 
     await rm(rootDir, { recursive: true, force: true })
   }
 })
+
+test('validate-workflow-data accepts FINAL-CUT.json before shot videos are rendered', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
+
+  try {
+    await writeValidationBaseFiles(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/FINAL-CUT.json',
+      `${JSON.stringify(
+        {
+          version: 1,
+          shots: [
+            {
+              shotId: 'SHOT-01',
+              enabled: true,
+              trimStartFrames: 0,
+              trimEndFrames: 0,
+              transition: { type: 'cut', durationFrames: 0 },
+            },
+          ],
+          soundtrack: null,
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = runValidation(rootDir)
+
+    expect(result.exitCode).toBe(0)
+    expect(new TextDecoder().decode(result.stdout)).toContain('"status": "ok"')
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('validate-workflow-data still validates FINAL-CUT.json shot mappings before shot videos exist', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
+
+  try {
+    await writeValidationBaseFiles(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/FINAL-CUT.json',
+      `${JSON.stringify(
+        {
+          version: 1,
+          shots: [
+            {
+              shotId: 'SHOT-99',
+              enabled: true,
+              trimStartFrames: 0,
+              trimEndFrames: 0,
+              transition: { type: 'cut', durationFrames: 0 },
+            },
+          ],
+          soundtrack: null,
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = runValidation(rootDir)
+
+    expect(result.exitCode).toBe(1)
+    expect(new TextDecoder().decode(result.stderr)).toContain(
+      'FINAL-CUT.json references unknown shotId "SHOT-99"',
+    )
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})

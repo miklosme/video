@@ -53,6 +53,11 @@ interface ParsedVideoMetadata {
   durationInFrames: number
 }
 
+interface ValidatedFinalCutManifest {
+  enabledShots: FinalCutShotEntry[]
+  shotPromptById: Map<string, ShotEntry>
+}
+
 function toRepoRelativePath(filePath: string) {
   return filePath.replace(/\\/g, '/').split(path.sep).join('/')
 }
@@ -86,6 +91,53 @@ export function createDefaultFinalCutManifest(shots: ShotEntry[]): FinalCutData 
     version: FINAL_CUT_VERSION,
     shots: shots.map((shot) => createDefaultShotEntry(shot)),
     soundtrack: null,
+  }
+}
+
+export function validateFinalCutManifestAgainstShots(
+  manifest: FinalCutData,
+  shotPrompts: ShotEntry[],
+): ValidatedFinalCutManifest {
+  const shotPromptById = new Map(shotPrompts.map((entry) => [entry.shotId, entry]))
+  const seenShotIds = new Set<string>()
+
+  if (manifest.shots.length !== shotPrompts.length) {
+    throw new Error(
+      `FINAL-CUT.json must include exactly one entry for each shot in ${WORKFLOW_FILES.shotPrompts}.`,
+    )
+  }
+
+  for (const shot of manifest.shots) {
+    if (seenShotIds.has(shot.shotId)) {
+      throw new Error(`FINAL-CUT.json contains duplicate shotId "${shot.shotId}".`)
+    }
+
+    seenShotIds.add(shot.shotId)
+
+    if (!shotPromptById.has(shot.shotId)) {
+      throw new Error(
+        `FINAL-CUT.json references unknown shotId "${shot.shotId}" from ${WORKFLOW_FILES.shotPrompts}.`,
+      )
+    }
+  }
+
+  for (const shotPrompt of shotPrompts) {
+    if (!seenShotIds.has(shotPrompt.shotId)) {
+      throw new Error(
+        `FINAL-CUT.json is missing shotId "${shotPrompt.shotId}" from ${WORKFLOW_FILES.shotPrompts}.`,
+      )
+    }
+  }
+
+  const enabledShots = manifest.shots.filter((shot) => shot.enabled)
+
+  if (enabledShots.length === 0) {
+    throw new Error('FINAL-CUT.json must enable at least one shot.')
+  }
+
+  return {
+    enabledShots,
+    shotPromptById,
   }
 }
 
@@ -143,42 +195,10 @@ export async function resolveFinalCutProps(
   options: ResolveFinalCutOptions,
 ): Promise<ResolvedFinalCutProps> {
   const [manifest, shotPrompts] = await Promise.all([loadFinalCut(cwd), loadShotPrompts(cwd)])
-  const shotPromptById = new Map(shotPrompts.map((entry) => [entry.shotId, entry]))
-  const seenShotIds = new Set<string>()
-
-  if (manifest.shots.length !== shotPrompts.length) {
-    throw new Error(
-      `FINAL-CUT.json must include exactly one entry for each shot in ${WORKFLOW_FILES.shotPrompts}.`,
-    )
-  }
-
-  for (const shot of manifest.shots) {
-    if (seenShotIds.has(shot.shotId)) {
-      throw new Error(`FINAL-CUT.json contains duplicate shotId "${shot.shotId}".`)
-    }
-
-    seenShotIds.add(shot.shotId)
-
-    if (!shotPromptById.has(shot.shotId)) {
-      throw new Error(
-        `FINAL-CUT.json references unknown shotId "${shot.shotId}" from ${WORKFLOW_FILES.shotPrompts}.`,
-      )
-    }
-  }
-
-  for (const shotPrompt of shotPrompts) {
-    if (!seenShotIds.has(shotPrompt.shotId)) {
-      throw new Error(
-        `FINAL-CUT.json is missing shotId "${shotPrompt.shotId}" from ${WORKFLOW_FILES.shotPrompts}.`,
-      )
-    }
-  }
-
-  const enabledShots = manifest.shots.filter((shot) => shot.enabled)
-
-  if (enabledShots.length === 0) {
-    throw new Error('FINAL-CUT.json must enable at least one shot.')
-  }
+  const { enabledShots, shotPromptById } = validateFinalCutManifestAgainstShots(
+    manifest,
+    shotPrompts,
+  )
 
   const resolvedShots: ResolvedFinalCutShot[] = []
   let expectedFps: number | null = null
