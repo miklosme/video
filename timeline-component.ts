@@ -99,6 +99,33 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     margin-bottom: 0;
   }
 
+  /* ── Section element ───────────────────────────────── */
+  .tl-section {
+    appearance: none;
+    position: absolute;
+    top: 2px;
+    height: 18px;
+    margin: 0;
+    padding: 0;
+    border: 1px solid rgba(22, 101, 52, 0.5);
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(134, 239, 172, 0.9) 0%, rgba(74, 222, 128, 0.82) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.28), 0 6px 14px rgba(22, 101, 52, 0.14);
+    cursor: pointer;
+    z-index: 1;
+  }
+  .tl-section:hover {
+    background: linear-gradient(180deg, rgba(153, 246, 183, 0.95) 0%, rgba(86, 233, 138, 0.86) 100%);
+  }
+  .tl-section:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+  .tl-section.tl-selected {
+    z-index: 5;
+    box-shadow: 0 0 0 2px var(--accent), inset 0 1px 0 rgba(255,255,255,0.32), 0 8px 16px rgba(22, 101, 52, 0.22);
+  }
+
   /* ── Ruler ───────────────────────────────────────────── */
   .tl-ruler {
     display: flex;
@@ -198,7 +225,7 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     </div>
   </div>
   <div class="tl-hint">
-    Click either half to select &middot; Drag to move
+    Click a pointer half or section to select &middot; Drag pointers to move
   </div>
 </div>
 
@@ -213,7 +240,7 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
 
   /* ── state ─────────────────────────────────────────── */
   var pointers  = ${mockPointers};
-  var selected  = null; // { id, side }
+  var selected  = null; // { type: 'pointer', id, side } | { type: 'section', id }
   var drag      = null; // { id, side, startPos }
   var didDrag   = false;
 
@@ -247,23 +274,72 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     return countAt(pos, excludeId) === 0;
   }
 
-  function selectedMatches(id, side) {
-    return !!selected && selected.id === id && selected.side === side;
+  function selectedMatchesPointer(id, side) {
+    return !!selected
+      && selected.type === 'pointer'
+      && selected.id === id
+      && selected.side === side;
+  }
+
+  function selectedMatchesSection(id) {
+    return !!selected && selected.type === 'section' && selected.id === id;
+  }
+
+  function buildSections() {
+    var ordered = pointers.slice().sort(function (a, b) {
+      if (a.position !== b.position) return a.position - b.position;
+      return a.id.localeCompare(b.id);
+    });
+    var sections = [];
+
+    for (var i = 0; i < ordered.length - 1; i++) {
+      var left = ordered[i];
+      var right = ordered[i + 1];
+      sections.push({
+        id: left.id + '__' + right.id,
+        leftId: left.id,
+        rightId: right.id,
+        start: left.position,
+        end: right.position,
+      });
+    }
+
+    return sections;
   }
 
   /* ── render ────────────────────────────────────────── */
   function render() {
-    // remove old pointer DOM
-    var old = layer.querySelectorAll('.tl-pointer');
-    for (var i = 0; i < old.length; i++) old[i].remove();
+    layer.innerHTML = '';
     layer.style.height = '36px';
+
+    var sections = buildSections();
+    for (var i = 0; i < sections.length; i++) {
+      var section = sections[i];
+      var startX = section.start * PPS;
+      var width = (section.end - section.start) * PPS;
+
+      if (width <= 0) continue;
+
+      var sectionEl = document.createElement('button');
+      sectionEl.type = 'button';
+      sectionEl.className = 'tl-section'
+        + (selectedMatchesSection(section.id) ? ' tl-selected' : '');
+      sectionEl.setAttribute('data-section-id', section.id);
+      sectionEl.setAttribute(
+        'aria-label',
+        'Select section between ' + section.start + 's and ' + section.end + 's'
+      );
+      sectionEl.style.left = startX + 'px';
+      sectionEl.style.width = width + 'px';
+      layer.appendChild(sectionEl);
+    }
 
     for (var i = 0; i < pointers.length; i++) {
       var p = pointers[i];
 
       var el = document.createElement('div');
       el.className = 'tl-pointer'
-        + (selected && selected.id === p.id ? ' tl-selected' : '')
+        + (selected && selected.type === 'pointer' && selected.id === p.id ? ' tl-selected' : '')
         + (drag && drag.id === p.id ? ' tl-dragging' : '');
       el.setAttribute('data-id', p.id);
 
@@ -273,14 +349,14 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
       var leftHead = document.createElement('button');
       leftHead.type = 'button';
       leftHead.className = 'tl-head-half tl-head-half-l'
-        + (selectedMatches(p.id, 'left') ? ' tl-selected' : '');
+        + (selectedMatchesPointer(p.id, 'left') ? ' tl-selected' : '');
       leftHead.setAttribute('data-side', 'left');
       leftHead.setAttribute('aria-label', 'Select left side of pointer');
 
       var rightHead = document.createElement('button');
       rightHead.type = 'button';
       rightHead.className = 'tl-head-half tl-head-half-r'
-        + (selectedMatches(p.id, 'right') ? ' tl-selected' : '');
+        + (selectedMatchesPointer(p.id, 'right') ? ' tl-selected' : '');
       rightHead.setAttribute('data-side', 'right');
       rightHead.setAttribute('aria-label', 'Select right side of pointer');
 
@@ -299,6 +375,19 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
 
   /* ── pointer mousedown → select + drag ─────────────── */
   layer.addEventListener('mousedown', function (e) {
+    var sectionEl = e.target.closest('.tl-section');
+    if (sectionEl) {
+      selected = {
+        type: 'section',
+        id: sectionEl.getAttribute('data-section-id'),
+      };
+      drag = null;
+      didDrag = false;
+      e.preventDefault();
+      render();
+      return;
+    }
+
     var pEl = e.target.closest('.tl-pointer');
     if (!pEl) return;
 
@@ -306,9 +395,9 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
     var sideEl = e.target.closest('.tl-head-half');
     var side = sideEl
       ? sideEl.getAttribute('data-side')
-      : (selected && selected.id === id ? selected.side : 'left');
+      : (selected && selected.type === 'pointer' && selected.id === id ? selected.side : 'left');
 
-    selected = { id: id, side: side };
+    selected = { type: 'pointer', id: id, side: side };
     didDrag = false;
 
     var p = find(id);
@@ -342,7 +431,7 @@ export function renderTimelineContent(overrides: Partial<TimelineConfig> = {}): 
   /* ── click → deselect ──────────────────────────────── */
   document.addEventListener('click', function (e) {
     if (didDrag) { didDrag = false; return; }
-    if (e.target.closest('.tl-pointer')) return;
+    if (e.target.closest('.tl-pointer') || e.target.closest('.tl-section')) return;
     if (selected) {
       selected = null;
       render();
