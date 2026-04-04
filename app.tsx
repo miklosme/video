@@ -1264,7 +1264,7 @@ function App({
   )
 }
 
-async function main() {
+export async function main() {
   const activeWorkspace = await ensureActiveWorkspace()
 
   if (!process.env.AI_GATEWAY_API_KEY) {

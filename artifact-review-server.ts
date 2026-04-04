@@ -474,7 +474,7 @@ function renderTabs(activeTab: Tab) {
     { id: 'characters', label: 'Characters', href: '/' },
     { id: 'storyboard', label: 'Storyboard', href: '/storyboard' },
     { id: 'keyframes', label: 'Keyframes', href: '/keyframes' },
-    { id: 'timeline', label: 'Timeline', href: '/keyframes2' },
+    { id: 'timeline', label: 'Timeline', href: '/timeline' },
     { id: 'shots', label: 'Shots', href: '/shots' },
   ]
 
@@ -2713,7 +2713,7 @@ export function startArtifactReviewServer(
 
           if (
             (request.method === 'GET' || request.method === 'HEAD') &&
-            url.pathname === '/keyframes2'
+            url.pathname === '/timeline'
           ) {
             return new Response(
               renderPage(

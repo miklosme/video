@@ -4,7 +4,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "app": "bun app.tsx",
+    "app": "bun app-cli.ts",
     "switch": "bun project-workspace.ts switch",
     "new": "bun project-workspace.ts new",
     "generate:characters": "bun generate-character-sheets.ts",
@@ -18,8 +18,7 @@
     "typecheck": "tsc --noEmit --pretty",
     "format": "prettier --write .",
     "reset": "bun reset-history.ts",
-    "reset:all": "rm -f workspace/HISTORY.json",
-    "start": "bun switch && bun app"
+    "reset:all": "rm -f workspace/HISTORY.json"
   },
   "devDependencies": {
     "@types/bun": "latest",
