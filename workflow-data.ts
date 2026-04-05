@@ -8,6 +8,12 @@ export const FINAL_CUT_VERSION = 1
 export const FINAL_CUT_TRANSITION_TYPES = ['cut', 'fade'] as const
 export const ARTIFACT_TYPES = ['storyboard', 'character', 'keyframe', 'shot'] as const
 export const REFERENCE_SOURCES = ['user', 'system'] as const
+export const CAMERA_VOCABULARY_CATEGORIES = [
+  'shot_size',
+  'camera_position',
+  'camera_angle',
+  'camera_movement',
+] as const
 export const AUTHORED_REFERENCE_KINDS = [
   'storyboard-template',
   'storyboard',
@@ -21,6 +27,7 @@ export type FrameType = (typeof FRAME_TYPES)[number]
 export type FinalCutTransitionType = (typeof FINAL_CUT_TRANSITION_TYPES)[number]
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number]
 export type ReferenceSource = (typeof REFERENCE_SOURCES)[number]
+export type CameraVocabularyCategory = (typeof CAMERA_VOCABULARY_CATEGORIES)[number]
 export type AuthoredReferenceKind = (typeof AUTHORED_REFERENCE_KINDS)[number]
 
 type JsonObject = Record<string, unknown>
@@ -66,6 +73,7 @@ export interface KeyframeArtifactEntry {
   keyframeId: string
   shotId: string
   frameType: FrameType
+  camera?: KeyframeCameraSpec
   prompt: string
   status: string
   references?: ArtifactReferenceEntry[]
@@ -102,6 +110,7 @@ export type ShotsData = ShotEntry[]
 
 export interface ShotArtifactEntry {
   shotId: string
+  camera?: ShotCameraSpec
   prompt: string
   status: string
   references?: ArtifactReferenceEntry[]
@@ -112,6 +121,44 @@ export interface StoryboardSidecar {
 }
 
 export type ShotArtifactsData = ShotArtifactEntry[]
+
+export interface KeyframeCameraSpec {
+  shotSize: string
+  cameraPosition: string
+  cameraAngle: string
+}
+
+export interface ShotCameraSpec extends KeyframeCameraSpec {
+  cameraMovement: string
+}
+
+export interface CameraVocabularyCategoryEntry {
+  id: CameraVocabularyCategory
+  name: string
+  description: string
+}
+
+export interface CameraVocabularyEntry {
+  id: string
+  category: CameraVocabularyCategory
+  name: string
+  description: string
+  aliases?: string[]
+  abbreviations?: string[]
+  appliesToKeyframe: boolean
+  appliesToShot: boolean
+}
+
+export interface CameraVocabularyData {
+  version: number
+  source: {
+    title: string
+    url: string
+    accessedOn: string
+  }
+  categories: CameraVocabularyCategoryEntry[]
+  entries: CameraVocabularyEntry[]
+}
 
 export interface FinalCutTransitionEntry {
   type: FinalCutTransitionType
@@ -200,6 +247,7 @@ export interface GenerationReferenceEntry {
 
 export const WORKSPACE_DIR = 'workspace'
 export const MODEL_OPTIONS_FILE = 'MODEL_OPTIONS.json'
+export const CAMERA_VOCABULARY_FILE = 'CAMERA_VOCABULARY.json'
 export const LEGACY_KEYFRAMES_FILE = 'KEYFRAMES.json'
 
 export const WORKFLOW_FILES = {
@@ -409,6 +457,28 @@ function parseOptionalString(value: unknown, context: string) {
   return expectString(value, context)
 }
 
+function parseOptionalStringArray(value: unknown, context: string) {
+  if (value === undefined) {
+    return undefined
+  }
+
+  return expectStringArray(value, context)
+}
+
+function expectCameraVocabularyCategory(value: unknown, context: string): CameraVocabularyCategory {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    throw new Error(`${context} must be one of: ${CAMERA_VOCABULARY_CATEGORIES.join(', ')}.`)
+  }
+
+  const category = value
+
+  if (!CAMERA_VOCABULARY_CATEGORIES.includes(category as CameraVocabularyCategory)) {
+    throw new Error(`${context} must be one of: ${CAMERA_VOCABULARY_CATEGORIES.join(', ')}.`)
+  }
+
+  return category as CameraVocabularyCategory
+}
+
 function expectAuthoredReferenceKind(value: unknown, context: string): AuthoredReferenceKind {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error(`${context} must be one of: ${AUTHORED_REFERENCE_KINDS.join(', ')}.`)
@@ -441,6 +511,25 @@ function parseArtifactReferenceEntries(value: unknown, context: string) {
   return expectArray(value, context).map((entry, index) =>
     parseArtifactReferenceEntry(entry, `${context}[${index}]`),
   )
+}
+
+function parseKeyframeCameraSpec(value: unknown, context: string): KeyframeCameraSpec {
+  const object = expectObject(value, context)
+
+  return {
+    shotSize: expectString(object.shotSize, `${context}.shotSize`),
+    cameraPosition: expectString(object.cameraPosition, `${context}.cameraPosition`),
+    cameraAngle: expectString(object.cameraAngle, `${context}.cameraAngle`),
+  }
+}
+
+function parseShotCameraSpec(value: unknown, context: string): ShotCameraSpec {
+  const object = expectObject(value, context)
+
+  return {
+    ...parseKeyframeCameraSpec(value, context),
+    cameraMovement: expectString(object.cameraMovement, `${context}.cameraMovement`),
+  }
 }
 
 function expectConcreteStringArray(value: unknown, context: string): string[] {
@@ -531,6 +620,10 @@ export function parseKeyframeArtifactEntry(value: unknown, context: string): Key
     keyframeId: expectString(object.keyframeId, `${context}.keyframeId`),
     shotId: expectString(object.shotId, `${context}.shotId`),
     frameType: expectFrameType(object.frameType, `${context}.frameType`),
+    camera:
+      object.camera === undefined
+        ? undefined
+        : parseKeyframeCameraSpec(object.camera, `${context}.camera`),
     prompt: expectString(object.prompt, `${context}.prompt`),
     status: expectString(object.status, `${context}.status`),
     references:
@@ -601,6 +694,10 @@ export function parseShotArtifactEntry(value: unknown, context: string): ShotArt
 
   return {
     shotId: expectString(object.shotId, `${context}.shotId`),
+    camera:
+      object.camera === undefined
+        ? undefined
+        : parseShotCameraSpec(object.camera, `${context}.camera`),
     prompt: expectString(object.prompt, `${context}.prompt`),
     status: expectString(object.status, `${context}.status`),
     references:
@@ -708,6 +805,71 @@ function parseModelOptionsData(value: unknown): ModelOptionsData {
   }
 }
 
+function parseCameraVocabularyData(value: unknown): CameraVocabularyData {
+  const object = expectObject(value, CAMERA_VOCABULARY_FILE)
+  const source = expectObject(object.source, `${CAMERA_VOCABULARY_FILE}.source`)
+
+  return {
+    version: expectPositiveInteger(object.version, `${CAMERA_VOCABULARY_FILE}.version`),
+    source: {
+      title: expectString(source.title, `${CAMERA_VOCABULARY_FILE}.source.title`),
+      url: expectString(source.url, `${CAMERA_VOCABULARY_FILE}.source.url`),
+      accessedOn: expectString(source.accessedOn, `${CAMERA_VOCABULARY_FILE}.source.accessedOn`),
+    },
+    categories: expectArray(object.categories, `${CAMERA_VOCABULARY_FILE}.categories`).map(
+      (entry, index) => {
+        const category = expectObject(entry, `${CAMERA_VOCABULARY_FILE}.categories[${index}]`)
+
+        return {
+          id: expectCameraVocabularyCategory(
+            category.id,
+            `${CAMERA_VOCABULARY_FILE}.categories[${index}].id`,
+          ),
+          name: expectString(category.name, `${CAMERA_VOCABULARY_FILE}.categories[${index}].name`),
+          description: expectString(
+            category.description,
+            `${CAMERA_VOCABULARY_FILE}.categories[${index}].description`,
+          ),
+        }
+      },
+    ),
+    entries: expectArray(object.entries, `${CAMERA_VOCABULARY_FILE}.entries`).map(
+      (entry, index) => {
+        const cameraEntry = expectObject(entry, `${CAMERA_VOCABULARY_FILE}.entries[${index}]`)
+
+        return {
+          id: expectString(cameraEntry.id, `${CAMERA_VOCABULARY_FILE}.entries[${index}].id`),
+          category: expectCameraVocabularyCategory(
+            cameraEntry.category,
+            `${CAMERA_VOCABULARY_FILE}.entries[${index}].category`,
+          ),
+          name: expectString(cameraEntry.name, `${CAMERA_VOCABULARY_FILE}.entries[${index}].name`),
+          description: expectString(
+            cameraEntry.description,
+            `${CAMERA_VOCABULARY_FILE}.entries[${index}].description`,
+          ),
+          aliases: parseOptionalStringArray(
+            cameraEntry.aliases,
+            `${CAMERA_VOCABULARY_FILE}.entries[${index}].aliases`,
+          ),
+          abbreviations: parseOptionalStringArray(
+            cameraEntry.abbreviations,
+            `${CAMERA_VOCABULARY_FILE}.entries[${index}].abbreviations`,
+          ),
+          appliesToKeyframe: expectBoolean(
+            cameraEntry.appliesToKeyframe,
+            `${CAMERA_VOCABULARY_FILE}.entries[${index}].appliesToKeyframe`,
+          ),
+          appliesToShot: expectBoolean(
+            cameraEntry.appliesToShot,
+            `${CAMERA_VOCABULARY_FILE}.entries[${index}].appliesToShot`,
+          ),
+        }
+      },
+    ),
+  }
+}
+
 async function readJsonFile<T>(
   fileName: string,
   parser: (value: unknown) => T,
@@ -794,6 +956,10 @@ export async function loadConfig(cwd = process.cwd()) {
 
 export async function loadModelOptions(cwd = process.cwd()) {
   return readRepoJsonFile(MODEL_OPTIONS_FILE, parseModelOptionsData, cwd)
+}
+
+export async function loadCameraVocabulary(cwd = process.cwd()) {
+  return readRepoJsonFile(CAMERA_VOCABULARY_FILE, parseCameraVocabularyData, cwd)
 }
 
 export async function loadKeyframes(cwd = process.cwd()) {

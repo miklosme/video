@@ -4,7 +4,9 @@ import path from 'node:path'
 import { resolveFinalCutProps, validateFinalCutManifestAgainstShots } from './final-cut'
 import { ensureActiveWorkspace } from './project-workspace'
 import {
+  CAMERA_VOCABULARY_FILE,
   LEGACY_KEYFRAMES_FILE,
+  loadCameraVocabulary,
   loadCharacterSheets,
   loadConfig,
   loadFinalCut,
@@ -22,11 +24,15 @@ import {
   WORKFLOW_FILES,
   workspacePathExists,
   type ArtifactReferenceEntry,
+  type CameraVocabularyCategory,
+  type CameraVocabularyData,
   type CharacterSheetEntry,
   type FrameType,
   type KeyframeArtifactEntry,
+  type KeyframeCameraSpec,
   type KeyframeEntry,
   type ShotArtifactEntry,
+  type ShotCameraSpec,
   type ShotEntry,
   type StoryboardSidecar,
 } from './workflow-data'
@@ -112,6 +118,69 @@ function assertReferenceAtIndex(
   )
 }
 
+function validateCameraField(
+  value: string,
+  expectedCategory: CameraVocabularyCategory,
+  context: string,
+  vocabulary: CameraVocabularyData,
+  applicability: 'keyframe' | 'shot',
+) {
+  const entry = vocabulary.entries.find((candidate) => candidate.id === value)
+
+  if (!entry) {
+    throw new Error(`${context} must match a camera vocabulary id from ${CAMERA_VOCABULARY_FILE}.`)
+  }
+
+  if (entry.category !== expectedCategory) {
+    throw new Error(`${context} must use a ${expectedCategory} id from ${CAMERA_VOCABULARY_FILE}.`)
+  }
+
+  if (applicability === 'keyframe' && !entry.appliesToKeyframe) {
+    throw new Error(`${context} does not apply to keyframes in ${CAMERA_VOCABULARY_FILE}.`)
+  }
+
+  if (applicability === 'shot' && !entry.appliesToShot) {
+    throw new Error(`${context} does not apply to shots in ${CAMERA_VOCABULARY_FILE}.`)
+  }
+}
+
+function validateKeyframeCamera(
+  camera: KeyframeCameraSpec,
+  context: string,
+  vocabulary: CameraVocabularyData,
+) {
+  validateCameraField(camera.shotSize, 'shot_size', `${context}.shotSize`, vocabulary, 'keyframe')
+  validateCameraField(
+    camera.cameraPosition,
+    'camera_position',
+    `${context}.cameraPosition`,
+    vocabulary,
+    'keyframe',
+  )
+  validateCameraField(
+    camera.cameraAngle,
+    'camera_angle',
+    `${context}.cameraAngle`,
+    vocabulary,
+    'keyframe',
+  )
+}
+
+function validateShotCamera(
+  camera: ShotCameraSpec,
+  context: string,
+  vocabulary: CameraVocabularyData,
+) {
+  validateKeyframeCamera(camera, context, vocabulary)
+  validateCameraField(
+    camera.cameraMovement,
+    'camera_movement',
+    `${context}.cameraMovement`,
+    vocabulary,
+    'shot',
+  )
+}
+
 async function validateKeyframes(keyframes: KeyframeEntry[]) {
   const keyframeIds = new Set<string>()
 
@@ -138,7 +207,11 @@ async function validateKeyframes(keyframes: KeyframeEntry[]) {
   }
 }
 
-function validateKeyframeArtifacts(keyframes: KeyframeEntry[], artifacts: KeyframeArtifactEntry[]) {
+function validateKeyframeArtifacts(
+  keyframes: KeyframeEntry[],
+  artifacts: KeyframeArtifactEntry[],
+  vocabulary: CameraVocabularyData,
+) {
   const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
   const artifactIds = new Set<string>()
 
@@ -166,6 +239,14 @@ function validateKeyframeArtifacts(keyframes: KeyframeEntry[], artifacts: Keyfra
     if (artifact.frameType !== keyframe.frameType) {
       throw new Error(
         `Keyframe artifact "${artifact.keyframeId}" has frameType "${artifact.frameType}" but keyframe "${artifact.keyframeId}" uses frameType "${keyframe.frameType}".`,
+      )
+    }
+
+    if (artifact.camera) {
+      validateKeyframeCamera(
+        artifact.camera,
+        `Keyframe artifact "${artifact.keyframeId}".camera`,
+        vocabulary,
       )
     }
   }
@@ -212,7 +293,11 @@ async function validateCharacterSheets(characterSheets: CharacterSheetEntry[]) {
   }
 }
 
-async function validateShotArtifacts(shots: ShotEntry[], artifacts: ShotArtifactEntry[]) {
+async function validateShotArtifacts(
+  shots: ShotEntry[],
+  artifacts: ShotArtifactEntry[],
+  vocabulary: CameraVocabularyData,
+) {
   const shotById = new Map(shots.map((entry) => [entry.shotId, entry]))
   const artifactIds = new Set<string>()
 
@@ -235,6 +320,9 @@ async function validateShotArtifacts(shots: ShotEntry[], artifacts: ShotArtifact
       )
     }
 
+    if (artifact.camera) {
+      validateShotCamera(artifact.camera, `Shot artifact "${artifact.shotId}".camera`, vocabulary)
+    }
     await validateArtifactReferencesExist(artifact.references, `Shot artifact "${artifact.shotId}"`)
   }
 }
@@ -331,6 +419,7 @@ export function validateShots(keyframes: KeyframeEntry[], shots: ShotEntry[]) {
 
 async function main() {
   await ensureActiveWorkspace()
+  await requireRepoPath(CAMERA_VOCABULARY_FILE, CAMERA_VOCABULARY_FILE)
   await requireRepoPath(MODEL_OPTIONS_FILE, MODEL_OPTIONS_FILE)
   await requireWorkspacePath('IDEA.md', 'workspace/IDEA.md')
   await requireWorkspacePath(WORKFLOW_FILES.config, 'workspace/CONFIG.json')
@@ -338,6 +427,7 @@ async function main() {
   await requireWorkspacePath(WORKFLOW_FILES.storyboardSidecar, 'workspace/STORYBOARD.json')
 
   const modelOptions = await loadModelOptions()
+  const cameraVocabulary = await loadCameraVocabulary()
   const config = await loadConfig()
   validateConfigAgainstModelOptions(config, modelOptions)
   const status = await loadStatus()
@@ -378,10 +468,10 @@ async function main() {
 
   await validateCharacterSheets(characterSheets)
   await validateKeyframes(keyframes)
-  validateKeyframeArtifacts(keyframes, keyframeArtifacts)
+  validateKeyframeArtifacts(keyframes, keyframeArtifacts, cameraVocabulary)
   await validateKeyframeArtifactReferences(keyframes, keyframeArtifacts)
   validateShots(keyframes, shots)
-  await validateShotArtifacts(shots, shotArtifacts)
+  await validateShotArtifacts(shots, shotArtifacts, cameraVocabulary)
   await validateStoryboardSidecar(storyboardSidecar)
 
   if (finalCutExists) {

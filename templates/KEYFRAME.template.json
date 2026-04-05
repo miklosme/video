@@ -1,10 +1,11 @@
 {
+  "keyframeId": "SHOT-01-START",
   "shotId": "SHOT-01",
+  "frameType": "start",
   "camera": {
     "shotSize": "medium-shot",
     "cameraPosition": "eye-level",
-    "cameraAngle": "level-angle",
-    "cameraMovement": "static-shot"
+    "cameraAngle": "level-angle"
   },
   "prompt": "TBD",
   "status": "planned",

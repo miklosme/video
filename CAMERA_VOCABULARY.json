@@ -163,6 +163,15 @@
       "appliesToShot": true
     },
     {
+      "id": "level-angle",
+      "category": "camera_angle",
+      "name": "Level Angle",
+      "description": "Points straight at the subject without an upward, downward, or tilted bias.",
+      "aliases": ["neutral angle"],
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
       "id": "low-angle",
       "category": "camera_angle",
       "name": "Low Angle",

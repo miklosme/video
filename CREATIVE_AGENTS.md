@@ -43,7 +43,7 @@ Your job as an LLM is to be a senior creative development partner helping the us
 
 - Do not invent missing canon when the correct answer is still unknown. Leave unresolved creative details as `TBD`.
 - Do not silently rewrite established decisions.
-- Before writing or revising keyframe sidecar JSON files, character-sheet sidecar JSON files, shot sidecar JSON files, or `SHOTS.json`, first read `workspace/CONFIG.json` and `MODEL_PROMPTING_GUIDE.md`.
+- Before writing or revising keyframe sidecar JSON files, character-sheet sidecar JSON files, shot sidecar JSON files, or `SHOTS.json`, first read `workspace/CONFIG.json`, `MODEL_PROMPTING_GUIDE.md`, and `CAMERA_VOCABULARY.json`.
 - Use `workspace/CONFIG.json` as the source of truth for active model cards.
 - Match prompt-writing style to the configured model guidance in `MODEL_PROMPTING_GUIDE.md`.
 - Every character definition in `workspace/CHARACTERS.md` must include a stable `Character ID:`.
@@ -52,11 +52,15 @@ Your job as an LLM is to be a senior creative development partner helping the us
 - By default, write character-sheet prompts as clean single-subject reference images: readable face, clear silhouette, stable wardrobe/markings, plain or seamless background, and soft even lighting.
 - Prefer framing that shows the full subject when practical, or at least enough of the body to preserve silhouette and wardrobe continuity. A neutral pose or slight three-quarter view is usually stronger than an extreme angle or tight close-up.
 - Avoid grids, collages, split panels, extra subjects, scene clutter, dramatic lighting, text overlays, and non-canonical props or accessories unless they are truly part of the character identity.
-- Keyframe sidecar JSON files must use this exact shape: `keyframeId`, `shotId`, `frameType`, `prompt`, `status`, `references`.
+- Keyframe sidecar JSON files should place `camera` before `prompt` and use the shape: `keyframeId`, `shotId`, `frameType`, `camera`, `prompt`, `status`, `references`.
+- Keyframe `camera` should use `CAMERA_VOCABULARY.json` ids with the shape `shotSize`, `cameraPosition`, `cameraAngle`.
+- If the storyboard does not imply a stronger framing choice, default keyframe `camera` to `medium-shot`, `eye-level`, `level-angle`.
 - Keyframe sidecar `references` are required and must be authored in the exact intended generation priority order. For fresh start frames, begin with the relevant storyboard reference and then add the needed character-sheet references. For same-shot end frames, begin with the same-shot `start-frame` reference, then the storyboard reference, then the needed character-sheet references. For start frames that should inherit from the prior shot, begin with the `previous-shot-end-frame` reference, then the storyboard reference, then the needed character-sheet references.
 - `SHOTS.json` is planning-only and must use the exact shape: `shotId`, `status`, `videoPath`, `durationSeconds`, `keyframes`.
 - Prompts and references are canonical in sidecars only, not in `SHOTS.json`. Model selection is canonical in `workspace/CONFIG.json`.
-- Shot sidecar JSON files must use this exact shape: `shotId`, `prompt`, `status`, `references?`.
+- Shot sidecar JSON files should place `camera` before `prompt` and use the shape: `shotId`, `camera`, `prompt`, `status`, `references?`.
+- Shot `camera` should use `CAMERA_VOCABULARY.json` ids with the shape `shotSize`, `cameraPosition`, `cameraAngle`, `cameraMovement`.
+- If the storyboard does not imply a stronger motion choice, default shot `camera` to `medium-shot`, `eye-level`, `level-angle`, `static-shot`.
 - `STORYBOARD.md` is the canonical storyboard and must use stable shot IDs such as `SHOT-01`.
 - `STORYBOARD.json` is required before generating `STORYBOARD.png` and must use the exact shape `{ "references": [...] }`.
 - The first `STORYBOARD.json.references` entry must be the storyboard template reference at `templates/STORYBOARD.template.png`; add any extra source images after that as `user-reference` entries.

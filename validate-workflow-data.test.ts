@@ -21,6 +21,78 @@ async function writeValidationBaseFiles(
 ) {
   await writeRepoFile(
     rootDir,
+    'CAMERA_VOCABULARY.json',
+    `${JSON.stringify(
+      {
+        version: 1,
+        source: {
+          title: 'Test Camera Vocabulary',
+          url: 'https://example.com/camera-vocabulary',
+          accessedOn: '2026-04-05',
+        },
+        categories: [
+          {
+            id: 'shot_size',
+            name: 'Shot Size',
+            description: 'Test category.',
+          },
+          {
+            id: 'camera_position',
+            name: 'Camera Position',
+            description: 'Test category.',
+          },
+          {
+            id: 'camera_angle',
+            name: 'Camera Angle',
+            description: 'Test category.',
+          },
+          {
+            id: 'camera_movement',
+            name: 'Camera Movement',
+            description: 'Test category.',
+          },
+        ],
+        entries: [
+          {
+            id: 'medium-shot',
+            category: 'shot_size',
+            name: 'Medium Shot',
+            description: 'Test entry.',
+            appliesToKeyframe: true,
+            appliesToShot: true,
+          },
+          {
+            id: 'eye-level',
+            category: 'camera_position',
+            name: 'Eye Level',
+            description: 'Test entry.',
+            appliesToKeyframe: true,
+            appliesToShot: true,
+          },
+          {
+            id: 'level-angle',
+            category: 'camera_angle',
+            name: 'Level Angle',
+            description: 'Test entry.',
+            appliesToKeyframe: true,
+            appliesToShot: true,
+          },
+          {
+            id: 'static-shot',
+            category: 'camera_movement',
+            name: 'Static Shot',
+            description: 'Test entry.',
+            appliesToKeyframe: false,
+            appliesToShot: true,
+          },
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+  )
+  await writeRepoFile(
+    rootDir,
     'MODEL_OPTIONS.json',
     `${JSON.stringify(
       {

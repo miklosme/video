@@ -13,8 +13,10 @@ import {
 } from './next-step-suggestions'
 import { posthogTelemetry, type PostHogTelemetry } from './posthog'
 import {
+  CAMERA_VOCABULARY_FILE,
   DEFAULT_VARIANT_COUNT,
   DEFAULT_VIDEO_DURATION_SECONDS,
+  loadCameraVocabulary,
   loadCharacterSheets,
   loadConfig,
   loadFinalCut,
@@ -28,16 +30,31 @@ import {
   parseCharacterSheetEntry,
   parseKeyframeArtifactEntry,
   parseShotArtifactEntry,
+  resolveRepoPath,
   validateConfigAgainstModelOptions,
   WORKFLOW_FILES,
   WORKFLOW_FOLDERS,
   workspacePathExists,
+  type CameraVocabularyCategory,
+  type CameraVocabularyData,
   type ConfigData,
+  type KeyframeCameraSpec,
   type ModelOptionsData,
+  type ShotCameraSpec,
   type StatusData,
 } from './workflow-data'
 
 const SESSION_HISTORY_LIMIT = 12
+const DEFAULT_KEYFRAME_CAMERA: KeyframeCameraSpec = {
+  shotSize: 'medium-shot',
+  cameraPosition: 'eye-level',
+  cameraAngle: 'level-angle',
+}
+
+const DEFAULT_SHOT_CAMERA: ShotCameraSpec = {
+  ...DEFAULT_KEYFRAME_CAMERA,
+  cameraMovement: 'static-shot',
+}
 
 const ALLOWED_WORKSPACE_FILES = new Set([
   'IDEA.md',
@@ -468,7 +485,7 @@ function buildRuntimeDirective(
   )
   lines.push('Prompt-writing rules:')
   lines.push(
-    '- Before writing or revising keyframe sidecars, character-sheet sidecars, shot sidecars, or SHOTS.json, read workspace/CONFIG.json and MODEL_PROMPTING_GUIDE.md.',
+    '- Before writing or revising keyframe sidecars, character-sheet sidecars, shot sidecars, or SHOTS.json, read workspace/CONFIG.json, MODEL_PROMPTING_GUIDE.md, and CAMERA_VOCABULARY.json.',
   )
   lines.push(
     '- STORYBOARD.png is the cheap full-project storyboard review artifact generated from workspace/STORYBOARD.md before keyframes are locked.',
@@ -498,10 +515,13 @@ function buildRuntimeDirective(
     '- Character sidecar schema is { characterId, displayName, prompt, status, references? }.',
   )
   lines.push(
-    '- Keyframe sidecar schema is { keyframeId, shotId, frameType, prompt, status, references }. references must be a non-empty ordered array.',
+    '- Keyframe sidecar schema is { keyframeId, shotId, frameType, camera, prompt, status, references }. Place camera before prompt. camera uses { shotSize, cameraPosition, cameraAngle } with ids from CAMERA_VOCABULARY.json. If the storyboard does not imply a stronger choice, default to { shotSize: "medium-shot", cameraPosition: "eye-level", cameraAngle: "level-angle" }. references must be a non-empty ordered array.',
   )
   lines.push(
     '- Keyframe sidecars must always include explicit references. For fresh start frames, begin with the storyboard reference for the intended panel, then add the needed character-sheet references. For same-shot end frames, begin with the same-shot start-frame reference, then storyboard, then the needed character-sheet references. For start frames that should inherit from the prior shot, begin with the previous-shot-end-frame reference, then storyboard, then the needed character-sheet references.',
+  )
+  lines.push(
+    '- Treat the keyframe camera block as a planning constraint and write the prompt to accommodate it explicitly rather than contradicting it.',
   )
   lines.push(
     '- Do not leave keyframe sidecar references empty; missing keyframe references keep preparation incomplete and fail validation.',
@@ -525,7 +545,10 @@ function buildRuntimeDirective(
     '- Use workspace/CONFIG.json.videoModel for shot-motion prompting style and generation. Do not store model fields in workspace/SHOTS/*.json sidecars.',
   )
   lines.push(
-    '- Shot sidecar schema is { shotId, prompt, status, references? }. workspace/STORYBOARD.json uses the shape { references }.',
+    '- Shot sidecar schema is { shotId, camera, prompt, status, references? }. Place camera before prompt. shot camera uses { shotSize, cameraPosition, cameraAngle, cameraMovement } with ids from CAMERA_VOCABULARY.json. If the storyboard does not imply a stronger choice, default to { shotSize: "medium-shot", cameraPosition: "eye-level", cameraAngle: "level-angle", cameraMovement: "static-shot" }. workspace/STORYBOARD.json uses the shape { references }.',
+  )
+  lines.push(
+    '- Treat the shot camera block as a planning constraint and write the motion prompt so it reinforces that framing and movement.',
   )
   lines.push(
     '- Do not auto-run paid image or video generation. When sidecar JSON is ready but PNGs or MP4s are missing, tell the user they have to run the generation script and continue after review.',
@@ -559,6 +582,148 @@ function normalizeFileContent(fileName: string, content: string) {
   }
 
   return content.endsWith('\n') ? content : `${content}\n`
+}
+
+function isJsonObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+function normalizeKeyframeCameraInput(camera: unknown): KeyframeCameraSpec {
+  if (!isJsonObject(camera)) {
+    return { ...DEFAULT_KEYFRAME_CAMERA }
+  }
+
+  return {
+    shotSize:
+      typeof camera.shotSize === 'string' && camera.shotSize.trim().length > 0
+        ? camera.shotSize
+        : DEFAULT_KEYFRAME_CAMERA.shotSize,
+    cameraPosition:
+      typeof camera.cameraPosition === 'string' && camera.cameraPosition.trim().length > 0
+        ? camera.cameraPosition
+        : DEFAULT_KEYFRAME_CAMERA.cameraPosition,
+    cameraAngle:
+      typeof camera.cameraAngle === 'string' && camera.cameraAngle.trim().length > 0
+        ? camera.cameraAngle
+        : DEFAULT_KEYFRAME_CAMERA.cameraAngle,
+  }
+}
+
+function normalizeShotCameraInput(camera: unknown): ShotCameraSpec {
+  if (!isJsonObject(camera)) {
+    return { ...DEFAULT_SHOT_CAMERA }
+  }
+
+  return {
+    ...normalizeKeyframeCameraInput(camera),
+    cameraMovement:
+      typeof camera.cameraMovement === 'string' && camera.cameraMovement.trim().length > 0
+        ? camera.cameraMovement
+        : DEFAULT_SHOT_CAMERA.cameraMovement,
+  }
+}
+
+function reorderKeyframeArtifact(parsed: Record<string, unknown>) {
+  const normalized: Record<string, unknown> = {
+    keyframeId: parsed.keyframeId,
+    shotId: parsed.shotId,
+    frameType: parsed.frameType,
+    camera: normalizeKeyframeCameraInput(parsed.camera),
+    prompt: parsed.prompt,
+    status: parsed.status,
+  }
+
+  if (parsed.references !== undefined) {
+    normalized.references = parsed.references
+  }
+
+  return normalized
+}
+
+function reorderShotArtifact(parsed: Record<string, unknown>) {
+  const normalized: Record<string, unknown> = {
+    shotId: parsed.shotId,
+    camera: normalizeShotCameraInput(parsed.camera),
+    prompt: parsed.prompt,
+    status: parsed.status,
+  }
+
+  if (parsed.references !== undefined) {
+    normalized.references = parsed.references
+  }
+
+  return normalized
+}
+
+function validateCameraField(
+  value: string,
+  expectedCategory: CameraVocabularyCategory,
+  context: string,
+  vocabulary: CameraVocabularyData,
+  applicability: 'keyframe' | 'shot',
+) {
+  const entry = vocabulary.entries.find((candidate) => candidate.id === value)
+
+  if (!entry) {
+    throw new Error(`${context} must match a camera vocabulary id from ${CAMERA_VOCABULARY_FILE}.`)
+  }
+
+  if (entry.category !== expectedCategory) {
+    throw new Error(`${context} must use a ${expectedCategory} id from ${CAMERA_VOCABULARY_FILE}.`)
+  }
+
+  if (applicability === 'keyframe' && !entry.appliesToKeyframe) {
+    throw new Error(`${context} does not apply to keyframes in ${CAMERA_VOCABULARY_FILE}.`)
+  }
+
+  if (applicability === 'shot' && !entry.appliesToShot) {
+    throw new Error(`${context} does not apply to shots in ${CAMERA_VOCABULARY_FILE}.`)
+  }
+}
+
+function validateKeyframeCamera(
+  camera: KeyframeCameraSpec | undefined,
+  context: string,
+  vocabulary: CameraVocabularyData,
+) {
+  if (!camera) {
+    return
+  }
+
+  validateCameraField(camera.shotSize, 'shot_size', `${context}.shotSize`, vocabulary, 'keyframe')
+  validateCameraField(
+    camera.cameraPosition,
+    'camera_position',
+    `${context}.cameraPosition`,
+    vocabulary,
+    'keyframe',
+  )
+  validateCameraField(
+    camera.cameraAngle,
+    'camera_angle',
+    `${context}.cameraAngle`,
+    vocabulary,
+    'keyframe',
+  )
+}
+
+function validateShotCamera(
+  camera: ShotCameraSpec | undefined,
+  context: string,
+  vocabulary: CameraVocabularyData,
+) {
+  if (!camera) {
+    return
+  }
+
+  validateKeyframeCamera(camera, context, vocabulary)
+  validateCameraField(
+    camera.cameraMovement,
+    'camera_movement',
+    `${context}.cameraMovement`,
+    vocabulary,
+    'shot',
+  )
 }
 
 function countChangedLines(previousContent: string | null, nextContent: string) {
@@ -1197,6 +1362,11 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
   const validateWorkspaceArtifact = async (artifactPath: string, content: string) => {
     const normalizedPath = path.posix.normalize(artifactPath.replace(/\\/g, '/'))
     const parsed = JSON.parse(content)
+    const cameraVocabulary =
+      normalizedPath.startsWith(WORKFLOW_FOLDERS.keyframes) ||
+      normalizedPath.startsWith(WORKFLOW_FOLDERS.shots)
+        ? await loadCameraVocabulary(rootDir)
+        : null
 
     if (normalizedPath.startsWith(WORKFLOW_FOLDERS.characters)) {
       parseCharacterSheetEntry(parsed, normalizedPath)
@@ -1204,12 +1374,14 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
     }
 
     if (normalizedPath.startsWith(WORKFLOW_FOLDERS.keyframes)) {
-      parseKeyframeArtifactEntry(parsed, normalizedPath)
+      const artifact = parseKeyframeArtifactEntry(parsed, normalizedPath)
+      validateKeyframeCamera(artifact.camera, `${normalizedPath}.camera`, cameraVocabulary!)
       return
     }
 
     if (normalizedPath.startsWith(WORKFLOW_FOLDERS.shots)) {
-      parseShotArtifactEntry(parsed, normalizedPath)
+      const artifact = parseShotArtifactEntry(parsed, normalizedPath)
+      validateShotCamera(artifact.camera, `${normalizedPath}.camera`, cameraVocabulary!)
     }
   }
 
@@ -1228,6 +1400,14 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
     ) {
       const normalized = { ...parsed } as Record<string, unknown>
       delete normalized.model
+
+      if (normalizedPath.startsWith(WORKFLOW_FOLDERS.keyframes)) {
+        return JSON.stringify(reorderKeyframeArtifact(normalized), null, 2)
+      }
+
+      if (normalizedPath.startsWith(WORKFLOW_FOLDERS.shots)) {
+        return JSON.stringify(reorderShotArtifact(normalized), null, 2)
+      }
 
       return JSON.stringify(normalized, null, 2)
     }
@@ -1554,7 +1734,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         readWorkspaceArtifact: tool({
           description:
-            'Read one JSON sidecar artifact or list one canonical workspace folder such as CHARACTERS/, KEYFRAMES/, or SHOTS/. Character sidecars use { characterId, displayName, prompt, status, references? }. Keyframe sidecars use { keyframeId, shotId, frameType, prompt, status, references }, where frameType is "start" or "end" and references is a non-empty ordered array. Shot sidecars use { shotId, prompt, status, references? }.',
+            'Read one JSON sidecar artifact or list one canonical workspace folder such as CHARACTERS/, KEYFRAMES/, or SHOTS/. Character sidecars use { characterId, displayName, prompt, status, references? }. Keyframe sidecars use { keyframeId, shotId, frameType, camera?, prompt, status, references }, where frameType is "start" or "end", camera is { shotSize, cameraPosition, cameraAngle }, and references is a non-empty ordered array. Shot sidecars use { shotId, camera?, prompt, status, references? }, where camera is { shotSize, cameraPosition, cameraAngle, cameraMovement }.',
           inputSchema: z.object({
             artifactPath: z
               .string()
@@ -1586,6 +1766,21 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             }
           },
         }),
+        readCameraVocabulary: tool({
+          description:
+            'Read CAMERA_VOCABULARY.json to choose valid camera ids for keyframe and shot sidecars.',
+          inputSchema: z.object({}),
+          execute: async () => {
+            const vocabularyPath = resolveRepoPath(CAMERA_VOCABULARY_FILE, rootDir)
+            const content = await readFile(vocabularyPath, 'utf8')
+            emitToolEvent(`Read ${CAMERA_VOCABULARY_FILE}`)
+
+            return {
+              path: vocabularyPath,
+              content,
+            }
+          },
+        }),
         writeWorkspaceFile: tool({
           description:
             'Write the full contents of one canonical workspace file while preserving established canon and the current creative workflow.',
@@ -1602,7 +1797,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         writeWorkspaceArtifact: tool({
           description:
-            'Write one JSON sidecar artifact in CHARACTERS/, KEYFRAMES/, or SHOTS/ while using workspace/CONFIG.json as the only model-selection source. CHARACTERS/<id>.json must contain characterId, displayName, prompt, status, and optional references; its prompt should target a clean single-subject reference image for downstream video consistency rather than a stylized hero scene. KEYFRAMES/<shot-id>/<keyframe-id>.json must contain keyframeId, shotId, frameType, prompt, status, and a non-empty ordered references array, where frameType is "start" or "end". SHOTS/<shot-id>.json must contain shotId, prompt, status, and optional references.',
+            'Write one JSON sidecar artifact in CHARACTERS/, KEYFRAMES/, or SHOTS/ while using workspace/CONFIG.json as the only model-selection source. CHARACTERS/<id>.json must contain characterId, displayName, prompt, status, and optional references; its prompt should target a clean single-subject reference image for downstream video consistency rather than a stylized hero scene. KEYFRAMES/<shot-id>/<keyframe-id>.json must contain keyframeId, shotId, frameType, camera, prompt, status, and a non-empty ordered references array, where frameType is "start" or "end", camera uses { shotSize, cameraPosition, cameraAngle }, and camera must appear before prompt. SHOTS/<shot-id>.json must contain shotId, camera, prompt, status, and optional references, where camera uses { shotSize, cameraPosition, cameraAngle, cameraMovement } and appears before prompt. When camera fields are omitted, sensible neutral defaults are filled automatically.',
           inputSchema: z.object({
             artifactPath: z
               .string()

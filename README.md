@@ -6,6 +6,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 
 - `CREATIVE_AGENTS.md`: creative chatbot workflow and behavior
 - `AGENTS.md`: coding-agent instructions
+- `CAMERA_VOCABULARY.json`: fixed camera shot, position, angle, and movement ids for sidecars
 - `MODEL_OPTIONS.json`: fixed model-card options used by the config dialog
 
 ## Project Switching
@@ -46,10 +47,10 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `workspace/STORYBOARD.md` is the single canonical storyboard file and should use stable shot IDs such as `SHOT-01`.
 - `workspace/STORYBOARD.json` is the storyboard-reference sidecar and is required before generating `workspace/STORYBOARD.png`. Its `references` array is the source of truth for storyboard generation inputs and uses repo-relative `path`, required typed `kind`, and optional `label`/`notes`.
 - `workspace/STORYBOARD.png` is the single storyboard review artifact for the whole project, generated from `workspace/STORYBOARD.md` before keyframe review.
-- `workspace/KEYFRAMES/` stores one sidecar JSON and one generated `.png` per keyframe, grouped under each `shotId`. Keyframe sidecar `references` are the source of truth for still-image generation inputs and must be authored in the exact intended priority order.
+- `workspace/KEYFRAMES/` stores one sidecar JSON and one generated `.png` per keyframe, grouped under each `shotId`. Keyframe sidecars may include a `camera` block before `prompt` using `CAMERA_VOCABULARY.json` ids; their `references` remain the source of truth for still-image generation inputs and must be authored in the exact intended priority order.
 - By default, plan one `start` keyframe per storyboard shot. Add an `end` keyframe only when the closing anchor needs to differ materially from the opening anchor; one-anchor `start` or `end` shots remain valid.
 - `workspace/SHOTS.json` is the planning manifest for shots and keyframe anchors and should use the exact shape `{ shotId, status, videoPath, durationSeconds, keyframes: [{ keyframeId, frameType, imagePath }] }`.
-- `workspace/SHOTS/` stores one sidecar JSON and one generated `.mp4` per shot, sharing the same `shotId` basename. Shot sidecars may include optional `references`.
+- `workspace/SHOTS/` stores one sidecar JSON and one generated `.mp4` per shot, sharing the same `shotId` basename. Shot sidecars may include a `camera` block before `prompt` using `CAMERA_VOCABULARY.json` ids plus optional `references`.
 - `workspace/FINAL-CUT.json` stores the saved Remotion edit manifest for the final assembly step and should use the exact shape `{ version, shots, soundtrack }`.
 - `workspace/HISTORY.json` stores the app's persisted chat/session state for the current project.
 - Visual artifacts retain linear history under nearby `HISTORY/` folders. The public artifact path is always the current version, and older retained media files are stored as `vN.png` or `vN.mp4`.
