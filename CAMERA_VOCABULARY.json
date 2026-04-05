@@ -1,0 +1,302 @@
+{
+  "version": 1,
+  "source": {
+    "title": "50+ Types of Camera Shots, Angles, and Techniques",
+    "url": "https://www.studiobinder.com/blog/ultimate-guide-to-camera-shots/",
+    "accessedOn": "2026-04-05"
+  },
+  "categories": [
+    {
+      "id": "shot_size",
+      "name": "Shot Size",
+      "description": "How much of the subject and surrounding space is framed."
+    },
+    {
+      "id": "camera_position",
+      "name": "Camera Position",
+      "description": "Where the camera is placed vertically relative to the subject."
+    },
+    {
+      "id": "camera_angle",
+      "name": "Camera Angle",
+      "description": "The direction or tilt the camera uses in relation to the subject."
+    },
+    {
+      "id": "camera_movement",
+      "name": "Camera Movement",
+      "description": "How the camera or lens changes during the shot over time."
+    }
+  ],
+  "entries": [
+    {
+      "id": "establishing-shot",
+      "category": "shot_size",
+      "name": "Establishing Shot",
+      "description": "Introduces the setting and scene geography before focusing tighter on the action.",
+      "aliases": ["establishing"],
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "extreme-wide-shot",
+      "category": "shot_size",
+      "name": "Extreme Wide Shot",
+      "description": "Places the subject very small within a large environment to emphasize scale, distance, or isolation.",
+      "aliases": ["extreme long shot"],
+      "abbreviations": ["EWS", "ELS"],
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "wide-shot",
+      "category": "shot_size",
+      "name": "Wide Shot",
+      "description": "Shows the full subject with plenty of surrounding space so the location stays clearly visible.",
+      "aliases": ["long shot"],
+      "abbreviations": ["WS", "LS"],
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "full-shot",
+      "category": "shot_size",
+      "name": "Full Shot",
+      "description": "Frames the full body while still leaving some attention on the environment around the subject.",
+      "abbreviations": ["FS"],
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "medium-wide-shot",
+      "category": "shot_size",
+      "name": "Medium Wide Shot",
+      "description": "Frames the subject from roughly the knees up, balancing body language with environmental context.",
+      "aliases": ["medium long shot"],
+      "abbreviations": ["MWS", "MLS"],
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "cowboy-shot",
+      "category": "shot_size",
+      "name": "Cowboy Shot",
+      "description": "Frames the subject from around mid-thigh up, often keeping hands, props, or a holster area in view.",
+      "aliases": ["american shot"],
+      "abbreviations": ["CS"],
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "medium-shot",
+      "category": "shot_size",
+      "name": "Medium Shot",
+      "description": "Frames roughly from the waist up for a versatile balance of performance and surroundings.",
+      "abbreviations": ["MS"],
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "medium-close-up",
+      "category": "shot_size",
+      "name": "Medium Close-Up",
+      "description": "Frames from roughly the chest or shoulders up to emphasize facial performance while keeping a little context.",
+      "abbreviations": ["MCU"],
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "close-up",
+      "category": "shot_size",
+      "name": "Close-Up",
+      "description": "Frames the face or a key subject tightly to concentrate attention and emotion.",
+      "abbreviations": ["CU"],
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "extreme-close-up",
+      "category": "shot_size",
+      "name": "Extreme Close-Up",
+      "description": "Frames a very small detail, such as eyes or an object feature, for maximum emphasis.",
+      "abbreviations": ["ECU"],
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "eye-level",
+      "category": "camera_position",
+      "name": "Eye Level",
+      "description": "Places the camera at the subject's eye line for a neutral, natural-feeling perspective.",
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "shoulder-level",
+      "category": "camera_position",
+      "name": "Shoulder Level",
+      "description": "Places the camera around shoulder height, which often feels slightly more natural for standing subjects.",
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "hip-level",
+      "category": "camera_position",
+      "name": "Hip Level",
+      "description": "Places the camera around waist or hip height, useful when hands, props, or stride matter in the frame.",
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "knee-level",
+      "category": "camera_position",
+      "name": "Knee Level",
+      "description": "Places the camera around knee height to give subjects more scale and emphasize legs or forward movement.",
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "ground-level",
+      "category": "camera_position",
+      "name": "Ground Level",
+      "description": "Places the camera on or near the ground to emphasize the floor plane, feet, debris, or a dramatic low vantage point.",
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "low-angle",
+      "category": "camera_angle",
+      "name": "Low Angle",
+      "description": "Looks up at the subject from below, often making them feel more powerful, imposing, or dominant.",
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "high-angle",
+      "category": "camera_angle",
+      "name": "High Angle",
+      "description": "Looks down at the subject from above, often making them feel smaller, weaker, or exposed.",
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "dutch-angle",
+      "category": "camera_angle",
+      "name": "Dutch Angle",
+      "description": "Tilts the camera off level so the horizon slants, creating disorientation, tension, or instability.",
+      "aliases": ["dutch tilt"],
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "overhead-shot",
+      "category": "camera_angle",
+      "name": "Overhead Shot",
+      "description": "Looks straight down from high above to emphasize layout, movement patterns, or graphic composition.",
+      "aliases": ["bird's-eye view", "birds-eye view", "birds eye view"],
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "aerial-shot",
+      "category": "camera_angle",
+      "name": "Aerial Shot",
+      "description": "Captures the scene from very high above, usually to establish broad geography and large-scale movement.",
+      "appliesToKeyframe": true,
+      "appliesToShot": true
+    },
+    {
+      "id": "static-shot",
+      "category": "camera_movement",
+      "name": "Static Shot",
+      "description": "Keeps the camera locked off without movement so performance, blocking, or action within the frame carries the scene.",
+      "aliases": ["fixed shot"],
+      "appliesToKeyframe": false,
+      "appliesToShot": true
+    },
+    {
+      "id": "dolly-shot",
+      "category": "camera_movement",
+      "name": "Dolly Shot",
+      "description": "Moves the camera physically through space, such as pushing in, pulling back, or traveling alongside the subject.",
+      "appliesToKeyframe": false,
+      "appliesToShot": true
+    },
+    {
+      "id": "zoom-shot",
+      "category": "camera_movement",
+      "name": "Zoom Shot",
+      "description": "Changes the lens focal length during the shot to move tighter or wider without moving the camera itself.",
+      "appliesToKeyframe": false,
+      "appliesToShot": true
+    },
+    {
+      "id": "dolly-zoom",
+      "category": "camera_movement",
+      "name": "Dolly Zoom",
+      "description": "Combines camera movement and lens zoom at the same time to create a warped change in perspective.",
+      "aliases": ["vertigo shot", "vertigo effect"],
+      "appliesToKeyframe": false,
+      "appliesToShot": true
+    },
+    {
+      "id": "pan-shot",
+      "category": "camera_movement",
+      "name": "Pan",
+      "description": "Rotates the camera side to side on a horizontal axis to reveal space or follow action.",
+      "aliases": ["pan"],
+      "appliesToKeyframe": false,
+      "appliesToShot": true
+    },
+    {
+      "id": "tilt-shot",
+      "category": "camera_movement",
+      "name": "Tilt",
+      "description": "Rotates the camera up or down on a vertical axis to reveal height or follow motion.",
+      "aliases": ["tilt"],
+      "appliesToKeyframe": false,
+      "appliesToShot": true
+    },
+    {
+      "id": "whip-pan",
+      "category": "camera_movement",
+      "name": "Whip Pan",
+      "description": "Pans rapidly enough to create motion blur, often for energy, transitions, or sudden reveals.",
+      "aliases": ["swish pan"],
+      "appliesToKeyframe": false,
+      "appliesToShot": true
+    },
+    {
+      "id": "whip-tilt",
+      "category": "camera_movement",
+      "name": "Whip Tilt",
+      "description": "Tilts rapidly enough to create motion blur, often for heightened energy or abrupt transitions.",
+      "aliases": ["swish tilt"],
+      "appliesToKeyframe": false,
+      "appliesToShot": true
+    },
+    {
+      "id": "tracking-shot",
+      "category": "camera_movement",
+      "name": "Tracking Shot",
+      "description": "Moves with the subject so the viewer travels alongside, behind, or with them through the scene.",
+      "appliesToKeyframe": false,
+      "appliesToShot": true
+    },
+    {
+      "id": "crab-shot",
+      "category": "camera_movement",
+      "name": "Crab Shot",
+      "description": "Moves the camera horizontally beside the subject, like a lateral dolly move across the scene.",
+      "appliesToKeyframe": false,
+      "appliesToShot": true
+    },
+    {
+      "id": "arc-shot",
+      "category": "camera_movement",
+      "name": "Arc Shot",
+      "description": "Moves the camera around the subject in an arc to reveal space and shift perspective dynamically.",
+      "appliesToKeyframe": false,
+      "appliesToShot": true
+    }
+  ]
+}
