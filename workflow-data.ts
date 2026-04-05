@@ -2,6 +2,7 @@ import { access, readFile, readdir } from 'node:fs/promises'
 import path from 'node:path'
 
 export const FRAME_TYPES = ['start', 'end'] as const
+export const END_FRAME_MODES = ['bridge'] as const
 export const DEFAULT_VIDEO_DURATION_SECONDS = 4
 export const DEFAULT_VARIANT_COUNT = 1
 export const FINAL_CUT_VERSION = 1
@@ -24,6 +25,7 @@ export const AUTHORED_REFERENCE_KINDS = [
 ] as const
 
 export type FrameType = (typeof FRAME_TYPES)[number]
+export type EndFrameMode = (typeof END_FRAME_MODES)[number]
 export type FinalCutTransitionType = (typeof FINAL_CUT_TRANSITION_TYPES)[number]
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number]
 export type ReferenceSource = (typeof REFERENCE_SOURCES)[number]
@@ -101,6 +103,7 @@ export interface ShotEntry {
   shotId: string
   status: string
   videoPath: string
+  endFrameMode?: EndFrameMode
   keyframes?: ShotKeyframeEntry[]
   keyframeIds: string[]
   durationSeconds: number
@@ -554,6 +557,20 @@ function expectFrameType(value: unknown, context: string): FrameType {
   return frameType as FrameType
 }
 
+function parseOptionalEndFrameMode(value: unknown, context: string): EndFrameMode | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+
+  const endFrameMode = expectString(value, context)
+
+  if (!END_FRAME_MODES.includes(endFrameMode as EndFrameMode)) {
+    throw new Error(`${context} must be one of: ${END_FRAME_MODES.join(', ')}.`)
+  }
+
+  return endFrameMode as EndFrameMode
+}
+
 function expectFinalCutTransitionType(value: unknown, context: string): FinalCutTransitionType {
   const transitionType = expectString(value, context)
 
@@ -683,6 +700,7 @@ function parseShotEntry(value: unknown, context: string): ShotEntry {
     shotId,
     status: expectString(object.status, `${context}.status`),
     videoPath,
+    endFrameMode: parseOptionalEndFrameMode(object.endFrameMode, `${context}.endFrameMode`),
     keyframes,
     keyframeIds: keyframes.map((entry) => entry.keyframeId),
     durationSeconds,

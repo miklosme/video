@@ -43,6 +43,7 @@ export interface PendingShotGeneration {
   prompt: string
   outputPath: string
   keyframeIds: string[]
+  bridgeToNextStartKeyframeId?: string | null
   durationSeconds: number
   userReferences?: ArtifactReferenceEntry[]
 }
@@ -207,8 +208,9 @@ export function selectPendingShotGenerations(
   return shots
     .filter((entry) => !filters.shotId || entry.shotId === filters.shotId)
     .filter((entry) => artifactById.has(entry.shotId))
-    .map<PendingShotGeneration>((entry) => {
+    .map<PendingShotGeneration>((entry, index) => {
       const artifact = artifactById.get(entry.shotId)
+      const nextShot = shots[index + 1] ?? null
 
       if (!artifact) {
         throw new Error(`Missing shot artifact for "${entry.shotId}".`)
@@ -221,6 +223,13 @@ export function selectPendingShotGenerations(
         prompt: artifact.prompt,
         outputPath: entry.videoPath,
         keyframeIds: entry.keyframeIds,
+        ...(entry.endFrameMode === 'bridge'
+          ? {
+              bridgeToNextStartKeyframeId:
+                (nextShot?.keyframes ?? []).find((keyframe) => keyframe.frameType === 'start')
+                  ?.keyframeId ?? null,
+            }
+          : {}),
         durationSeconds: entry.durationSeconds,
         userReferences: artifact.references,
       }

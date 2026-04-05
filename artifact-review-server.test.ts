@@ -273,6 +273,233 @@ test('artifact review server renders an omitted keyframe detail page with a crea
   }
 })
 
+test('artifact review server offers a bridge action on an omitted end keyframe when the next shot has a planned start', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeConfigFixture(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+          {
+            shotId: 'SHOT-02',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-02.mp4',
+            durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-02-START']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/keyframes/SHOT-01-END', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('Anchor Planning')
+      expect(html).toContain('action="/keyframes/SHOT-01-END/bridge"')
+      expect(html).toContain('Make bridge frame')
+      expect(html).toContain('SHOT-02-START')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server bridges an omitted end keyframe and disables removing the shared next-shot start', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeConfigFixture(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+          {
+            shotId: 'SHOT-02',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-02.mp4',
+            durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-02-START', 'SHOT-02-END']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const bridgeResponse = await fetch(new URL('/keyframes/SHOT-01-END/bridge', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+      })
+
+      expect(bridgeResponse.status).toBe(303)
+      expect(bridgeResponse.headers.get('location')).toBe('/keyframes/SHOT-02-START')
+
+      const shots = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/SHOTS.json'), 'utf8'),
+      )
+
+      expect(shots).toEqual([
+        {
+          shotId: 'SHOT-01',
+          status: 'planned',
+          videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+          endFrameMode: 'bridge',
+          durationSeconds: 4,
+          keyframes: [
+            {
+              keyframeId: 'SHOT-01-START',
+              frameType: 'start',
+              imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+            },
+          ],
+        },
+        {
+          shotId: 'SHOT-02',
+          status: 'planned',
+          videoPath: 'workspace/SHOTS/SHOT-02.mp4',
+          durationSeconds: 4,
+          keyframes: [
+            {
+              keyframeId: 'SHOT-02-START',
+              frameType: 'start',
+              imagePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png',
+            },
+            {
+              keyframeId: 'SHOT-02-END',
+              frameType: 'end',
+              imagePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-END.png',
+            },
+          ],
+        },
+      ])
+
+      const startDetailResponse = await fetch(new URL('/keyframes/SHOT-02-START', server.url))
+      const startDetailHtml = await startDetailResponse.text()
+      const bridgedRedirectResponse = await fetch(new URL('/keyframes/SHOT-01-END', server.url), {
+        redirect: 'manual',
+      })
+      const timelineResponse = await fetch(new URL('/timeline', server.url))
+      const timelineHtml = await timelineResponse.text()
+
+      expect(startDetailResponse.status).toBe(200)
+      expect(startDetailHtml).toContain('Shared boundary: SHOT-01 end reuses this start frame.')
+      expect(startDetailHtml).toContain('Use distinct end frame')
+      expect(startDetailHtml).toContain('action="/keyframes/SHOT-01-END/unbridge"')
+
+      expect(bridgedRedirectResponse.status).toBe(302)
+      expect(bridgedRedirectResponse.headers.get('location')).toBe('/keyframes/SHOT-02-START')
+
+      expect(timelineResponse.status).toBe(200)
+      expect(timelineHtml).toContain('"left":null')
+      expect(timelineHtml).toContain('"keyframeId":"SHOT-02-START"')
+      expect(timelineHtml).not.toContain('"keyframeId":"SHOT-01-END"')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server preserves embedded bridge actions and refresh redirects inside the timeline iframe', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeConfigFixture(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+          {
+            shotId: 'SHOT-02',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-02.mp4',
+            durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-02-START']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const embeddedOmittedResponse = await fetch(
+        new URL('/keyframes/SHOT-01-END?embed=1', server.url),
+      )
+      const embeddedOmittedHtml = await embeddedOmittedResponse.text()
+
+      expect(embeddedOmittedResponse.status).toBe(200)
+      expect(embeddedOmittedHtml).toContain('action="/keyframes/SHOT-01-END/bridge?embed=1"')
+
+      const bridgeResponse = await fetch(
+        new URL('/keyframes/SHOT-01-END/bridge?embed=1', server.url),
+        {
+          method: 'POST',
+          redirect: 'manual',
+        },
+      )
+
+      expect(bridgeResponse.status).toBe(303)
+      expect(bridgeResponse.headers.get('location')).toBe(
+        '/keyframes/SHOT-02-START?embed=1&updated=1',
+      )
+
+      const embeddedStartResponse = await fetch(
+        new URL('/keyframes/SHOT-02-START?embed=1&updated=1', server.url),
+      )
+      const embeddedStartHtml = await embeddedStartResponse.text()
+
+      expect(embeddedStartResponse.status).toBe(200)
+      expect(embeddedStartHtml).toContain('action="/keyframes/SHOT-01-END/unbridge?embed=1"')
+      expect(embeddedStartHtml).toContain('artifact-review-refresh')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('artifact review server creates an omitted keyframe, saves the prompt sidecar, and generates a single image variant', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
   const seeds: number[] = []

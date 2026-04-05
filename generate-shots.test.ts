@@ -233,6 +233,58 @@ test('selectPendingShotGenerations uses shot sidecars and canonical output paths
   ])
 })
 
+test('selectPendingShotGenerations carries bridge targets from the next shot start', () => {
+  expect(
+    selectPendingShotGenerations(
+      [
+        {
+          shotId: 'SHOT-01',
+          status: 'planned',
+          videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+          endFrameMode: 'bridge',
+          keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          keyframeIds: ['SHOT-01-START'],
+          durationSeconds: 4,
+        },
+        {
+          shotId: 'SHOT-02',
+          status: 'planned',
+          videoPath: 'workspace/SHOTS/SHOT-02.mp4',
+          keyframes: createPlannedKeyframes(['SHOT-02-START', 'SHOT-02-END']),
+          keyframeIds: ['SHOT-02-START', 'SHOT-02-END'],
+          durationSeconds: 4,
+        },
+      ],
+      [
+        {
+          shotId: 'SHOT-01',
+          prompt: 'Bridge into the next shot start.',
+          status: 'planned',
+        },
+        {
+          shotId: 'SHOT-02',
+          prompt: 'Second shot prompt.',
+          status: 'planned',
+        },
+      ],
+      'video-test',
+      {
+        shotId: 'SHOT-01',
+      },
+    ),
+  ).toEqual([
+    {
+      shotId: 'SHOT-01',
+      model: 'video-test',
+      prompt: 'Bridge into the next shot start.',
+      outputPath: 'workspace/SHOTS/SHOT-01.mp4',
+      keyframeIds: ['SHOT-01-START'],
+      bridgeToNextStartKeyframeId: 'SHOT-02-START',
+      durationSeconds: 4,
+    },
+  ])
+})
+
 test('planShotGenerationAssets uses start and end anchors and caps deduped character references', () => {
   const generation: PendingShotGeneration = {
     shotId: 'SHOT-01',
@@ -278,6 +330,57 @@ test('planShotGenerationAssets uses start and end anchors and caps deduped chara
       {
         kind: 'end-frame',
         path: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
+      },
+    ],
+  })
+})
+
+test('planShotGenerationAssets reuses the next shot start as a bridge end frame', () => {
+  const generation: PendingShotGeneration = {
+    shotId: 'SHOT-01',
+    model: 'video-test',
+    prompt: 'Bridge the first shot into the next opening frame.',
+    outputPath: 'workspace/SHOTS/SHOT-01.mp4',
+    keyframeIds: ['SHOT-01-START'],
+    bridgeToNextStartKeyframeId: 'SHOT-02-START',
+    durationSeconds: 4,
+  }
+  const keyframes: KeyframeEntry[] = [
+    {
+      keyframeId: 'SHOT-01-START',
+      shotId: 'SHOT-01',
+      frameType: 'start',
+      title: 'Start frame',
+      goal: 'Open the shot.',
+      status: 'planned',
+      imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+      characterIds: ['dog'],
+    },
+    {
+      keyframeId: 'SHOT-02-START',
+      shotId: 'SHOT-02',
+      frameType: 'start',
+      title: 'Bridge frame',
+      goal: 'Shared boundary frame.',
+      status: 'planned',
+      imagePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png',
+      characterIds: ['dog'],
+    },
+  ]
+
+  expect(planShotGenerationAssets(generation, keyframes)).toEqual({
+    inputImagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+    lastFramePath: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png',
+    characterIds: [],
+    referenceImagePaths: [],
+    references: [
+      {
+        kind: 'start-frame',
+        path: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+      },
+      {
+        kind: 'end-frame',
+        path: 'workspace/KEYFRAMES/SHOT-02/SHOT-02-START.png',
       },
     ],
   })

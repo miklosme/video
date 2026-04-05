@@ -530,10 +530,13 @@ function buildRuntimeDirective(
     '- frameType must be "start" or "end". By default plan a "start" anchor; add an "end" anchor only when the shot needs a materially different closing frame. One-anchor shots may use only one of them.',
   )
   lines.push(
-    '- SHOTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, durationSeconds, keyframes: [{ keyframeId, frameType, imagePath }] }.',
+    '- SHOTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, durationSeconds, endFrameMode?, keyframes: [{ keyframeId, frameType, imagePath }] }.',
   )
   lines.push(
     '- Each SHOTS.json.keyframes array should contain either one anchor entry or one start/end pair for that shot.',
+  )
+  lines.push(
+    '- Use optional endFrameMode: "bridge" only when a shot omits its own end anchor and intentionally reuses the next shot\'s planned start keyframe as a single shared bridge frame.',
   )
   lines.push(
     `- Each SHOTS.json entry should include durationSeconds for the target clip length; default to ${DEFAULT_VIDEO_DURATION_SECONDS} when the user has not specified one.`,

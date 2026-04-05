@@ -368,7 +368,7 @@ export function validateShots(keyframes: KeyframeEntry[], shots: ShotEntry[]) {
   const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
   const shotIds = new Set<string>()
 
-  for (const shot of shots) {
+  for (const [index, shot] of shots.entries()) {
     if (shotIds.has(shot.shotId)) {
       throw new Error(`Duplicate shotId "${shot.shotId}" in workspace/SHOTS.json.`)
     }
@@ -398,6 +398,47 @@ export function validateShots(keyframes: KeyframeEntry[], shots: ShotEntry[]) {
     }
 
     const frameTypes = new Set(anchors.map((anchor) => anchor.frameType))
+
+    if (shot.endFrameMode === 'bridge') {
+      if (index === shots.length - 1) {
+        throw new Error(
+          `Shot "${shot.shotId}" cannot use endFrameMode "bridge" because there is no next shot.`,
+        )
+      }
+
+      if (!frameTypes.has('start')) {
+        throw new Error(
+          `Shot "${shot.shotId}" must keep a local "start" keyframe when endFrameMode is "bridge".`,
+        )
+      }
+
+      if (frameTypes.has('end')) {
+        throw new Error(
+          `Shot "${shot.shotId}" cannot use endFrameMode "bridge" while also planning a distinct "end" keyframe.`,
+        )
+      }
+
+      const nextShot = shots[index + 1]
+
+      if (!nextShot) {
+        throw new Error(
+          `Shot "${shot.shotId}" cannot use endFrameMode "bridge" because there is no next shot.`,
+        )
+      }
+
+      const nextShotFrameTypes = new Set(
+        nextShot.keyframeIds
+          .map((keyframeId) => keyframeById.get(keyframeId))
+          .filter((anchor): anchor is KeyframeEntry => anchor !== undefined)
+          .map((anchor) => anchor.frameType),
+      )
+
+      if (!nextShotFrameTypes.has('start')) {
+        throw new Error(
+          `Shot "${shot.shotId}" cannot use endFrameMode "bridge" because next shot "${nextShot.shotId}" has no planned "start" keyframe.`,
+        )
+      }
+    }
 
     if (anchors.length === 1) {
       if (!frameTypes.has('start') && !frameTypes.has('end')) {

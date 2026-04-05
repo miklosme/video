@@ -144,9 +144,12 @@ interface ArtifactPrimaryAction {
   enabled: boolean
 }
 
-interface KeyframeRemovalAction {
+interface AnchorPlanningAction {
+  kind: 'remove-keyframe' | 'bridge-keyframe' | 'unbridge-keyframe'
   actionUrl: string
   enabled: boolean
+  buttonLabel: string
+  buttonTone: 'danger' | 'secondary'
   helpText: string
   confirmMessage?: string
 }
@@ -171,9 +174,9 @@ interface ArtifactDetailContext {
   notesHtml: string
   canEdit: boolean
   canEditReferences: boolean
-  primaryAction: ArtifactPrimaryAction
+  primaryAction: ArtifactPrimaryAction | null
   cameraControl: CameraOverrideControl | null
-  removeAction: KeyframeRemovalAction | null
+  anchorPlanningAction: AnchorPlanningAction | null
 }
 
 interface CameraOverrideOption {
@@ -212,6 +215,54 @@ export interface ArtifactReviewServer {
   port: number
   url: string
   stop: () => Promise<void>
+}
+
+function appendSearchParams(
+  href: string,
+  entries: Record<string, string | null | undefined | boolean>,
+) {
+  const url = new URL(href, 'http://artifact-review.local')
+
+  for (const [key, value] of Object.entries(entries)) {
+    if (value === undefined || value === null || value === false) {
+      url.searchParams.delete(key)
+      continue
+    }
+
+    url.searchParams.set(key, value === true ? '1' : String(value))
+  }
+
+  return `${url.pathname}${url.search}`
+}
+
+function isEmbeddedRequestUrl(url: URL) {
+  return url.searchParams.get('embed') === '1'
+}
+
+function getEmbeddedActionHref(href: string, embedded?: boolean) {
+  return embedded ? appendSearchParams(href, { embed: true }) : href
+}
+
+function getEmbeddedRefreshDetailUrl(url: URL) {
+  if (!isEmbeddedRequestUrl(url) || url.searchParams.get('updated') !== '1') {
+    return null
+  }
+
+  return appendSearchParams(`${url.pathname}${url.search}`, { updated: null })
+}
+
+function buildPostActionRedirectLocation(
+  location: string,
+  request: Request,
+  options: { updated?: boolean } = {},
+) {
+  const url = new URL(request.url)
+  const embedded = isEmbeddedRequestUrl(url)
+
+  return appendSearchParams(location, {
+    embed: embedded,
+    updated: embedded && (options.updated ?? false),
+  })
 }
 
 function escapeHtml(value: string) {
@@ -266,6 +317,51 @@ function parseCanonicalKeyframeId(keyframeId: string): {
   }
 
   return null
+}
+
+function getShotIndex(shots: ShotEntry[], shotId: string) {
+  return shots.findIndex((entry) => entry.shotId === shotId)
+}
+
+function getAdjacentShots(shots: ShotEntry[], shotId: string) {
+  const index = getShotIndex(shots, shotId)
+
+  return {
+    index,
+    previousShot: index > 0 ? (shots[index - 1] ?? null) : null,
+    nextShot: index >= 0 ? (shots[index + 1] ?? null) : null,
+  }
+}
+
+function getPlannedShotKeyframe(shot: ShotEntry, frameType: FrameType) {
+  return (shot.keyframes ?? []).find((entry) => entry.frameType === frameType) ?? null
+}
+
+function getBridgeSourceShot(shots: ShotEntry[], shotId: string) {
+  const { previousShot } = getAdjacentShots(shots, shotId)
+
+  if (!previousShot || previousShot.endFrameMode !== 'bridge') {
+    return null
+  }
+
+  return previousShot
+}
+
+function getBridgedEndSharedStartKeyframeId(shots: ShotEntry[], keyframeId: string) {
+  const match = getShotByCanonicalKeyframeId(shots, keyframeId)
+
+  if (
+    !match ||
+    match.frameType !== 'end' ||
+    match.shot.keyframeIds.includes(keyframeId) ||
+    match.shot.endFrameMode !== 'bridge'
+  ) {
+    return null
+  }
+
+  const { nextShot } = getAdjacentShots(shots, match.shotId)
+
+  return nextShot ? (getPlannedShotKeyframe(nextShot, 'start')?.keyframeId ?? null) : null
 }
 
 function sortShotKeyframes(
@@ -343,6 +439,7 @@ function serializeShotEntry(shot: ShotEntry) {
     shotId: shot.shotId,
     status: shot.status,
     videoPath: shot.videoPath,
+    ...(shot.endFrameMode ? { endFrameMode: shot.endFrameMode } : {}),
     durationSeconds: shot.durationSeconds,
     keyframes: sortShotKeyframes(shot.keyframes ?? []).map((entry) => ({
       keyframeId: entry.keyframeId,
@@ -418,27 +515,46 @@ async function buildTimelineData(shots: ShotEntry[], cwd: string) {
     const currentEndId = getCanonicalKeyframeId(currentShot.shotId, 'end')
     position += currentShot.durationSeconds
 
-    pointers.push({
-      id: `pointer-${index + 1}`,
-      position,
-      canDrag: true,
-      left: {
-        keyframeId: currentEndId,
-        detailUrl: buildEmbeddedKeyframeDetailUrl(currentEndId),
-        omitted: !currentShot.keyframeIds.includes(currentEndId),
-      },
-      right: nextShot
+    const pointer =
+      currentShot.endFrameMode === 'bridge' && nextShot
         ? {
-            keyframeId: getCanonicalKeyframeId(nextShot.shotId, 'start'),
-            detailUrl: buildEmbeddedKeyframeDetailUrl(
-              getCanonicalKeyframeId(nextShot.shotId, 'start'),
-            ),
-            omitted: !nextShot.keyframeIds.includes(
-              getCanonicalKeyframeId(nextShot.shotId, 'start'),
-            ),
+            id: `pointer-${index + 1}`,
+            position,
+            canDrag: true,
+            left: null,
+            right: {
+              keyframeId: getCanonicalKeyframeId(nextShot.shotId, 'start'),
+              detailUrl: buildEmbeddedKeyframeDetailUrl(
+                getCanonicalKeyframeId(nextShot.shotId, 'start'),
+              ),
+              omitted: !nextShot.keyframeIds.includes(
+                getCanonicalKeyframeId(nextShot.shotId, 'start'),
+              ),
+            },
           }
-        : null,
-    })
+        : {
+            id: `pointer-${index + 1}`,
+            position,
+            canDrag: true,
+            left: {
+              keyframeId: currentEndId,
+              detailUrl: buildEmbeddedKeyframeDetailUrl(currentEndId),
+              omitted: !currentShot.keyframeIds.includes(currentEndId),
+            },
+            right: nextShot
+              ? {
+                  keyframeId: getCanonicalKeyframeId(nextShot.shotId, 'start'),
+                  detailUrl: buildEmbeddedKeyframeDetailUrl(
+                    getCanonicalKeyframeId(nextShot.shotId, 'start'),
+                  ),
+                  omitted: !nextShot.keyframeIds.includes(
+                    getCanonicalKeyframeId(nextShot.shotId, 'start'),
+                  ),
+                }
+              : null,
+          }
+
+    pointers.push(pointer)
   }
 
   const keyframeGroups = (
@@ -533,6 +649,12 @@ async function createOmittedKeyframe(
     throw new Error(`Keyframe "${keyframeId}" is already planned.`)
   }
 
+  if (frameType === 'end' && shot.endFrameMode === 'bridge') {
+    throw new Error(
+      `Keyframe "${keyframeId}" is currently bridged to the next shot start. Unbridge it before creating a distinct end keyframe.`,
+    )
+  }
+
   const nextKeyframes = sortShotKeyframes([
     ...(shot.keyframes ?? []),
     {
@@ -590,6 +712,18 @@ async function removePlannedKeyframe(keyframeId: string, cwd: string): Promise<A
     throw new Error(`Shot "${shot.shotId}" must keep at least one planned anchor.`)
   }
 
+  const parsedKeyframeId = parseCanonicalKeyframeId(keyframeId)
+
+  if (parsedKeyframeId?.frameType === 'start') {
+    const bridgeSourceShot = getBridgeSourceShot(shots, shot.shotId)
+
+    if (bridgeSourceShot) {
+      throw new Error(
+        `Keyframe "${keyframeId}" is currently reused as the bridge frame for "${bridgeSourceShot.shotId}" and cannot be removed while that bridge is active.`,
+      )
+    }
+  }
+
   const nextKeyframes = (shot.keyframes ?? []).filter((entry) => entry.keyframeId !== keyframeId)
 
   if (nextKeyframes.length === (shot.keyframes ?? []).length) {
@@ -620,6 +754,94 @@ async function removePlannedKeyframe(keyframeId: string, cwd: string): Promise<A
   await rm(resolveRepoPath(descriptor.historyDir, cwd), { recursive: true, force: true })
 
   return descriptor
+}
+
+async function bridgeOmittedEndKeyframe(
+  keyframeId: string,
+  cwd: string,
+): Promise<ArtifactDescriptor> {
+  const shots = await loadShotPrompts(cwd)
+  const match = getShotByCanonicalKeyframeId(shots, keyframeId)
+
+  if (!match) {
+    throw new Error(`Keyframe "${keyframeId}" does not map to an existing shot.`)
+  }
+
+  const { shot, frameType, shotId } = match
+
+  if (frameType !== 'end') {
+    throw new Error(`Only omitted end keyframes can be turned into bridge frames.`)
+  }
+
+  if (shot.keyframeIds.includes(keyframeId)) {
+    throw new Error(`Keyframe "${keyframeId}" is already planned.`)
+  }
+
+  if (shot.endFrameMode === 'bridge') {
+    throw new Error(`Keyframe "${keyframeId}" is already using a bridge frame.`)
+  }
+
+  const { nextShot } = getAdjacentShots(shots, shotId)
+
+  if (!nextShot) {
+    throw new Error(`Shot "${shotId}" has no next shot to bridge to.`)
+  }
+
+  const nextShotStart = getPlannedShotKeyframe(nextShot, 'start')
+
+  if (!nextShotStart) {
+    throw new Error(
+      `Shot "${shotId}" cannot bridge because next shot "${nextShot.shotId}" has no planned start keyframe.`,
+    )
+  }
+
+  const nextShots = shots.map((entry) =>
+    entry.shotId === shotId
+      ? {
+          ...entry,
+          endFrameMode: 'bridge' as const,
+        }
+      : entry,
+  )
+
+  await writeShotPromptsFile(nextShots, cwd)
+
+  return getKeyframeArtifactDescriptor({ keyframeId, shotId })
+}
+
+async function unbridgeOmittedEndKeyframe(
+  keyframeId: string,
+  cwd: string,
+): Promise<ArtifactDescriptor> {
+  const shots = await loadShotPrompts(cwd)
+  const match = getShotByCanonicalKeyframeId(shots, keyframeId)
+
+  if (!match) {
+    throw new Error(`Keyframe "${keyframeId}" does not map to an existing shot.`)
+  }
+
+  const { shot, frameType, shotId } = match
+
+  if (frameType !== 'end') {
+    throw new Error(`Only bridged end keyframes can be unbridged.`)
+  }
+
+  if (shot.endFrameMode !== 'bridge') {
+    throw new Error(`Keyframe "${keyframeId}" is not currently using a bridge frame.`)
+  }
+
+  const nextShots = shots.map((entry) =>
+    entry.shotId === shotId
+      ? {
+          ...entry,
+          endFrameMode: undefined,
+        }
+      : entry,
+  )
+
+  await writeShotPromptsFile(nextShots, cwd)
+
+  return getKeyframeArtifactDescriptor({ keyframeId, shotId })
 }
 
 async function loadShotArtifactsOrEmpty(cwd: string) {
@@ -658,11 +880,34 @@ function renderTabs(activeTab: Tab) {
 function renderPage(
   activeTab: Tab,
   content: string,
-  options: { autoRefresh?: boolean; embedded?: boolean } = {},
+  options: {
+    autoRefresh?: boolean
+    embedded?: boolean
+    refreshParentDetailUrl?: string | null
+  } = {},
 ) {
   const refreshTag = options.autoRefresh ? '<meta http-equiv="refresh" content="2">' : ''
   const bodyClass = options.embedded ? 'page-embedded' : ''
   const boardClass = options.embedded ? 'board board-embedded' : 'board'
+  const refreshParentScript =
+    options.embedded && options.refreshParentDetailUrl
+      ? `
+    <script>
+      window.addEventListener('load', function () {
+        if (window.parent === window) {
+          return;
+        }
+
+        window.parent.postMessage(
+          {
+            type: 'artifact-review-refresh',
+            detailUrl: ${JSON.stringify(options.refreshParentDetailUrl)},
+          },
+          window.location.origin,
+        );
+      });
+    </script>`
+      : ''
 
   return `<!doctype html>
 <html lang="en">
@@ -1352,6 +1597,7 @@ function renderPage(
       ${options.embedded ? '' : renderTabs(activeTab)}
       ${content}
     </div>
+    ${refreshParentScript}
   </body>
 </html>`
 }
@@ -1462,7 +1708,7 @@ function renderVersionRailMedia(context: ArtifactDetailContext, item: VersionRai
   return `<img class="version-media" src="${item.mediaUrl}" alt="${escapeHtml(`${context.title} ${item.label}`)}" loading="lazy">`
 }
 
-function renderVersionRail(context: ArtifactDetailContext) {
+function renderVersionRail(context: ArtifactDetailContext, options: { embedded?: boolean } = {}) {
   const items = buildVersionRailItems(context)
 
   return `
@@ -1481,7 +1727,7 @@ function renderVersionRail(context: ArtifactDetailContext) {
             return `
               <a
                 class="${tileClass}"
-                href="${item.href}"
+                href="${getEmbeddedActionHref(item.href, options.embedded)}"
                 data-version-id="${escapeHtml(item.versionId)}"
               >
                 <div class="version-visual">
@@ -1610,7 +1856,10 @@ function renderJobBanner(job: ArtifactJobState | null) {
   `
 }
 
-function renderHistoricalVersionActions(context: ArtifactDetailContext) {
+function renderHistoricalVersionActions(
+  context: ArtifactDetailContext,
+  options: { embedded?: boolean } = {},
+) {
   const activeVersion = context.historyState.activeVersion
 
   if (!activeVersion || context.historyState.isViewingCurrent) {
@@ -1624,12 +1873,12 @@ function renderHistoricalVersionActions(context: ArtifactDetailContext) {
       <p class="section-title">Historical Version</p>
       <p class="form-note">You are viewing retained ${escapeHtml(activeVersion.versionId)} from ${escapeHtml(activeVersion.createdAt)}. Promote it to the public artifact, return to the current selection, or delete this retained version.</p>
       <div class="version-actions">
-        <form method="post" action="${getArtifactSelectActionPath(context.descriptor)}">
+        <form method="post" action="${getEmbeddedActionHref(getArtifactSelectActionPath(context.descriptor), options.embedded)}">
           <input type="hidden" name="versionId" value="${escapeHtml(activeVersion.versionId)}">
           <button class="button-primary" type="submit">Make current</button>
         </form>
-        <a class="button button-secondary" href="${getArtifactDetailPath(context.descriptor)}">Go to current</a>
-        <form method="post" action="${getArtifactDeleteActionPath(context.descriptor)}" onsubmit="return window.confirm(${escapeHtml(JSON.stringify(deleteMessage))})">
+        <a class="button button-secondary" href="${getEmbeddedActionHref(getArtifactDetailPath(context.descriptor), options.embedded)}">Go to current</a>
+        <form method="post" action="${getEmbeddedActionHref(getArtifactDeleteActionPath(context.descriptor), options.embedded)}" onsubmit="return window.confirm(${escapeHtml(JSON.stringify(deleteMessage))})">
           <input type="hidden" name="versionId" value="${escapeHtml(activeVersion.versionId)}">
           <button class="button-danger" type="submit">Delete</button>
         </form>
@@ -1638,13 +1887,17 @@ function renderHistoricalVersionActions(context: ArtifactDetailContext) {
   `
 }
 
-function renderEditComposer(context: ArtifactDetailContext) {
+function renderEditComposer(context: ArtifactDetailContext, options: { embedded?: boolean } = {}) {
+  if (!context.primaryAction) {
+    return ''
+  }
+
   if (context.primaryAction.kind === 'create-keyframe') {
     return `
       <section class="panel">
         <p class="section-title">Create Keyframe</p>
         <p class="form-note">Add this omitted anchor by writing a full fresh prompt. The prompt is saved to the new sidecar before generation starts.</p>
-        <form method="post" action="${context.primaryAction.actionUrl}">
+        <form method="post" action="${getEmbeddedActionHref(context.primaryAction.actionUrl, options.embedded)}">
           <textarea name="prompt" placeholder="Write the full prompt for this new keyframe." required></textarea>
           <div class="form-actions">
             <button class="button-primary" type="submit">Create keyframe</button>
@@ -1667,7 +1920,7 @@ function renderEditComposer(context: ArtifactDetailContext) {
   return `
     <section class="panel">
       <p class="section-title">Regenerate</p>
-      <form method="post" action="${context.primaryAction.actionUrl}">
+      <form method="post" action="${getEmbeddedActionHref(context.primaryAction.actionUrl, options.embedded)}">
         <input type="hidden" name="baseVersionId" value="${escapeHtml(context.historyState.activeVersionId ?? CURRENT_BASE_VERSION_ID)}">
         <textarea name="regenerateRequest" placeholder="Describe the precise change you want from the version you are viewing." ${requestRequired}></textarea>
         ${context.cameraControl ? renderCameraOverrideControls(context.cameraControl) : ''}
@@ -1679,21 +1932,27 @@ function renderEditComposer(context: ArtifactDetailContext) {
   `
 }
 
-function renderRemoveAction(context: ArtifactDetailContext) {
-  if (!context.removeAction) {
+function renderAnchorPlanningAction(
+  context: ArtifactDetailContext,
+  options: { embedded?: boolean } = {},
+) {
+  if (!context.anchorPlanningAction) {
     return ''
   }
+
+  const buttonClass =
+    context.anchorPlanningAction.buttonTone === 'danger' ? 'button-danger' : 'button-secondary'
 
   return `
     <section class="panel">
       <p class="section-title">Anchor Planning</p>
-      <p class="form-note">${escapeHtml(context.removeAction.helpText)}</p>
+      <p class="form-note">${escapeHtml(context.anchorPlanningAction.helpText)}</p>
       <form
         method="post"
-        action="${context.removeAction.actionUrl}"
-        ${context.removeAction.confirmMessage ? `onsubmit="return window.confirm(${escapeHtml(JSON.stringify(context.removeAction.confirmMessage))})"` : ''}
+        action="${getEmbeddedActionHref(context.anchorPlanningAction.actionUrl, options.embedded)}"
+        ${context.anchorPlanningAction.confirmMessage ? `onsubmit="return window.confirm(${escapeHtml(JSON.stringify(context.anchorPlanningAction.confirmMessage))})"` : ''}
       >
-        <button class="button-danger" type="submit" ${context.removeAction.enabled ? '' : 'disabled'}>Remove keyframe</button>
+        <button class="${buttonClass}" type="submit" ${context.anchorPlanningAction.enabled ? '' : 'disabled'}>${escapeHtml(context.anchorPlanningAction.buttonLabel)}</button>
       </form>
     </section>
   `
@@ -1702,11 +1961,11 @@ function renderRemoveAction(context: ArtifactDetailContext) {
 function renderDetailPage(
   context: ArtifactDetailContext,
   job: ArtifactJobState | null,
-  options: { embedded?: boolean } = {},
+  options: { embedded?: boolean; refreshParentDetailUrl?: string | null } = {},
 ) {
   const content = `
     <div class="stack">
-      ${renderVersionRail(context)}
+      ${renderVersionRail(context, options)}
       ${renderJobBanner(job)}
       <section class="detail-layout">
         <div class="detail-main">
@@ -1733,11 +1992,14 @@ function renderDetailPage(
         </div>
         <div class="detail-side">
           ${renderDetailSideNav(context, options)}
-          ${renderHistoricalVersionActions(context)}
-          ${renderEditComposer(context)}
-          ${renderRemoveAction(context)}
+          ${renderHistoricalVersionActions(context, options)}
+          ${renderEditComposer(context, options)}
+          ${renderAnchorPlanningAction(context, options)}
           ${renderReferenceEditor(
-            getArtifactReferencesActionPath(context.descriptor),
+            getEmbeddedActionHref(
+              getArtifactReferencesActionPath(context.descriptor),
+              options.embedded,
+            ),
             context.sourceReferences,
             context.canEditReferences,
             'Edit the source sidecar references as JSON. Use repo-relative paths, required kind, and optional label and notes fields.',
@@ -1751,6 +2013,7 @@ function renderDetailPage(
     renderPage(context.activeTab, content, {
       autoRefresh: job?.status === 'running',
       embedded: options.embedded,
+      refreshParentDetailUrl: options.refreshParentDetailUrl,
     }),
     {
       headers: HTML_HEADERS,
@@ -1876,6 +2139,14 @@ function getArtifactDeleteActionPath(descriptor: ArtifactDescriptor) {
 
 function getArtifactRemoveActionPath(descriptor: ArtifactDescriptor) {
   return `${getArtifactDetailPath(descriptor)}/remove`
+}
+
+function getArtifactBridgeActionPath(descriptor: ArtifactDescriptor) {
+  return `${getArtifactDetailPath(descriptor)}/bridge`
+}
+
+function getArtifactUnbridgeActionPath(descriptor: ArtifactDescriptor) {
+  return `${getArtifactDetailPath(descriptor)}/unbridge`
 }
 
 function getArtifactVersionMediaUrl(descriptor: ArtifactDescriptor, versionId: string) {
@@ -2265,7 +2536,7 @@ async function loadCharacterDetail(
       enabled: historyState.currentExists || historyState.activeVersionId !== null,
     },
     cameraControl: null,
-    removeAction: null,
+    anchorPlanningAction: null,
   } satisfies ArtifactDetailContext
 }
 
@@ -2294,7 +2565,19 @@ async function loadKeyframeDetail(
   })
   const activeVersionId = historyState.activeVersionId
   const shot = shots.find((entry) => entry.shotId === keyframe.shotId) ?? null
-  const canRemoveAnchor = (shot?.keyframeIds.length ?? 0) > 1
+  const bridgeSourceShot =
+    keyframe.frameType === 'start' ? getBridgeSourceShot(shots, keyframe.shotId) : null
+  const canRemoveAnchor = (shot?.keyframeIds.length ?? 0) > 1 && !bridgeSourceShot
+  const bridgeSourceEndKeyframeId = bridgeSourceShot
+    ? getCanonicalKeyframeId(bridgeSourceShot.shotId, 'end')
+    : null
+  const keyframePlanNotes = [
+    `<section class="panel"><p class="section-title">Keyframe Plan</p><p class="muted">Shot: ${escapeHtml(keyframe.shotId)}</p><p class="small">Frame type: ${escapeHtml(keyframe.frameType)}</p>`,
+    bridgeSourceShot
+      ? `<p class="small">Shared boundary: ${escapeHtml(bridgeSourceShot.shotId)} end reuses this start frame.</p>`
+      : '',
+    '</section>',
+  ].join('')
 
   return {
     descriptor,
@@ -2316,7 +2599,7 @@ async function loadKeyframeDetail(
     sourceModel: config?.imageModel ?? null,
     sourceStatus: artifact?.status ?? 'planned',
     historyState,
-    notesHtml: `<section class="panel"><p class="section-title">Keyframe Plan</p><p class="muted">Shot: ${escapeHtml(keyframe.shotId)}</p><p class="small">Frame type: ${escapeHtml(keyframe.frameType)}</p></section>`,
+    notesHtml: keyframePlanNotes,
     canEdit:
       (historyState.currentExists || historyState.activeVersionId !== null) &&
       artifact !== undefined,
@@ -2329,16 +2612,34 @@ async function loadKeyframeDetail(
         artifact !== undefined,
     },
     cameraControl: buildCameraOverrideControl('keyframe', artifact?.camera, cameraVocabulary),
-    removeAction: {
-      actionUrl: getArtifactRemoveActionPath(descriptor),
-      enabled: canRemoveAnchor,
-      helpText: canRemoveAnchor
-        ? `Remove this ${frameTypeLabel(keyframe.frameType).toLowerCase()} anchor and collapse the shot back to its remaining planned keyframe.`
-        : 'This is the only planned anchor for the shot, so it cannot be removed.',
-      confirmMessage: canRemoveAnchor
-        ? `Remove planned keyframe ${keyframe.keyframeId} and delete its sidecar, current image, and retained history?`
-        : undefined,
-    },
+    anchorPlanningAction:
+      bridgeSourceShot && bridgeSourceEndKeyframeId
+        ? {
+            kind: 'unbridge-keyframe',
+            actionUrl: getArtifactUnbridgeActionPath(
+              getKeyframeArtifactDescriptor({
+                keyframeId: bridgeSourceEndKeyframeId,
+                shotId: bridgeSourceShot.shotId,
+              }),
+            ),
+            enabled: true,
+            buttonLabel: 'Use distinct end frame',
+            buttonTone: 'secondary',
+            helpText: `${bridgeSourceShot.shotId} currently reuses this start frame as its ending bridge frame. Switch back to restore a normal two-head boundary.`,
+          }
+        : {
+            kind: 'remove-keyframe',
+            actionUrl: getArtifactRemoveActionPath(descriptor),
+            enabled: canRemoveAnchor,
+            buttonLabel: 'Remove keyframe',
+            buttonTone: 'danger',
+            helpText: canRemoveAnchor
+              ? `Remove this ${frameTypeLabel(keyframe.frameType).toLowerCase()} anchor and collapse the shot back to its remaining planned keyframe.`
+              : 'This is the only planned anchor for the shot, so it cannot be removed.',
+            confirmMessage: canRemoveAnchor
+              ? `Remove planned keyframe ${keyframe.keyframeId} and delete its sidecar, current image, and retained history?`
+              : undefined,
+          },
   } satisfies ArtifactDetailContext
 }
 
@@ -2357,6 +2658,12 @@ async function loadOmittedKeyframeDetail(
     return null
   }
 
+  const { nextShot } = getAdjacentShots(shots, match.shotId)
+  const nextShotStart = nextShot ? getPlannedShotKeyframe(nextShot, 'start') : null
+  const isBridgedEnd = match.frameType === 'end' && match.shot.endFrameMode === 'bridge'
+  const bridgeTargetLabel =
+    nextShotStart?.keyframeId ?? (nextShot ? `${nextShot.shotId} start` : null)
+
   const descriptor = getKeyframeArtifactDescriptor({
     keyframeId,
     shotId: match.shotId,
@@ -2369,30 +2676,60 @@ async function loadOmittedKeyframeDetail(
     descriptor,
     activeTab: 'timeline' as const,
     title: keyframeId,
-    subtitle:
-      'This anchor is currently omitted from the shot plan. Create it only when the shot needs a distinct extra start or end frame.',
+    subtitle: isBridgedEnd
+      ? `This boundary is currently bridged from ${bridgeTargetLabel ?? 'the next shot start frame'}. Switch back only when this shot needs its own distinct end frame.`
+      : 'This anchor is currently omitted from the shot plan. Create it only when the shot needs a distinct extra start or end frame.',
     summaryHref: '/timeline',
     summaryLabel: 'Back to timeline',
     mediaType: 'image' as const,
     mediaUrl: null,
     mediaExists: false,
-    mediaPlaceholder: `No ${match.frameType} keyframe planned`,
+    mediaPlaceholder: isBridgedEnd
+      ? `Bridge frame uses ${bridgeTargetLabel ?? 'next shot start'}`
+      : `No ${match.frameType} keyframe planned`,
     mediaPlaceholderVariant: 'omitted',
     sourceReferences: [],
     sourcePrompt: null,
     sourceModel: config?.imageModel ?? null,
-    sourceStatus: 'omitted',
+    sourceStatus: isBridgedEnd ? 'bridged' : 'omitted',
     historyState,
-    notesHtml: `<section class="panel"><p class="section-title">Keyframe Plan</p><p class="muted">Shot: ${escapeHtml(match.shotId)}</p><p class="small">Frame type: ${escapeHtml(match.frameType)}</p><p class="small">Current planned anchors: ${escapeHtml(match.shot.keyframeIds.join(' -> '))}</p></section>`,
+    notesHtml: [
+      `<section class="panel"><p class="section-title">Keyframe Plan</p><p class="muted">Shot: ${escapeHtml(match.shotId)}</p><p class="small">Frame type: ${escapeHtml(match.frameType)}</p><p class="small">Current planned anchors: ${escapeHtml(match.shot.keyframeIds.join(' -> '))}</p>`,
+      isBridgedEnd && bridgeTargetLabel
+        ? `<p class="small">Bridge source: ${escapeHtml(bridgeTargetLabel)}</p>`
+        : '',
+      '</section>',
+    ].join(''),
     canEdit: false,
     canEditReferences: false,
-    primaryAction: {
-      kind: 'create-keyframe',
-      actionUrl: getArtifactCreateActionPath(descriptor),
-      enabled: true,
-    },
+    primaryAction: isBridgedEnd
+      ? null
+      : {
+          kind: 'create-keyframe',
+          actionUrl: getArtifactCreateActionPath(descriptor),
+          enabled: true,
+        },
     cameraControl: null,
-    removeAction: null,
+    anchorPlanningAction:
+      match.frameType === 'end' && isBridgedEnd
+        ? {
+            kind: 'unbridge-keyframe',
+            actionUrl: getArtifactUnbridgeActionPath(descriptor),
+            enabled: true,
+            buttonLabel: 'Use distinct end frame',
+            buttonTone: 'secondary',
+            helpText: `This boundary currently reuses ${bridgeTargetLabel ?? 'the next shot start frame'} as a single shared bridge frame. Switch back to restore a normal two-head boundary.`,
+          }
+        : match.frameType === 'end' && nextShotStart
+          ? {
+              kind: 'bridge-keyframe',
+              actionUrl: getArtifactBridgeActionPath(descriptor),
+              enabled: true,
+              buttonLabel: 'Make bridge frame',
+              buttonTone: 'secondary',
+              helpText: `Reuse ${nextShotStart.keyframeId} as this shot's ending bridge frame. The boundary pointer will collapse to a single shared head.`,
+            }
+          : null,
   } satisfies ArtifactDetailContext
 }
 
@@ -2415,6 +2752,10 @@ async function loadShotDetail(shotId: string, cwd: string, requestedVersionId?: 
     activeVersionId: requestedVersionId,
   })
   const activeVersionId = historyState.activeVersionId
+  const { nextShot } = getAdjacentShots(shots, shotId)
+  const incomingBridgeSource = getBridgeSourceShot(shots, shotId)
+  const outgoingBridgeTarget =
+    shot.endFrameMode === 'bridge' && nextShot ? getPlannedShotKeyframe(nextShot, 'start') : null
 
   return {
     descriptor,
@@ -2436,7 +2777,16 @@ async function loadShotDetail(shotId: string, cwd: string, requestedVersionId?: 
     sourceModel: config?.videoModel ?? null,
     sourceStatus: artifact?.status ?? shot.status,
     historyState,
-    notesHtml: `<section class="panel"><p class="section-title">Shot Plan</p><p class="muted">Anchors: ${escapeHtml(shot.keyframeIds.join(' -> '))}</p><p class="small">Duration: ${escapeHtml(formatDurationSeconds(shot.durationSeconds))}</p></section>`,
+    notesHtml: [
+      `<section class="panel"><p class="section-title">Shot Plan</p><p class="muted">Anchors: ${escapeHtml(shot.keyframeIds.join(' -> '))}</p><p class="small">Duration: ${escapeHtml(formatDurationSeconds(shot.durationSeconds))}</p>`,
+      incomingBridgeSource
+        ? `<p class="small">Incoming bridge: ${escapeHtml(incomingBridgeSource.shotId)} end reuses this shot's start frame.</p>`
+        : '',
+      outgoingBridgeTarget
+        ? `<p class="small">Outgoing bridge: this shot reuses ${escapeHtml(outgoingBridgeTarget.keyframeId)} as its ending bridge frame.</p>`
+        : '',
+      '</section>',
+    ].join(''),
     canEdit:
       (historyState.currentExists || historyState.activeVersionId !== null) &&
       artifact !== undefined,
@@ -2449,7 +2799,7 @@ async function loadShotDetail(shotId: string, cwd: string, requestedVersionId?: 
         artifact !== undefined,
     },
     cameraControl: buildCameraOverrideControl('shot', artifact?.camera, cameraVocabulary),
-    removeAction: null,
+    anchorPlanningAction: null,
   } satisfies ArtifactDetailContext
 }
 
@@ -2494,7 +2844,7 @@ async function loadStoryboardDetail(cwd: string, requestedVersionId?: string | n
       enabled: historyState.currentExists || historyState.activeVersionId !== null,
     },
     cameraControl: null,
-    removeAction: null,
+    anchorPlanningAction: null,
   } satisfies ArtifactDetailContext
 }
 
@@ -2879,7 +3229,11 @@ async function handleReferenceSave(pathname: string, request: Request, cwd: stri
   const references = parseReferenceEditorInput(referencesJson)
 
   await writeArtifactSidecarReferences(detail.descriptor, references, cwd)
-  return redirectTo(getArtifactDetailPath(detail.descriptor))
+  return redirectTo(
+    buildPostActionRedirectLocation(getArtifactDetailPath(detail.descriptor), request, {
+      updated: true,
+    }),
+  )
 }
 
 async function handleRegenerate(
@@ -2951,7 +3305,11 @@ async function handleRegenerate(
     }
   })
 
-  return redirectTo(getArtifactDetailPath(detail.descriptor))
+  return redirectTo(
+    buildPostActionRedirectLocation(getArtifactDetailPath(detail.descriptor), request, {
+      updated: true,
+    }),
+  )
 }
 
 async function handleCreate(
@@ -2967,7 +3325,7 @@ async function handleCreate(
     return renderErrorPage('timeline', 'Missing Keyframe', 'Keyframe not found.', '/timeline')
   }
 
-  if (detail.primaryAction.kind !== 'create-keyframe') {
+  if (detail.primaryAction?.kind !== 'create-keyframe') {
     throw new Error(`Keyframe "${detail.descriptor.artifactId}" is already planned.`)
   }
 
@@ -3002,7 +3360,11 @@ async function handleCreate(
     }
   })
 
-  return redirectTo(getArtifactDetailPath(descriptor))
+  return redirectTo(
+    buildPostActionRedirectLocation(getArtifactDetailPath(descriptor), request, {
+      updated: true,
+    }),
+  )
 }
 
 async function handleSelect(pathname: string, request: Request, cwd: string) {
@@ -3020,7 +3382,11 @@ async function handleSelect(pathname: string, request: Request, cwd: string) {
   }
 
   await promoteArtifactVersion(detail.descriptor, versionId, cwd)
-  return redirectTo(getArtifactDetailPath(detail.descriptor))
+  return redirectTo(
+    buildPostActionRedirectLocation(getArtifactDetailPath(detail.descriptor), request, {
+      updated: true,
+    }),
+  )
 }
 
 async function handleDelete(pathname: string, request: Request, cwd: string) {
@@ -3038,10 +3404,14 @@ async function handleDelete(pathname: string, request: Request, cwd: string) {
   }
 
   await deleteArtifactVersion(detail.descriptor, versionId, cwd)
-  return redirectTo(getArtifactDetailPath(detail.descriptor))
+  return redirectTo(
+    buildPostActionRedirectLocation(getArtifactDetailPath(detail.descriptor), request, {
+      updated: true,
+    }),
+  )
 }
 
-async function handleRemove(pathname: string, cwd: string) {
+async function handleRemove(pathname: string, request: Request, cwd: string) {
   const detail = await getDetailContext(pathname, cwd)
 
   if (!detail) {
@@ -3049,7 +3419,47 @@ async function handleRemove(pathname: string, cwd: string) {
   }
 
   const descriptor = await removePlannedKeyframe(detail.descriptor.artifactId, cwd)
-  return redirectTo(getArtifactDetailPath(descriptor))
+  return redirectTo(
+    buildPostActionRedirectLocation(getArtifactDetailPath(descriptor), request, {
+      updated: true,
+    }),
+  )
+}
+
+async function handleBridge(pathname: string, request: Request, cwd: string) {
+  const detail = await getDetailContext(pathname, cwd)
+
+  if (!detail) {
+    return renderErrorPage('timeline', 'Missing Keyframe', 'Keyframe not found.', '/timeline')
+  }
+
+  const descriptor = await bridgeOmittedEndKeyframe(detail.descriptor.artifactId, cwd)
+  const shots = await loadShotPromptsOrEmpty(cwd)
+  const sharedStartKeyframeId = getBridgedEndSharedStartKeyframeId(shots, descriptor.artifactId)
+  const location = sharedStartKeyframeId
+    ? `/keyframes/${encodeURIComponent(sharedStartKeyframeId)}`
+    : getArtifactDetailPath(descriptor)
+
+  return redirectTo(
+    buildPostActionRedirectLocation(location, request, {
+      updated: true,
+    }),
+  )
+}
+
+async function handleUnbridge(pathname: string, request: Request, cwd: string) {
+  const detail = await getDetailContext(pathname, cwd)
+
+  if (!detail) {
+    return renderErrorPage('timeline', 'Missing Keyframe', 'Keyframe not found.', '/timeline')
+  }
+
+  const descriptor = await unbridgeOmittedEndKeyframe(detail.descriptor.artifactId, cwd)
+  return redirectTo(
+    buildPostActionRedirectLocation(getArtifactDetailPath(descriptor), request, {
+      updated: true,
+    }),
+  )
 }
 
 async function handleTimelineUpdate(request: Request, cwd: string) {
@@ -3206,6 +3616,7 @@ export function startArtifactReviewServer(
 
             return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor), {
               embedded: isEmbedded,
+              refreshParentDetailUrl: getEmbeddedRefreshDetailUrl(url),
             })
           }
 
@@ -3225,6 +3636,7 @@ export function startArtifactReviewServer(
 
             return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor), {
               embedded: isEmbedded,
+              refreshParentDetailUrl: getEmbeddedRefreshDetailUrl(url),
             })
           }
 
@@ -3232,6 +3644,23 @@ export function startArtifactReviewServer(
             (request.method === 'GET' || request.method === 'HEAD') &&
             /^\/keyframes\/[^/]+$/.test(url.pathname)
           ) {
+            const shots = await loadShotPromptsOrEmpty(cwd)
+            const sharedStartKeyframeId = getBridgedEndSharedStartKeyframeId(
+              shots,
+              decodeURIComponent(url.pathname.split('/')[2]!),
+            )
+
+            if (sharedStartKeyframeId) {
+              return redirectTo(
+                appendSearchParams(`/keyframes/${encodeURIComponent(sharedStartKeyframeId)}`, {
+                  embed: isEmbedded,
+                  version: url.searchParams.get('version'),
+                  updated: url.searchParams.get('updated'),
+                }),
+                302,
+              )
+            }
+
             const detail = await getDetailContext(
               url.pathname,
               cwd,
@@ -3249,6 +3678,7 @@ export function startArtifactReviewServer(
 
             return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor), {
               embedded: isEmbedded,
+              refreshParentDetailUrl: getEmbeddedRefreshDetailUrl(url),
             })
           }
 
@@ -3268,6 +3698,7 @@ export function startArtifactReviewServer(
 
             return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor), {
               embedded: isEmbedded,
+              refreshParentDetailUrl: getEmbeddedRefreshDetailUrl(url),
             })
           }
 
@@ -3365,6 +3796,14 @@ export function startArtifactReviewServer(
             )
           }
 
+          if (request.method === 'POST' && /\/bridge$/.test(url.pathname)) {
+            return await handleBridge(url.pathname.replace(/\/bridge$/, ''), request, cwd)
+          }
+
+          if (request.method === 'POST' && /\/unbridge$/.test(url.pathname)) {
+            return await handleUnbridge(url.pathname.replace(/\/unbridge$/, ''), request, cwd)
+          }
+
           if (request.method === 'POST' && /\/select$/.test(url.pathname)) {
             return await handleSelect(url.pathname.replace(/\/select$/, ''), request, cwd)
           }
@@ -3374,7 +3813,7 @@ export function startArtifactReviewServer(
           }
 
           if (request.method === 'POST' && /\/remove$/.test(url.pathname)) {
-            return await handleRemove(url.pathname.replace(/\/remove$/, ''), cwd)
+            return await handleRemove(url.pathname.replace(/\/remove$/, ''), request, cwd)
           }
 
           if (

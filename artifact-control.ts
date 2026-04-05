@@ -588,7 +588,9 @@ export function resolveKeyframeRegenerationReferences(
 }
 
 function getShotAnchorKeyframes(
-  generation: Pick<ShotEntry, 'shotId' | 'keyframeIds'>,
+  generation: Pick<ShotEntry, 'shotId' | 'keyframeIds'> & {
+    bridgeToNextStartKeyframeId?: string | null
+  },
   keyframes: KeyframeEntry[],
 ) {
   const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
@@ -621,6 +623,43 @@ function getShotAnchorKeyframes(
     throw new Error(`Shot "${generation.shotId}" must only reference same-shot keyframes.`)
   }
 
+  const start = anchors.find((anchor) => anchor.frameType === 'start')
+  const end = anchors.find((anchor) => anchor.frameType === 'end')
+
+  if (generation.bridgeToNextStartKeyframeId) {
+    const bridgeAnchor = keyframeById.get(generation.bridgeToNextStartKeyframeId)
+
+    if (!bridgeAnchor) {
+      throw new Error(
+        `Shot "${generation.shotId}" cannot bridge because next shot start keyframe "${generation.bridgeToNextStartKeyframeId}" is missing from workspace/SHOTS.json.`,
+      )
+    }
+
+    if (bridgeAnchor.frameType !== 'start' || bridgeAnchor.shotId === generation.shotId) {
+      throw new Error(
+        `Shot "${generation.shotId}" must bridge to the next shot's planned "start" keyframe.`,
+      )
+    }
+
+    if (!start) {
+      throw new Error(
+        `Shot "${generation.shotId}" must keep a local "start" keyframe when using a bridge frame.`,
+      )
+    }
+
+    if (end) {
+      throw new Error(
+        `Shot "${generation.shotId}" cannot use a bridge frame while also planning a distinct "end" keyframe.`,
+      )
+    }
+
+    return {
+      inputAnchor: start,
+      end: bridgeAnchor,
+      anchors: [...anchors, bridgeAnchor],
+    }
+  }
+
   if (anchors.length === 1) {
     if (anchors[0]?.frameType !== 'start' && anchors[0]?.frameType !== 'end') {
       throw new Error(
@@ -639,9 +678,6 @@ function getShotAnchorKeyframes(
     throw new Error(`Shot "${generation.shotId}" must not reference more than two keyframes.`)
   }
 
-  const start = anchors.find((anchor) => anchor.frameType === 'start')
-  const end = anchors.find((anchor) => anchor.frameType === 'end')
-
   if (!start || !end) {
     throw new Error(
       `Shot "${generation.shotId}" must reference one "start" and one "end" keyframe.`,
@@ -656,13 +692,16 @@ function getShotAnchorKeyframes(
 }
 
 export function resolveShotGenerationAssets(
-  generation: Pick<ShotEntry, 'shotId' | 'keyframeIds'>,
+  generation: Pick<ShotEntry, 'shotId' | 'keyframeIds'> & {
+    bridgeToNextStartKeyframeId?: string | null
+  },
   keyframes: KeyframeEntry[],
   options: {
     userReferences?: readonly ArtifactReferenceEntry[]
   } = {},
 ): ResolvedShotGenerationAssets {
   const { inputAnchor, end } = getShotAnchorKeyframes(generation, keyframes)
+  const usesBridgeFrame = !!generation.bridgeToNextStartKeyframeId
   const explicitUserReferences = createUserReferences(options.userReferences)
   const characterIds = explicitUserReferences
     .filter((reference) => reference.kind === 'character-sheet')
@@ -680,7 +719,9 @@ export function resolveShotGenerationAssets(
     ...(end
       ? [
           createSystemReference('end-frame', end.imagePath, {
-            label: `End frame (${generation.shotId})`,
+            label: usesBridgeFrame
+              ? `Bridge frame (${end.shotId})`
+              : `End frame (${generation.shotId})`,
           }),
         ]
       : []),

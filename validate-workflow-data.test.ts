@@ -622,3 +622,84 @@ test('validate-workflow-data still validates FINAL-CUT.json shot mappings before
     await rm(rootDir, { recursive: true, force: true })
   }
 })
+
+test('validate-workflow-data accepts bridge endFrameMode when the next shot has a planned start', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
+
+  try {
+    await writeValidationBaseFiles(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            endFrameMode: 'bridge',
+            durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+          {
+            shotId: 'SHOT-02',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-02.mp4',
+            durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-02-START']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = runValidation(rootDir)
+
+    expect(result.exitCode).toBe(0)
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('validate-workflow-data rejects bridge endFrameMode when the next shot has no planned start', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
+
+  try {
+    await writeValidationBaseFiles(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            endFrameMode: 'bridge',
+            durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+          {
+            shotId: 'SHOT-02',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-02.mp4',
+            durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-02-END']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = runValidation(rootDir)
+
+    expect(result.exitCode).toBe(1)
+    expect(new TextDecoder().decode(result.stderr)).toContain(
+      'Shot "SHOT-01" cannot use endFrameMode "bridge" because next shot "SHOT-02" has no planned "start" keyframe.',
+    )
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})

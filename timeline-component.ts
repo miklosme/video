@@ -512,6 +512,7 @@ export function renderTimelineContent(
   var didDrag = false;
   var lastSyncedPayload = null;
   var saveToken = 0;
+  var selectionStorageKey = 'artifact-review.timeline.selection';
 
   var layer = document.getElementById('tl-layer');
   var ruler = document.getElementById('tl-ruler');
@@ -599,6 +600,30 @@ export function renderTimelineContent(
       shotId: shotId,
       detailUrl: section.detailUrl,
     };
+  }
+
+  function findSelectionByDetailUrl(detailUrl) {
+    if (!detailUrl) return null;
+
+    for (var i = 0; i < pointers.length; i++) {
+      var pointer = pointers[i];
+
+      if (pointer.left && pointer.left.detailUrl === detailUrl) {
+        return buildPointerSelection(pointer.id, 'left');
+      }
+
+      if (pointer.right && pointer.right.detailUrl === detailUrl) {
+        return buildPointerSelection(pointer.id, 'right');
+      }
+    }
+
+    for (var j = 0; j < sections.length; j++) {
+      if (sections[j].detailUrl === detailUrl) {
+        return buildSectionSelection(sections[j].shotId);
+      }
+    }
+
+    return null;
   }
 
   function computeTimelinePayload() {
@@ -936,7 +961,38 @@ export function renderTimelineContent(
     window.setTimeout(resizeDetailFrame, 300);
   });
 
+  window.addEventListener('message', function (event) {
+    var data = event.data;
+
+    if (
+      event.origin !== window.location.origin ||
+      !data ||
+      data.type !== 'artifact-review-refresh' ||
+      !data.detailUrl
+    ) {
+      return;
+    }
+
+    try {
+      window.sessionStorage.setItem(selectionStorageKey, String(data.detailUrl));
+    } catch (_error) {
+      // Ignore storage failures and fall back to a plain reload.
+    }
+
+    window.location.reload();
+  });
+
   lastSyncedPayload = serializePayload(computeTimelinePayload());
+  try {
+    var restoredDetailUrl = window.sessionStorage.getItem(selectionStorageKey);
+
+    if (restoredDetailUrl) {
+      selected = findSelectionByDetailUrl(restoredDetailUrl);
+      window.sessionStorage.removeItem(selectionStorageKey);
+    }
+  } catch (_error) {
+    // Ignore storage failures and start unselected.
+  }
   render();
   refreshDetail(false);
 })();

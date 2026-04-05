@@ -64,6 +64,67 @@ test('renderTimelineContent keeps the current selection when clicking outside th
   )
 })
 
+test('renderTimelineContent restores iframe selection after an embedded detail refresh', () => {
+  const html = renderTimelineContent({
+    pointers: [
+      {
+        id: 'pointer-0',
+        position: 0,
+        canDrag: false,
+        left: null,
+        right: {
+          keyframeId: 'SHOT-01-START',
+          detailUrl: '/keyframes/SHOT-01-START?embed=1',
+          omitted: false,
+        },
+      },
+      {
+        id: 'pointer-1',
+        position: 6,
+        canDrag: true,
+        left: null,
+        right: {
+          keyframeId: 'SHOT-02-START',
+          detailUrl: '/keyframes/SHOT-02-START?embed=1',
+          omitted: false,
+        },
+      },
+      {
+        id: 'pointer-2',
+        position: 12,
+        canDrag: false,
+        left: {
+          keyframeId: 'SHOT-02-END',
+          detailUrl: '/keyframes/SHOT-02-END?embed=1',
+          omitted: false,
+        },
+        right: null,
+      },
+    ],
+    sections: [
+      {
+        shotId: 'SHOT-01',
+        detailUrl: '/shots/SHOT-01?embed=1',
+      },
+      {
+        shotId: 'SHOT-02',
+        detailUrl: '/shots/SHOT-02?embed=1',
+      },
+    ],
+    keyframeGroups: [],
+    saveUrl: '/timeline/save',
+  })
+
+  expect(html).toContain("var selectionStorageKey = 'artifact-review.timeline.selection';")
+  expect(html).toContain("window.addEventListener('message', function (event) {")
+  expect(html).toContain("data.type !== 'artifact-review-refresh'")
+  expect(html).toContain(
+    'window.sessionStorage.setItem(selectionStorageKey, String(data.detailUrl));',
+  )
+  expect(html).toContain('findSelectionByDetailUrl(restoredDetailUrl);')
+  expect(html).toContain('window.location.reload();')
+})
+
 test('renderTimelineContent renders grouped keyframe thumbnails and wires them to pointer selection', () => {
   const html = renderTimelineContent({
     pointers: [
