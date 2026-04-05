@@ -20,9 +20,9 @@ export const SHOT_CAMERA_FIELDS = [
 ] as const satisfies readonly CameraFieldKey[]
 
 export const CAMERA_FIELD_LABELS: Record<CameraFieldKey, string> = {
-  shotSize: 'Shot Size',
-  cameraPosition: 'Camera Position',
-  cameraAngle: 'Camera Angle',
+  shotSize: 'Size',
+  cameraPosition: 'Position',
+  cameraAngle: 'Angle',
   cameraMovement: 'Camera Movement',
 }
 

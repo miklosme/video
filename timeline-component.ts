@@ -441,11 +441,6 @@ export function renderTimelineContent(
   }
 
   .tl-detail {
-    border: 1px solid var(--line);
-    border-radius: 18px;
-    background:
-      linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01)),
-      var(--panel);
     overflow: hidden;
   }
   .tl-detail-empty {
