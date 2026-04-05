@@ -193,9 +193,20 @@ interface CameraOverrideField {
 
 interface CameraOverrideControl {
   artifactType: 'keyframe' | 'shot'
-  currentSummary: string
   fields: CameraOverrideField[]
 }
+
+const KEYFRAME_SIDECAR_FIELD_ORDER = [
+  'keyframeId',
+  'shotId',
+  'frameType',
+  'camera',
+  'prompt',
+  'status',
+  'references',
+] as const
+
+const SHOT_SIDECAR_FIELD_ORDER = ['shotId', 'camera', 'prompt', 'status', 'references'] as const
 
 export interface ArtifactReviewServer {
   port: number
@@ -1268,31 +1279,23 @@ function renderPage(
       }
 
       .form-field {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
+        display: grid;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 12px;
       }
 
       .field-label {
         font-size: 12px;
         font-weight: 700;
         color: var(--text);
+        white-space: nowrap;
       }
 
       .camera-override-shell {
         display: flex;
         flex-direction: column;
         gap: 12px;
-      }
-
-      .camera-current-plan {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-        padding: 12px;
-        border-radius: 14px;
-        border: 1px solid rgba(255,255,255,0.05);
-        background: rgba(255,255,255,0.02);
       }
 
       .job-banner {
@@ -1548,6 +1551,22 @@ function renderReferenceEditor(
 }
 
 function renderArtifactMeta(context: ArtifactDetailContext) {
+  if (context.cameraControl) {
+    return `
+      <section class="artifact-meta-bar">
+        <p class="section-title">Current Camera Plan</p>
+        <div class="pill-row">
+          ${context.cameraControl.fields
+            .map(
+              (field) =>
+                `<span class="pill">${escapeHtml(field.label)}: ${escapeHtml(field.currentLabel)}</span>`,
+            )
+            .join('')}
+        </div>
+      </section>
+    `
+  }
+
   return `
     <section class="artifact-meta-bar">
       <p class="muted">${escapeHtml(context.subtitle)}</p>
@@ -1645,16 +1664,11 @@ function renderEditComposer(context: ArtifactDetailContext) {
   }
 
   const requestRequired = context.cameraControl ? '' : 'required'
-  const requestHelpText = context.cameraControl
-    ? 'Describe the precise change you want from the version you are viewing, or leave the note blank and use camera overrides only.'
-    : 'Describe the precise change you want from the version you are viewing.'
-
   return `
     <section class="panel">
       <p class="section-title">Regenerate</p>
       <form method="post" action="${context.primaryAction.actionUrl}">
         <input type="hidden" name="baseVersionId" value="${escapeHtml(context.historyState.activeVersionId ?? CURRENT_BASE_VERSION_ID)}">
-        <p class="form-note">${escapeHtml(requestHelpText)}</p>
         <textarea name="regenerateRequest" placeholder="Describe the precise change you want from the version you are viewing." ${requestRequired}></textarea>
         ${context.cameraControl ? renderCameraOverrideControls(context.cameraControl) : ''}
         <div class="form-actions">
@@ -1944,7 +1958,6 @@ function buildCameraOverrideControl(
 
     return {
       artifactType,
-      currentSummary: fields.map((field) => field.currentLabel).join(' / '),
       fields,
     }
   }
@@ -1959,7 +1972,6 @@ function buildCameraOverrideControl(
 
   return {
     artifactType,
-    currentSummary: fields.map((field) => field.currentLabel).join(' / '),
     fields,
   }
 }
@@ -1968,18 +1980,6 @@ function renderCameraOverrideControls(cameraControl: CameraOverrideControl) {
   return `
     <div class="camera-override-shell">
       <p class="section-title">Camera Overrides</p>
-      <p class="form-note">Leave selectors on "Keep current" to preserve the existing camera plan. Change only the fields you want to override for this regeneration.</p>
-      <div class="camera-current-plan">
-        <p class="small">Current camera plan: ${escapeHtml(cameraControl.currentSummary)}</p>
-        <div class="pill-row">
-          ${cameraControl.fields
-            .map(
-              (field) =>
-                `<span class="pill">${escapeHtml(field.label)}: ${escapeHtml(field.currentLabel)}</span>`,
-            )
-            .join('')}
-        </div>
-      </div>
       <div class="form-grid">
         ${cameraControl.fields
           .map(
@@ -1995,10 +1995,6 @@ function renderCameraOverrideControls(cameraControl: CameraOverrideControl) {
                     )
                     .join('')}
                 </select>
-                <span class="small">${escapeHtml(
-                  field.options.find((option) => option.value === field.currentValue)
-                    ?.description ?? '',
-                )}</span>
               </label>
             `,
           )
@@ -2033,6 +2029,52 @@ function parseCameraOverrideInput(
   }
 
   return Object.keys(overrides).length > 0 ? overrides : null
+}
+
+function getCurrentKeyframeCameraFromControl(cameraControl: CameraOverrideControl | null) {
+  return resolveKeyframeCameraSpec({
+    shotSize: cameraControl?.fields.find((field) => field.field === 'shotSize')?.currentValue,
+    cameraPosition: cameraControl?.fields.find((field) => field.field === 'cameraPosition')
+      ?.currentValue,
+    cameraAngle: cameraControl?.fields.find((field) => field.field === 'cameraAngle')?.currentValue,
+  })
+}
+
+function getCurrentShotCameraFromControl(cameraControl: CameraOverrideControl | null) {
+  return resolveShotCameraSpec({
+    shotSize: cameraControl?.fields.find((field) => field.field === 'shotSize')?.currentValue,
+    cameraPosition: cameraControl?.fields.find((field) => field.field === 'cameraPosition')
+      ?.currentValue,
+    cameraAngle: cameraControl?.fields.find((field) => field.field === 'cameraAngle')?.currentValue,
+    cameraMovement: cameraControl?.fields.find((field) => field.field === 'cameraMovement')
+      ?.currentValue,
+  })
+}
+
+function orderSidecarFields(
+  existing: Record<string, unknown>,
+  orderedKeys: readonly string[],
+  overrides: Record<string, unknown>,
+) {
+  const next = {
+    ...existing,
+    ...overrides,
+  }
+  const ordered: Record<string, unknown> = {}
+
+  for (const key of orderedKeys) {
+    if (next[key] !== undefined) {
+      ordered[key] = next[key]
+    }
+  }
+
+  for (const [key, value] of Object.entries(next)) {
+    if (!(key in ordered)) {
+      ordered[key] = value
+    }
+  }
+
+  return ordered
 }
 
 function resolveEffectiveKeyframeCamera(
@@ -2119,6 +2161,39 @@ async function writeArtifactSidecarReferences(
   }
 
   await writeFile(sidecarAbsolutePath, `${JSON.stringify(existing, null, 2)}\n`, 'utf8')
+}
+
+async function writeArtifactSidecarCamera(
+  descriptor: ArtifactDescriptor,
+  camera: KeyframeCameraSpec | ShotCameraSpec,
+  cwd: string,
+) {
+  if (!descriptor.sidecarPath) {
+    throw new Error(`${descriptor.displayName} does not expose a writable sidecar.`)
+  }
+
+  if (descriptor.artifactType !== 'keyframe' && descriptor.artifactType !== 'shot') {
+    throw new Error(`${descriptor.displayName} does not support camera settings.`)
+  }
+
+  const sidecarAbsolutePath = resolveRepoPath(descriptor.sidecarPath, cwd)
+  const raw = await readFile(sidecarAbsolutePath, 'utf8').catch(() => null)
+
+  if (raw === null) {
+    throw new Error(`${descriptor.displayName} is missing its source sidecar.`)
+  }
+
+  const existing = JSON.parse(raw) as Record<string, unknown>
+  const ordered =
+    descriptor.artifactType === 'keyframe'
+      ? orderSidecarFields(existing, KEYFRAME_SIDECAR_FIELD_ORDER, {
+          camera: resolveKeyframeCameraSpec(camera as KeyframeCameraSpec),
+        })
+      : orderSidecarFields(existing, SHOT_SIDECAR_FIELD_ORDER, {
+          camera: resolveShotCameraSpec(camera as ShotCameraSpec),
+        })
+
+  await writeFile(sidecarAbsolutePath, `${JSON.stringify(ordered, null, 2)}\n`, 'utf8')
 }
 
 async function buildCharacterCards(cwd: string) {
@@ -2826,6 +2901,34 @@ async function handleRegenerate(
   }
 
   await assertBaseVersionExists(detail.descriptor, cwd, baseVersionId)
+
+  const currentJob = getJobState(jobs, detail.descriptor)
+
+  if (currentJob?.status === 'running') {
+    throw new Error(`${detail.descriptor.displayName} already has an active generation job.`)
+  }
+
+  if (cameraOverrides && detail.descriptor.artifactType === 'keyframe') {
+    await writeArtifactSidecarCamera(
+      detail.descriptor,
+      resolveEffectiveKeyframeCamera(
+        getCurrentKeyframeCameraFromControl(detail.cameraControl),
+        cameraOverrides,
+      ),
+      cwd,
+    )
+  }
+
+  if (cameraOverrides && detail.descriptor.artifactType === 'shot') {
+    await writeArtifactSidecarCamera(
+      detail.descriptor,
+      resolveEffectiveShotCamera(
+        getCurrentShotCameraFromControl(detail.cameraControl),
+        cameraOverrides,
+      ),
+      cwd,
+    )
+  }
 
   startArtifactJob(jobs, detail.descriptor, async () => {
     const result = await runApprovedRegenerateAction(
