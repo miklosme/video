@@ -333,6 +333,12 @@ test('loadWorkflowSummary distinguishes keyframe preparation from keyframe revie
           frameType: 'start',
           prompt: 'A calm opening frame.',
           status: 'planned',
+          references: [
+            {
+              kind: 'storyboard',
+              path: 'workspace/STORYBOARD.png',
+            },
+          ],
         },
         null,
         2,
@@ -346,6 +352,77 @@ test('loadWorkflowSummary distinguishes keyframe preparation from keyframe revie
     expect(workflow.status[1]).toMatchObject({ checked: true, state: 'ready' })
     expect(workflow.status[2]).toMatchObject({ checked: false, state: 'incomplete' })
     expect(workflow.nextMilestone).toMatchObject({ title: 'Review keyframes' })
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('loadWorkflowSummary keeps keyframe preparation incomplete when sidecar references are missing', async () => {
+  const repo = await createTestRepo()
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/CONFIG.json', createValidConfig())
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/STATUS.json',
+      createWorkflowStatus([
+        {
+          title: 'Plan keyframes',
+          instruction: 'Plan the keyframes.',
+          checked: false,
+          relatedFiles: ['SHOTS.json'],
+        },
+        {
+          title: 'Prepare keyframes',
+          instruction: 'Write the sidecars.',
+          checked: false,
+          relatedFiles: ['SHOTS.json', 'KEYFRAMES/'],
+        },
+      ]),
+    )
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      repo.rootDir,
+      'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.json',
+      `${JSON.stringify(
+        {
+          keyframeId: 'SHOT-01-START',
+          shotId: 'SHOT-01',
+          frameType: 'start',
+          prompt: 'A calm opening frame.',
+          status: 'planned',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const runtime = createVideoAgentRuntime({ rootDir: repo.rootDir, creativePrompt: 'test' })
+    const workflow = await runtime.loadWorkflowSummary()
+
+    expect(workflow.status[0]).toMatchObject({ checked: true, state: 'ready' })
+    expect(workflow.status[1]).toMatchObject({ checked: false, state: 'incomplete' })
+    expect(workflow.nextMilestone).toMatchObject({ title: 'Prepare keyframes' })
   } finally {
     await repo.cleanup()
   }
@@ -1112,6 +1189,9 @@ test('runTurn emits callbacks in the expected order', async () => {
           )
           expect(String(messages[0]?.content)).toContain(
             'A grounded concept with enough detail to count as ready.',
+          )
+          expect(String(messages[0]?.content)).toContain(
+            'Keyframe sidecars must always include explicit references.',
           )
           expect(String(messages[0]?.content)).toContain('"relatedFiles": [')
           expect(String(messages[0]?.content)).toContain('"IDEA.md"')

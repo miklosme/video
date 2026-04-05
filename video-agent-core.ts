@@ -498,7 +498,13 @@ function buildRuntimeDirective(
     '- Character sidecar schema is { characterId, displayName, prompt, status, references? }.',
   )
   lines.push(
-    '- Keyframe sidecar schema is { keyframeId, shotId, frameType, prompt, status, references? }.',
+    '- Keyframe sidecar schema is { keyframeId, shotId, frameType, prompt, status, references }. references must be a non-empty ordered array.',
+  )
+  lines.push(
+    '- Keyframe sidecars must always include explicit references. For opening or scene-change start frames, begin with the storyboard reference for the intended panel, then add the needed character-sheet references. For same-shot end frames, begin with the same-shot start-frame reference, then storyboard, then the needed character-sheet references. For continuity start frames, begin with the previous-shot-end-frame reference, then storyboard, then the needed character-sheet references.',
+  )
+  lines.push(
+    '- Do not leave keyframe sidecar references empty; missing keyframe references keep preparation incomplete and fail validation.',
   )
   lines.push(
     '- frameType must be "start" or "end". By default plan a "start" anchor; add an "end" anchor only when the shot needs a materially different closing frame. One-anchor shots may use only one of them.',
@@ -961,7 +967,11 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
       const allKeyframesPrepared = keyframes.every((entry) => {
         const artifact = artifactById.get(entry.keyframeId)
 
-        return artifact !== undefined && !containsPlaceholderValue(artifact)
+        return (
+          artifact !== undefined &&
+          !containsPlaceholderValue(artifact) &&
+          (artifact.references?.length ?? 0) > 0
+        )
       })
 
       return allKeyframesPrepared ? 'ready' : 'incomplete'
@@ -1550,7 +1560,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         readWorkspaceArtifact: tool({
           description:
-            'Read one JSON sidecar artifact or list one canonical workspace folder such as CHARACTERS/, KEYFRAMES/, or SHOTS/. Character sidecars use { characterId, displayName, prompt, status, references? }. Keyframe sidecars use { keyframeId, shotId, frameType, prompt, status, references? }, where frameType is "start" or "end". Shot sidecars use { shotId, prompt, status, references? }.',
+            'Read one JSON sidecar artifact or list one canonical workspace folder such as CHARACTERS/, KEYFRAMES/, or SHOTS/. Character sidecars use { characterId, displayName, prompt, status, references? }. Keyframe sidecars use { keyframeId, shotId, frameType, prompt, status, references }, where frameType is "start" or "end" and references is a non-empty ordered array. Shot sidecars use { shotId, prompt, status, references? }.',
           inputSchema: z.object({
             artifactPath: z
               .string()
@@ -1598,7 +1608,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         }),
         writeWorkspaceArtifact: tool({
           description:
-            'Write one JSON sidecar artifact in CHARACTERS/, KEYFRAMES/, or SHOTS/ while using workspace/CONFIG.json as the only model-selection source. CHARACTERS/<id>.json must contain characterId, displayName, prompt, status, and optional references; its prompt should target a clean single-subject reference image for downstream video consistency rather than a stylized hero scene. KEYFRAMES/<shot-id>/<keyframe-id>.json must contain keyframeId, shotId, frameType, prompt, status, and optional references, where frameType is "start" or "end". SHOTS/<shot-id>.json must contain shotId, prompt, status, and optional references.',
+            'Write one JSON sidecar artifact in CHARACTERS/, KEYFRAMES/, or SHOTS/ while using workspace/CONFIG.json as the only model-selection source. CHARACTERS/<id>.json must contain characterId, displayName, prompt, status, and optional references; its prompt should target a clean single-subject reference image for downstream video consistency rather than a stylized hero scene. KEYFRAMES/<shot-id>/<keyframe-id>.json must contain keyframeId, shotId, frameType, prompt, status, and a non-empty ordered references array, where frameType is "start" or "end". SHOTS/<shot-id>.json must contain shotId, prompt, status, and optional references.',
           inputSchema: z.object({
             artifactPath: z
               .string()

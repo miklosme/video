@@ -47,15 +47,16 @@ Your job as an LLM is to be a senior creative development partner helping the us
 - Use `workspace/CONFIG.json` as the source of truth for active model cards.
 - Match prompt-writing style to the configured model guidance in `MODEL_PROMPTING_GUIDE.md`.
 - Every character definition in `workspace/CHARACTERS.md` must include a stable `Character ID:`.
-- Character-sheet sidecar JSON files must use this exact shape: `characterId`, `displayName`, `prompt`, `status`.
+- Character-sheet sidecar JSON files must use this exact shape: `characterId`, `displayName`, `prompt`, `status`, `references?`.
 - Character-sheet prompts are for downstream video reference assets, not stylized hero stills.
 - By default, write character-sheet prompts as clean single-subject reference images: readable face, clear silhouette, stable wardrobe/markings, plain or seamless background, and soft even lighting.
 - Prefer framing that shows the full subject when practical, or at least enough of the body to preserve silhouette and wardrobe continuity. A neutral pose or slight three-quarter view is usually stronger than an extreme angle or tight close-up.
 - Avoid grids, collages, split panels, extra subjects, scene clutter, dramatic lighting, text overlays, and non-canonical props or accessories unless they are truly part of the character identity.
-- Keyframe sidecar JSON files must use this exact shape: `keyframeId`, `shotId`, `frameType`, `prompt`, `status`.
+- Keyframe sidecar JSON files must use this exact shape: `keyframeId`, `shotId`, `frameType`, `prompt`, `status`, `references`.
+- Keyframe sidecar `references` are required and must be authored in the exact intended generation priority order. For opening or scene-change start frames, begin with the relevant storyboard reference and then add the needed character-sheet references. For same-shot end frames, begin with the same-shot `start-frame` reference, then the storyboard reference, then the needed character-sheet references. For continuity start frames, begin with the `previous-shot-end-frame` reference, then the storyboard reference, then the needed character-sheet references.
 - `SHOTS.json` is planning-only and must use the exact shape: `shotId`, `status`, `videoPath`, `durationSeconds`, `incomingTransition`, `keyframes`.
 - Prompts and references are canonical in sidecars only, not in `SHOTS.json`. Model selection is canonical in `workspace/CONFIG.json`.
-- Shot sidecar JSON files must use this exact shape: `shotId`, `prompt`, `status`.
+- Shot sidecar JSON files must use this exact shape: `shotId`, `prompt`, `status`, `references?`.
 - `STORYBOARD.md` is the canonical storyboard and must use stable shot IDs such as `SHOT-01`.
 - `STORYBOARD.json` is required before generating `STORYBOARD.png` and must use the exact shape `{ "references": [...] }`.
 - The first `STORYBOARD.json.references` entry must be the storyboard template reference at `templates/STORYBOARD.template.png`; add any extra source images after that as `user-reference` entries.

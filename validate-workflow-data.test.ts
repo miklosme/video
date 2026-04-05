@@ -190,6 +190,61 @@ test('validate-workflow-data rejects keyframe references without a typed kind', 
   }
 })
 
+test('validate-workflow-data rejects keyframe sidecars without explicit references', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
+
+  try {
+    await writeValidationBaseFiles(rootDir)
+    await writeRepoFile(rootDir, 'workspace/STORYBOARD.md', '# STORYBOARD\n')
+    await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard')
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'planned',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            incomingTransition: {
+              type: 'opening',
+              notes: 'Open the sequence.',
+            },
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.json',
+      `${JSON.stringify(
+        {
+          keyframeId: 'SHOT-01-START',
+          shotId: 'SHOT-01',
+          frameType: 'start',
+          prompt: 'Prompt.',
+          status: 'planned',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const result = runValidation(rootDir)
+
+    expect(result.exitCode).toBe(1)
+    expect(new TextDecoder().decode(result.stderr)).toContain(
+      'Keyframe artifact "SHOT-01-START" must declare explicit references.',
+    )
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('validate-workflow-data rejects duplicate reference paths in storyboard sidecars', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
 

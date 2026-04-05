@@ -178,10 +178,15 @@ export async function validateKeyframeArtifactReferences(
   const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
 
   for (const artifact of artifacts) {
-    await validateArtifactReferencesExist(
-      artifact.references,
-      `Keyframe artifact "${artifact.keyframeId}"`,
-    )
+    const references = artifact.references ?? []
+
+    if (references.length === 0) {
+      throw new Error(
+        `Keyframe artifact "${artifact.keyframeId}" must declare explicit references.`,
+      )
+    }
+
+    await validateArtifactReferencesExist(references, `Keyframe artifact "${artifact.keyframeId}"`)
 
     const keyframe = keyframeById.get(artifact.keyframeId)
 
