@@ -48,7 +48,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `workspace/STORYBOARD.png` is the single storyboard review artifact for the whole project, generated from `workspace/STORYBOARD.md` before keyframe review.
 - `workspace/KEYFRAMES/` stores one sidecar JSON and one generated `.png` per keyframe, grouped under each `shotId`. Keyframe sidecar `references` are the source of truth for still-image generation inputs and must be authored in the exact intended priority order.
 - By default, plan one `start` keyframe per storyboard shot. Add an `end` keyframe only when the closing anchor needs to differ materially from the opening anchor; one-anchor `start` or `end` shots remain valid.
-- `workspace/SHOTS.json` is the planning manifest for shots and keyframe anchors and should use the exact shape `{ shotId, status, videoPath, durationSeconds, incomingTransition: { type, notes }, keyframes: [{ keyframeId, frameType, imagePath }] }`.
+- `workspace/SHOTS.json` is the planning manifest for shots and keyframe anchors and should use the exact shape `{ shotId, status, videoPath, durationSeconds, keyframes: [{ keyframeId, frameType, imagePath }] }`.
 - `workspace/SHOTS/` stores one sidecar JSON and one generated `.mp4` per shot, sharing the same `shotId` basename. Shot sidecars may include optional `references`.
 - `workspace/FINAL-CUT.json` stores the saved Remotion edit manifest for the final assembly step and should use the exact shape `{ version, shots, soundtrack }`.
 - `workspace/HISTORY.json` stores the app's persisted chat/session state for the current project.

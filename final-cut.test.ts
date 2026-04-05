@@ -112,10 +112,6 @@ async function createFinalCutTestRepo() {
             },
           ],
           durationSeconds: 2,
-          incomingTransition: {
-            type: 'opening',
-            notes: 'Open the sequence.',
-          },
         },
         {
           shotId: 'SHOT-02',
@@ -129,10 +125,6 @@ async function createFinalCutTestRepo() {
             },
           ],
           durationSeconds: 2,
-          incomingTransition: {
-            type: 'continuity',
-            notes: 'Carry the setup forward.',
-          },
         },
       ],
       null,

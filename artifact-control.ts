@@ -18,7 +18,6 @@ import {
   type KeyframeEntry,
   type ResolvedArtifactReference,
   type ShotEntry,
-  type ShotIncomingTransitionEntry,
 } from './workflow-data'
 
 const HISTORY_FOLDER_NAME = 'HISTORY'
@@ -538,20 +537,8 @@ export function resolveCharacterRegenerationReferences(selectedVersionPath: stri
   }
 }
 
-function getPreviousShot(shots: ShotEntry[], shotId: string) {
-  const shotIndex = shots.findIndex((entry) => entry.shotId === shotId)
-
-  if (shotIndex === -1) {
-    throw new Error(`Cannot find shot "${shotId}" in workspace/SHOTS.json.`)
-  }
-
-  return shotIndex === 0 ? null : shots[shotIndex - 1]!
-}
-
 export function resolveKeyframeGenerationReferences(
-  generation: Pick<KeyframeEntry, 'keyframeId' | 'shotId' | 'frameType'> & {
-    incomingTransition: ShotIncomingTransitionEntry
-  },
+  generation: Pick<KeyframeEntry, 'keyframeId' | 'shotId' | 'frameType'>,
   keyframes: KeyframeEntry[],
   shots: ShotEntry[],
   options: {

@@ -190,10 +190,6 @@ test('artifact review server exposes omitted keyframe anchors from the timeline'
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open directly on the closing pose.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-END']),
           },
         ],
@@ -236,10 +232,6 @@ test('artifact review server renders an omitted keyframe detail page with a crea
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START']),
           },
         ],
@@ -289,10 +281,6 @@ test('artifact review server creates an omitted keyframe, saves the prompt sidec
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START']),
           },
         ],
@@ -394,10 +382,6 @@ test('artifact review server removes an end keyframe and leaves the shot start-o
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
@@ -490,10 +474,6 @@ test('artifact review server removes a start keyframe and leaves the shot end-on
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open directly on the closing pose.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
@@ -561,10 +541,6 @@ test('artifact review server rejects removing the last remaining anchor', async 
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START']),
           },
         ],
@@ -620,10 +596,6 @@ test('artifact review server keeps shot prompt and anchor details on the shot co
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
@@ -680,10 +652,6 @@ test('artifact review server renders the timeline from SHOTS.json with embedded 
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START']),
           },
           {
@@ -691,10 +659,6 @@ test('artifact review server renders the timeline from SHOTS.json with embedded 
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-02.mp4',
             durationSeconds: 6,
-            incomingTransition: {
-              type: 'continuity',
-              notes: 'Continue the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-02-START', 'SHOT-02-END']),
           },
         ],
@@ -751,10 +715,6 @@ test('artifact review server timeline update syncs only shot durations back to S
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START']),
           },
           {
@@ -762,10 +722,6 @@ test('artifact review server timeline update syncs only shot durations back to S
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-02.mp4',
             durationSeconds: 6,
-            incomingTransition: {
-              type: 'continuity',
-              notes: 'Continue the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-02-START', 'SHOT-02-END']),
           },
         ],
@@ -803,10 +759,6 @@ test('artifact review server timeline update syncs only shot durations back to S
           status: 'planned',
           videoPath: 'workspace/SHOTS/SHOT-01.mp4',
           durationSeconds: 5,
-          incomingTransition: {
-            type: 'opening',
-            notes: 'Open the sequence.',
-          },
           keyframes: [
             {
               keyframeId: 'SHOT-01-START',
@@ -820,10 +772,6 @@ test('artifact review server timeline update syncs only shot durations back to S
           status: 'planned',
           videoPath: 'workspace/SHOTS/SHOT-02.mp4',
           durationSeconds: 7,
-          incomingTransition: {
-            type: 'continuity',
-            notes: 'Continue the sequence.',
-          },
           keyframes: [
             {
               keyframeId: 'SHOT-02-START',
@@ -882,10 +830,6 @@ test('artifact review server serves the canonical shot video', async () => {
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
@@ -1135,10 +1079,6 @@ test('artifact review server uses silent video thumbnails in the version rail wh
             status: 'ready',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],

@@ -501,7 +501,7 @@ function buildRuntimeDirective(
     '- Keyframe sidecar schema is { keyframeId, shotId, frameType, prompt, status, references }. references must be a non-empty ordered array.',
   )
   lines.push(
-    '- Keyframe sidecars must always include explicit references. For opening or scene-change start frames, begin with the storyboard reference for the intended panel, then add the needed character-sheet references. For same-shot end frames, begin with the same-shot start-frame reference, then storyboard, then the needed character-sheet references. For continuity start frames, begin with the previous-shot-end-frame reference, then storyboard, then the needed character-sheet references.',
+    '- Keyframe sidecars must always include explicit references. For fresh start frames, begin with the storyboard reference for the intended panel, then add the needed character-sheet references. For same-shot end frames, begin with the same-shot start-frame reference, then storyboard, then the needed character-sheet references. For start frames that should inherit from the prior shot, begin with the previous-shot-end-frame reference, then storyboard, then the needed character-sheet references.',
   )
   lines.push(
     '- Do not leave keyframe sidecar references empty; missing keyframe references keep preparation incomplete and fail validation.',
@@ -510,19 +510,13 @@ function buildRuntimeDirective(
     '- frameType must be "start" or "end". By default plan a "start" anchor; add an "end" anchor only when the shot needs a materially different closing frame. One-anchor shots may use only one of them.',
   )
   lines.push(
-    '- SHOTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, durationSeconds, incomingTransition: { type, notes }, keyframes: [{ keyframeId, frameType, imagePath }] }.',
+    '- SHOTS.json is planning-only and should use the exact shot manifest shape: { shotId, status, videoPath, durationSeconds, keyframes: [{ keyframeId, frameType, imagePath }] }.',
   )
   lines.push(
     '- Each SHOTS.json.keyframes array should contain either one anchor entry or one start/end pair for that shot.',
   )
   lines.push(
     `- Each SHOTS.json entry should include durationSeconds for the target clip length; default to ${DEFAULT_VIDEO_DURATION_SECONDS} when the user has not specified one.`,
-  )
-  lines.push(
-    '- Every SHOTS.json entry must include incomingTransition. Use "opening" only for the first shot, use "continuity" when the next start frame should inherit from the previous shot end frame, and use "scene-change" when the shot should reset to a fresh setup.',
-  )
-  lines.push(
-    '- Every incomingTransition.notes value must be a short explicit handoff instruction describing what should carry forward or what should reset across the cut.',
   )
   lines.push(
     '- FINAL-CUT.json stores the saved Remotion edit manifest and should use the exact shape: { version, shots, soundtrack }, where each shot entry is { shotId, enabled, trimStartFrames, trimEndFrames, transition: { type, durationFrames } }.',

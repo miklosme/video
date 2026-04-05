@@ -6,7 +6,6 @@ export const DEFAULT_VIDEO_DURATION_SECONDS = 4
 export const DEFAULT_VARIANT_COUNT = 1
 export const FINAL_CUT_VERSION = 1
 export const FINAL_CUT_TRANSITION_TYPES = ['cut', 'fade'] as const
-export const SHOT_INCOMING_TRANSITION_TYPES = ['opening', 'continuity', 'scene-change'] as const
 export const ARTIFACT_TYPES = ['storyboard', 'character', 'keyframe', 'shot'] as const
 export const REFERENCE_SOURCES = ['user', 'system'] as const
 export const AUTHORED_REFERENCE_KINDS = [
@@ -20,7 +19,6 @@ export const AUTHORED_REFERENCE_KINDS = [
 
 export type FrameType = (typeof FRAME_TYPES)[number]
 export type FinalCutTransitionType = (typeof FINAL_CUT_TRANSITION_TYPES)[number]
-export type ShotIncomingTransitionType = (typeof SHOT_INCOMING_TRANSITION_TYPES)[number]
 export type ArtifactType = (typeof ARTIFACT_TYPES)[number]
 export type ReferenceSource = (typeof REFERENCE_SOURCES)[number]
 export type AuthoredReferenceKind = (typeof AUTHORED_REFERENCE_KINDS)[number]
@@ -85,11 +83,6 @@ export interface CharacterSheetEntry {
 
 export type CharacterSheetsData = CharacterSheetEntry[]
 
-export interface ShotIncomingTransitionEntry {
-  type: ShotIncomingTransitionType
-  notes: string
-}
-
 export interface ShotKeyframeEntry {
   keyframeId: string
   frameType: FrameType
@@ -103,7 +96,6 @@ export interface ShotEntry {
   keyframes?: ShotKeyframeEntry[]
   keyframeIds: string[]
   durationSeconds: number
-  incomingTransition: ShotIncomingTransitionEntry
 }
 
 export type ShotsData = ShotEntry[]
@@ -483,19 +475,6 @@ function expectFinalCutTransitionType(value: unknown, context: string): FinalCut
   return transitionType as FinalCutTransitionType
 }
 
-function expectShotIncomingTransitionType(
-  value: unknown,
-  context: string,
-): ShotIncomingTransitionType {
-  const transitionType = expectString(value, context)
-
-  if (!SHOT_INCOMING_TRANSITION_TYPES.includes(transitionType as ShotIncomingTransitionType)) {
-    throw new Error(`${context} must be one of: ${SHOT_INCOMING_TRANSITION_TYPES.join(', ')}.`)
-  }
-
-  return transitionType as ShotIncomingTransitionType
-}
-
 function parseStatusItem(value: unknown, context: string): StatusItem {
   const object = expectObject(value, context)
 
@@ -590,18 +569,6 @@ export function parseStoryboardSidecar(value: unknown): StoryboardSidecar {
   }
 }
 
-function parseShotIncomingTransitionEntry(
-  value: unknown,
-  context: string,
-): ShotIncomingTransitionEntry {
-  const object = expectObject(value, context)
-
-  return {
-    type: expectShotIncomingTransitionType(object.type, `${context}.type`),
-    notes: expectString(object.notes, `${context}.notes`),
-  }
-}
-
 function parseShotEntry(value: unknown, context: string): ShotEntry {
   const object = expectObject(value, context)
   const shotId = expectString(object.shotId, `${context}.shotId`)
@@ -626,10 +593,6 @@ function parseShotEntry(value: unknown, context: string): ShotEntry {
     keyframes,
     keyframeIds: keyframes.map((entry) => entry.keyframeId),
     durationSeconds,
-    incomingTransition: parseShotIncomingTransitionEntry(
-      object.incomingTransition,
-      `${context}.incomingTransition`,
-    ),
   }
 }
 

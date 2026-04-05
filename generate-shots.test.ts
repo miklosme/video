@@ -59,10 +59,6 @@ test('generate-shots explains when a planned shot sidecar is missing', async () 
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START']),
           },
         ],
@@ -112,10 +108,6 @@ test('loadShotPrompts parses planning-only shot entries', async () => {
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
@@ -134,10 +126,6 @@ test('loadShotPrompts parses planning-only shot entries', async () => {
         keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
         keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
         durationSeconds: 4,
-        incomingTransition: {
-          type: 'opening',
-          notes: 'Open the sequence.',
-        },
       },
     ])
   } finally {
@@ -158,10 +146,6 @@ test('loadShotPrompts defaults durationSeconds when omitted', async () => {
             shotId: 'SHOT-01',
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
           },
         ],
@@ -220,10 +204,6 @@ test('selectPendingShotGenerations uses shot sidecars and canonical output paths
           videoPath: 'workspace/SHOTS/SHOT-01.mp4',
           keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
           durationSeconds: 3.5,
-          incomingTransition: {
-            type: 'opening',
-            notes: 'Open the sequence.',
-          },
         },
       ],
       [

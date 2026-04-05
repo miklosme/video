@@ -283,7 +283,6 @@ function serializeShotEntry(shot: ShotEntry) {
     status: shot.status,
     videoPath: shot.videoPath,
     durationSeconds: shot.durationSeconds,
-    incomingTransition: shot.incomingTransition,
     keyframes: sortShotKeyframes(shot.keyframes ?? []).map((entry) => ({
       keyframeId: entry.keyframeId,
       frameType: entry.frameType,

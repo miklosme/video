@@ -280,24 +280,12 @@ export function validateShots(keyframes: KeyframeEntry[], shots: ShotEntry[]) {
   const keyframeById = new Map(keyframes.map((entry) => [entry.keyframeId, entry]))
   const shotIds = new Set<string>()
 
-  for (const [index, shot] of shots.entries()) {
+  for (const shot of shots) {
     if (shotIds.has(shot.shotId)) {
       throw new Error(`Duplicate shotId "${shot.shotId}" in workspace/SHOTS.json.`)
     }
 
     shotIds.add(shot.shotId)
-
-    if (index === 0 && shot.incomingTransition.type !== 'opening') {
-      throw new Error(
-        `Shot "${shot.shotId}" is the first SHOTS.json entry, so incomingTransition.type must be "opening".`,
-      )
-    }
-
-    if (index > 0 && shot.incomingTransition.type === 'opening') {
-      throw new Error(
-        `Shot "${shot.shotId}" may not use incomingTransition.type "opening" unless it is the first SHOTS.json entry.`,
-      )
-    }
 
     if (shot.keyframeIds.length === 0 || shot.keyframeIds.length > 2) {
       throw new Error(

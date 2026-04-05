@@ -312,10 +312,6 @@ test('loadWorkflowSummary distinguishes keyframe preparation from keyframe revie
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START']),
           },
         ],
@@ -390,10 +386,6 @@ test('loadWorkflowSummary keeps keyframe preparation incomplete when sidecar ref
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START']),
           },
         ],
@@ -679,10 +671,6 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
         keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
         keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
         durationSeconds: 4,
-        incomingTransition: {
-          type: 'opening',
-          notes: 'Open the sequence.',
-        },
       },
     ],
     'image-test',
@@ -708,10 +696,6 @@ test('artifact generation planning uses sidecars and canonical output paths', ()
       model: 'image-test',
       prompt: 'A calm opening frame.',
       outputPath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
-      incomingTransition: {
-        type: 'opening',
-        notes: 'Open the sequence.',
-      },
       userReferences: undefined,
     },
   ])
@@ -740,10 +724,6 @@ test('loadKeyframes flattens planned keyframes from SHOTS.json', async () => {
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             durationSeconds: 4,
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
             keyframes: createPlannedKeyframes(['SHOT-01-START']),
           },
         ],
@@ -806,10 +786,6 @@ test('loadWorkflowSummary distinguishes shot planning from shot preparation and 
             status: 'planned',
             videoPath: 'workspace/SHOTS/SHOT-01.mp4',
             keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
-            incomingTransition: {
-              type: 'opening',
-              notes: 'Open the sequence.',
-            },
           },
         ],
         null,
@@ -877,10 +853,6 @@ test('keyframe reference planning preserves explicit authored reference order', 
       videoPath: 'workspace/SHOTS/SHOT-01.mp4',
       keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
       durationSeconds: 4,
-      incomingTransition: {
-        type: 'opening',
-        notes: 'Open the sequence.',
-      },
     },
   ]
 
@@ -888,7 +860,6 @@ test('keyframe reference planning preserves explicit authored reference order', 
     planKeyframeGenerationReferences(
       {
         ...keyframes[0]!,
-        incomingTransition: shots[0]!.incomingTransition,
       },
       [...keyframes],
       [...shots],
@@ -920,7 +891,6 @@ test('keyframe reference planning preserves explicit authored reference order', 
     planKeyframeGenerationReferences(
       {
         ...keyframes[1]!,
-        incomingTransition: shots[0]!.incomingTransition,
       },
       [...keyframes],
       [...shots],
@@ -963,10 +933,6 @@ test('keyframe reference planning preserves explicit authored reference order', 
         shotId: 'SHOT-02',
         frameType: 'end',
         characterIds: ['dog-01'],
-        incomingTransition: {
-          type: 'scene-change',
-          notes: 'Reset to a fresh setup.',
-        },
       },
       [...keyframes],
       [
@@ -977,10 +943,6 @@ test('keyframe reference planning preserves explicit authored reference order', 
           videoPath: 'workspace/SHOTS/SHOT-02.mp4',
           keyframeIds: ['SHOT-02-END'],
           durationSeconds: 4,
-          incomingTransition: {
-            type: 'scene-change',
-            notes: 'Reset to a fresh setup.',
-          },
         },
       ],
       {
@@ -1008,26 +970,10 @@ test('keyframe reference planning preserves explicit authored reference order', 
   ])
 })
 
-test('resolveKeyframeGenerationPrompt appends continuity handoff notes only for continuity starts', () => {
+test('resolveKeyframeGenerationPrompt returns the authored prompt unchanged', () => {
   expect(
     resolveKeyframeGenerationPrompt({
-      frameType: 'start',
       prompt: 'Base prompt.',
-      incomingTransition: {
-        type: 'continuity',
-        notes: 'Match the previous shot geography.',
-      },
-    }),
-  ).toContain('Continuity handoff: Match the previous shot geography.')
-
-  expect(
-    resolveKeyframeGenerationPrompt({
-      frameType: 'end',
-      prompt: 'Base prompt.',
-      incomingTransition: {
-        type: 'continuity',
-        notes: 'Unused here.',
-      },
     }),
   ).toBe('Base prompt.')
 })

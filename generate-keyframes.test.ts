@@ -36,10 +36,6 @@ function createShots(): ShotEntry[] {
       keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
       keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
       durationSeconds: 4,
-      incomingTransition: {
-        type: 'opening',
-        notes: 'Open the sequence.',
-      },
     },
     {
       shotId: 'SHOT-02',
@@ -48,10 +44,6 @@ function createShots(): ShotEntry[] {
       keyframes: createPlannedKeyframes(['SHOT-02-START', 'SHOT-02-END']),
       keyframeIds: ['SHOT-02-START', 'SHOT-02-END'],
       durationSeconds: 4,
-      incomingTransition: {
-        type: 'continuity',
-        notes: 'Carry the same geography into the next shot.',
-      },
     },
     {
       shotId: 'SHOT-03',
@@ -60,10 +52,6 @@ function createShots(): ShotEntry[] {
       keyframes: createPlannedKeyframes(['SHOT-03-START', 'SHOT-03-END']),
       keyframeIds: ['SHOT-03-START', 'SHOT-03-END'],
       durationSeconds: 4,
-      incomingTransition: {
-        type: 'scene-change',
-        notes: 'Reset the composition for a fresh setup.',
-      },
     },
   ]
 }
@@ -151,7 +139,6 @@ test('runKeyframeRegeneration uses only the selected keyframe image and the appr
     ...keyframe,
     model: 'image-test',
     outputPath: keyframe.imagePath,
-    incomingTransition: createShots()[0]!.incomingTransition,
   }
 
   try {
@@ -212,10 +199,6 @@ test('selectPendingKeyframeGenerations supports one-anchor start-only and end-on
       videoPath: 'workspace/SHOTS/SHOT-01.mp4',
       keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
       durationSeconds: 4,
-      incomingTransition: {
-        type: 'opening',
-        notes: 'Open the sequence.',
-      },
     },
     {
       shotId: 'SHOT-02',
@@ -223,10 +206,6 @@ test('selectPendingKeyframeGenerations supports one-anchor start-only and end-on
       videoPath: 'workspace/SHOTS/SHOT-02.mp4',
       keyframeIds: ['SHOT-02-END'],
       durationSeconds: 4,
-      incomingTransition: {
-        type: 'scene-change',
-        notes: 'Reset the composition.',
-      },
     },
     {
       shotId: 'SHOT-03',
@@ -234,10 +213,6 @@ test('selectPendingKeyframeGenerations supports one-anchor start-only and end-on
       videoPath: 'workspace/SHOTS/SHOT-03.mp4',
       keyframeIds: ['SHOT-03-START'],
       durationSeconds: 4,
-      incomingTransition: {
-        type: 'scene-change',
-        notes: 'Open a fresh setup.',
-      },
     },
   ]
   const keyframes: KeyframeEntry[] = [
@@ -354,7 +329,6 @@ test('planKeyframeGenerationReferences uses previous shot end for continuity and
     planKeyframeGenerationReferences(
       {
         ...keyframes[2]!,
-        incomingTransition: shots[1]!.incomingTransition,
       },
       keyframes,
       shots,
@@ -368,7 +342,6 @@ test('planKeyframeGenerationReferences uses previous shot end for continuity and
     planKeyframeGenerationReferences(
       {
         ...keyframes[4]!,
-        incomingTransition: shots[2]!.incomingTransition,
       },
       keyframes,
       shots,
@@ -399,10 +372,6 @@ test('planKeyframeGenerationReferences preserves authored references for end-onl
       videoPath: 'workspace/SHOTS/SHOT-04.mp4',
       keyframeIds: ['SHOT-04-END'],
       durationSeconds: 4,
-      incomingTransition: {
-        type: 'scene-change',
-        notes: 'Reset the composition for a fresh setup.',
-      },
     },
   ]
   const endOnlyReferences = [
@@ -420,7 +389,6 @@ test('planKeyframeGenerationReferences preserves authored references for end-onl
     planKeyframeGenerationReferences(
       {
         ...keyframes[0]!,
-        incomingTransition: shots[0]!.incomingTransition,
       },
       keyframes,
       shots,
@@ -587,7 +555,6 @@ test('syncKeyframeGenerations renders variantCount retained versions and selects
     prompt: 'Prompt for SHOT-01-START.',
     outputPath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
     characterIds: ['dog'],
-    incomingTransition: shots[0]!.incomingTransition,
     userReferences: [
       {
         kind: 'storyboard' as const,

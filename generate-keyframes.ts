@@ -29,7 +29,6 @@ import {
   type KeyframeArtifactEntry,
   type KeyframeEntry,
   type ShotEntry,
-  type ShotIncomingTransitionEntry,
 } from './workflow-data'
 
 interface GenerateKeyframesArgs {
@@ -47,7 +46,6 @@ export interface PendingKeyframeGeneration {
   prompt: string
   outputPath: string
   characterIds?: string[]
-  incomingTransition: ShotIncomingTransitionEntry
   userReferences?: ArtifactReferenceEntry[]
 }
 
@@ -194,7 +192,6 @@ export function selectPendingKeyframeGenerations(
           model,
           prompt: artifact.prompt,
           outputPath: entry.imagePath,
-          incomingTransition: shot.incomingTransition,
           userReferences: artifact.references,
         }
       })
@@ -245,30 +242,14 @@ function orderShotKeyframesForGeneration(
   return [start, end]
 }
 
-function getPreviousShot(shots: ShotEntry[], shotId: string) {
-  const shotIndex = shots.findIndex((entry) => entry.shotId === shotId)
-
-  if (shotIndex === -1) {
-    throw new Error(`Cannot find shot "${shotId}" in workspace/SHOTS.json.`)
-  }
-
-  return shotIndex === 0 ? null : shots[shotIndex - 1]!
-}
 export function resolveKeyframeGenerationPrompt(
-  generation: Pick<PendingKeyframeGeneration, 'frameType' | 'incomingTransition' | 'prompt'>,
+  generation: Pick<PendingKeyframeGeneration, 'prompt'>,
 ) {
-  if (generation.frameType === 'end' || generation.incomingTransition.type !== 'continuity') {
-    return generation.prompt
-  }
-
-  return `${generation.prompt}\n\nContinuity handoff: ${generation.incomingTransition.notes}`
+  return generation.prompt
 }
 
 export function planKeyframeGenerationReferences(
-  generation: Pick<
-    PendingKeyframeGeneration,
-    'keyframeId' | 'shotId' | 'frameType' | 'incomingTransition'
-  > & {
+  generation: Pick<PendingKeyframeGeneration, 'keyframeId' | 'shotId' | 'frameType'> & {
     characterIds?: readonly string[]
   },
   keyframes: KeyframeEntry[],
