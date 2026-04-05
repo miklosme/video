@@ -501,8 +501,14 @@ export function resolveStoryboardGenerationReferences(
   }
 }
 
-export function resolveStoryboardRegenerationReferences(selectedVersionPath: string) {
-  const resolvedReferences = [createSelectedImageReference(selectedVersionPath)]
+export function resolveStoryboardRegenerationReferences(
+  selectedVersionPath: string,
+  userReferences: readonly ArtifactReferenceEntry[] = [],
+) {
+  const resolvedReferences = [
+    createSelectedImageReference(selectedVersionPath),
+    ...createUserReferences(userReferences),
+  ]
 
   return {
     resolvedReferences,
@@ -528,8 +534,14 @@ export function resolveCharacterGenerationReferences(options: {
   }
 }
 
-export function resolveCharacterRegenerationReferences(selectedVersionPath: string) {
-  const resolvedReferences = [createSelectedImageReference(selectedVersionPath)]
+export function resolveCharacterRegenerationReferences(
+  selectedVersionPath: string,
+  userReferences: readonly ArtifactReferenceEntry[] = [],
+) {
+  const resolvedReferences = [
+    createSelectedImageReference(selectedVersionPath),
+    ...createUserReferences(userReferences),
+  ]
 
   return {
     resolvedReferences,
@@ -560,8 +572,14 @@ export function resolveKeyframeGenerationReferences(
   }
 }
 
-export function resolveKeyframeRegenerationReferences(selectedVersionPath: string) {
-  const resolvedReferences = [createSelectedImageReference(selectedVersionPath)]
+export function resolveKeyframeRegenerationReferences(
+  selectedVersionPath: string,
+  userReferences: readonly ArtifactReferenceEntry[] = [],
+) {
+  const resolvedReferences = [
+    createSelectedImageReference(selectedVersionPath),
+    ...createUserReferences(userReferences),
+  ]
 
   return {
     resolvedReferences,

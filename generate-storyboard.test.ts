@@ -61,17 +61,24 @@ test('selectPendingStoryboardGeneration preserves explicit storyboard sidecar re
   ])
 })
 
-test('runStoryboardRegeneration uses only the selected storyboard image and the approved request', async () => {
+test('runStoryboardRegeneration keeps the selected storyboard image and retained sidecar references', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-regenerate-'))
 
   try {
     await writeRepoFile(rootDir, 'workspace/HISTORY/STORYBOARD/v2.png', 'selected-storyboard')
+    await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'template-image')
 
     const result = await runStoryboardRegeneration({
       model: 'image-test',
       outputPath: 'workspace/HISTORY/STORYBOARD/.staged-v3.png',
       regenerateRequest: 'Remove the extra character from the last panel.',
       selectedVersionPath: 'workspace/HISTORY/STORYBOARD/v2.png',
+      userReferences: [
+        {
+          kind: 'storyboard-template',
+          path: 'templates/STORYBOARD.template.png',
+        },
+      ],
       cwd: rootDir,
       generator: async (input) => ({
         generationId: 'gen-1',
@@ -87,6 +94,7 @@ test('runStoryboardRegeneration uses only the selected storyboard image and the 
     expect(result.prompt).not.toContain('storyboard template image')
     expect(result.references).toEqual([
       { kind: 'selected-image', path: 'workspace/HISTORY/STORYBOARD/v2.png' },
+      { kind: 'storyboard-template', path: 'templates/STORYBOARD.template.png' },
     ])
   } finally {
     await rm(rootDir, { recursive: true, force: true })

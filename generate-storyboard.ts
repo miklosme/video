@@ -198,6 +198,7 @@ export async function runStoryboardRegeneration(options: {
   outputPath: string
   regenerateRequest: string
   selectedVersionPath: string
+  userReferences?: Parameters<typeof resolveStoryboardGenerationReferences>[0]
   logFile?: string
   cwd?: string
   seed?: number
@@ -205,6 +206,7 @@ export async function runStoryboardRegeneration(options: {
 }) {
   const { resolvedReferences, references } = resolveStoryboardRegenerationReferences(
     options.selectedVersionPath,
+    options.userReferences,
   )
   await assertResolvedReferencesExist(resolvedReferences, options.cwd)
 
@@ -234,6 +236,7 @@ export async function regenerateStoryboardArtifactVersion(options: {
   model: string
   regenerateRequest: string
   selectedVersionPath: string
+  userReferences?: Parameters<typeof resolveStoryboardGenerationReferences>[0]
   logFile?: string
   cwd?: string
   seed?: number
@@ -251,6 +254,7 @@ export async function regenerateStoryboardArtifactVersion(options: {
       outputPath: stagedVersion.stagedPath,
       regenerateRequest: options.regenerateRequest,
       selectedVersionPath: options.selectedVersionPath,
+      userReferences: options.userReferences,
       logFile: options.logFile,
       cwd,
       seed: seed ?? undefined,

@@ -2630,12 +2630,14 @@ export async function runApprovedRegenerateAction(
 ) {
   if (pathname === '/storyboard') {
     const config = await loadConfig(cwd)
+    const storyboardSidecar = await loadStoryboardSidecar(cwd)
     const descriptor = getStoryboardArtifactDescriptor()
 
     return regenerateStoryboardArtifactVersion({
       model: config.imageModel,
       regenerateRequest,
       selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
+      userReferences: storyboardSidecar?.references ?? [],
       cwd,
       generator: options.imageGenerator,
     })
@@ -2656,6 +2658,7 @@ export async function runApprovedRegenerateAction(
     return regenerateCharacterSheetArtifactVersion(generation, {
       regenerateRequest,
       selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
+      userReferences: generation.userReferences ?? [],
       cwd,
       generator: options.imageGenerator,
     })
@@ -2687,6 +2690,7 @@ export async function runApprovedRegenerateAction(
       {
         regenerateRequest,
         selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
+        userReferences: pending.generation.userReferences ?? [],
         cwd,
         generator: options.imageGenerator,
       },

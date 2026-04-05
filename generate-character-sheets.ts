@@ -201,6 +201,7 @@ export async function runCharacterSheetRegeneration(
     outputPath?: string
     regenerateRequest: string
     selectedVersionPath: string
+    userReferences?: readonly ArtifactReferenceEntry[]
     logFile?: string
     cwd?: string
     seed?: number
@@ -209,6 +210,7 @@ export async function runCharacterSheetRegeneration(
 ) {
   const { resolvedReferences, references } = resolveCharacterRegenerationReferences(
     options.selectedVersionPath,
+    options.userReferences ?? generation.userReferences ?? [],
   )
   await assertResolvedReferencesExist(resolvedReferences, options.cwd)
 
@@ -239,6 +241,7 @@ export async function regenerateCharacterSheetArtifactVersion(
   options: {
     regenerateRequest: string
     selectedVersionPath: string
+    userReferences?: readonly ArtifactReferenceEntry[]
     logFile?: string
     cwd?: string
     seed?: number
@@ -256,6 +259,7 @@ export async function regenerateCharacterSheetArtifactVersion(
       outputPath: stagedVersion.stagedPath,
       regenerateRequest: options.regenerateRequest,
       selectedVersionPath: options.selectedVersionPath,
+      userReferences: options.userReferences,
       logFile: options.logFile,
       cwd,
       seed: seed ?? undefined,

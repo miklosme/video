@@ -10,6 +10,7 @@ import {
   runKeyframeRegeneration,
   selectPendingKeyframeGenerations,
   syncKeyframeGenerations,
+  type PendingKeyframeGeneration,
 } from './generate-keyframes'
 import type { KeyframeArtifactEntry, KeyframeEntry, ShotEntry } from './workflow-data'
 
@@ -131,14 +132,20 @@ function createArtifacts(): KeyframeArtifactEntry[] {
   }))
 }
 
-test('runKeyframeRegeneration uses only the selected keyframe image and the approved request', async () => {
+test('runKeyframeRegeneration keeps the selected keyframe image and retained sidecar references', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-keyframe-regenerate-'))
   const keyframe = createKeyframes()[0]!
-  const generation = {
+  const generation: PendingKeyframeGeneration = {
     ...createArtifacts()[0]!,
     ...keyframe,
     model: 'image-test',
     outputPath: keyframe.imagePath,
+    userReferences: [
+      {
+        kind: 'character-sheet',
+        path: 'workspace/CHARACTERS/hero.png',
+      },
+    ],
   }
 
   try {
@@ -147,6 +154,7 @@ test('runKeyframeRegeneration uses only the selected keyframe image and the appr
       'workspace/KEYFRAMES/SHOT-01/HISTORY/SHOT-01-START/v2.png',
       'selected-keyframe',
     )
+    await writeRepoFile(rootDir, 'workspace/CHARACTERS/hero.png', 'hero-sheet')
 
     const result = await runKeyframeRegeneration(generation, {
       regenerateRequest: 'Move the camera slightly closer.',
@@ -168,6 +176,10 @@ test('runKeyframeRegeneration uses only the selected keyframe image and the appr
       {
         kind: 'selected-image',
         path: 'workspace/KEYFRAMES/SHOT-01/HISTORY/SHOT-01-START/v2.png',
+      },
+      {
+        kind: 'character-sheet',
+        path: 'workspace/CHARACTERS/hero.png',
       },
     ])
   } finally {
@@ -196,10 +208,17 @@ test('runKeyframeRegeneration supports camera-only regeneration requests', async
       'workspace/KEYFRAMES/SHOT-01/HISTORY/SHOT-01-START/v2.png',
       'selected-keyframe',
     )
+    await writeRepoFile(rootDir, 'workspace/CHARACTERS/hero.png', 'hero-sheet')
 
     const result = await runKeyframeRegeneration(generation, {
       regenerateRequest: '',
       selectedVersionPath: 'workspace/KEYFRAMES/SHOT-01/HISTORY/SHOT-01-START/v2.png',
+      userReferences: [
+        {
+          kind: 'character-sheet',
+          path: 'workspace/CHARACTERS/hero.png',
+        },
+      ],
       cwd: rootDir,
       generator: async (input) => ({
         generationId: 'gen-camera-only',
@@ -211,6 +230,16 @@ test('runKeyframeRegeneration supports camera-only regeneration requests', async
     expect(result.prompt).toContain('Medium Close Up')
     expect(result.prompt).toContain('Low Angle')
     expect(result.prompt).not.toContain('Approved change:')
+    expect(result.references).toEqual([
+      {
+        kind: 'selected-image',
+        path: 'workspace/KEYFRAMES/SHOT-01/HISTORY/SHOT-01-START/v2.png',
+      },
+      {
+        kind: 'character-sheet',
+        path: 'workspace/CHARACTERS/hero.png',
+      },
+    ])
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

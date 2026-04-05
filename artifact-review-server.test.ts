@@ -1556,7 +1556,7 @@ test('runApprovedRegenerateAction stays single-variant even when CONFIG.json.var
   }
 })
 
-test('runApprovedRegenerateAction uses the viewed retained storyboard as the selected-image reference', async () => {
+test('runApprovedRegenerateAction keeps storyboard sidecar references during regenerate', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
@@ -1576,6 +1576,23 @@ test('runApprovedRegenerateAction uses the viewed retained storyboard as the sel
     )
     await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard-current')
     await writeRepoFile(rootDir, 'workspace/HISTORY/STORYBOARD/v2.png', 'storyboard-v2')
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          references: [
+            {
+              kind: 'storyboard-template',
+              path: 'templates/STORYBOARD.template.png',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'storyboard-template')
 
     let capturedPrompt = ''
     let capturedReferences: { kind: string; path: string }[] = []
@@ -1603,6 +1620,7 @@ test('runApprovedRegenerateAction uses the viewed retained storyboard as the sel
     expect(capturedPrompt).not.toContain('Storyboard markdown:')
     expect(capturedReferences).toEqual([
       { kind: 'selected-image', path: 'workspace/HISTORY/STORYBOARD/v2.png' },
+      { kind: 'storyboard-template', path: 'templates/STORYBOARD.template.png' },
     ])
   } finally {
     await rm(rootDir, { recursive: true, force: true })

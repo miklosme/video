@@ -401,6 +401,7 @@ export async function runKeyframeRegeneration(
     outputPath?: string
     regenerateRequest: string
     selectedVersionPath: string
+    userReferences?: readonly ArtifactReferenceEntry[]
     logFile?: string
     cwd?: string
     seed?: number
@@ -409,6 +410,7 @@ export async function runKeyframeRegeneration(
 ) {
   const { resolvedReferences, references } = resolveKeyframeRegenerationReferences(
     options.selectedVersionPath,
+    options.userReferences ?? generation.userReferences ?? [],
   )
   await assertReferenceFilesExist(references, generation.keyframeId, options.cwd)
 
@@ -445,6 +447,7 @@ export async function regenerateKeyframeArtifactVersion(
   options: {
     regenerateRequest: string
     selectedVersionPath: string
+    userReferences?: readonly ArtifactReferenceEntry[]
     logFile?: string
     cwd?: string
     seed?: number
@@ -462,6 +465,7 @@ export async function regenerateKeyframeArtifactVersion(
       outputPath: stagedVersion.stagedPath,
       regenerateRequest: options.regenerateRequest,
       selectedVersionPath: options.selectedVersionPath,
+      userReferences: options.userReferences,
       logFile: options.logFile,
       cwd,
       seed: seed ?? undefined,

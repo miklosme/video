@@ -53,7 +53,7 @@ test('generate-character-sheets explains when a requested character sidecar is m
   }
 })
 
-test('runCharacterSheetRegeneration uses only the selected character image and the approved request', async () => {
+test('runCharacterSheetRegeneration keeps the selected character image and retained sidecar references', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-character-regenerate-'))
   const generation: PendingCharacterSheetGeneration = {
     characterId: 'hero',
@@ -61,10 +61,17 @@ test('runCharacterSheetRegeneration uses only the selected character image and t
     model: 'image-test',
     prompt: 'Original character prompt that should not be reused.',
     outputPath: 'workspace/CHARACTERS/hero.png',
+    userReferences: [
+      {
+        kind: 'user-reference',
+        path: 'workspace/REFERENCES/hero-face.png',
+      },
+    ],
   }
 
   try {
     await writeRepoFile(rootDir, 'workspace/CHARACTERS/HISTORY/hero/v2.png', 'selected-character')
+    await writeRepoFile(rootDir, 'workspace/REFERENCES/hero-face.png', 'hero-face')
 
     const result = await runCharacterSheetRegeneration(generation, {
       regenerateRequest: 'Make the jacket deep green.',
@@ -82,6 +89,7 @@ test('runCharacterSheetRegeneration uses only the selected character image and t
     expect(result.prompt).not.toContain('Original character prompt that should not be reused.')
     expect(result.references).toEqual([
       { kind: 'selected-image', path: 'workspace/CHARACTERS/HISTORY/hero/v2.png' },
+      { kind: 'user-reference', path: 'workspace/REFERENCES/hero-face.png' },
     ])
   } finally {
     await rm(rootDir, { recursive: true, force: true })
