@@ -17,6 +17,16 @@ import {
   type ArtifactHistoryState,
 } from './artifact-control'
 import {
+  CAMERA_FIELD_CATEGORIES,
+  CAMERA_FIELD_LABELS,
+  humanizeCameraValue,
+  KEYFRAME_CAMERA_FIELDS,
+  resolveKeyframeCameraSpec,
+  resolveShotCameraSpec,
+  SHOT_CAMERA_FIELDS,
+  type CameraFieldKey,
+} from './camera-utils'
+import {
   regenerateCharacterSheetArtifactVersion,
   selectPendingCharacterSheetGenerations,
   type PendingCharacterSheetGeneration,
@@ -46,6 +56,7 @@ import {
   getKeyframeImagePath,
   getShotVideoPath,
   getStoryboardImagePath,
+  loadCameraVocabulary,
   loadCharacterSheets,
   loadConfig,
   loadKeyframeArtifacts,
@@ -58,10 +69,14 @@ import {
   resolveWorkflowPath,
   WORKFLOW_FILES,
   type ArtifactReferenceEntry,
+  type CameraVocabularyData,
+  type CameraVocabularyEntry,
   type CharacterSheetEntry,
   type FrameType,
+  type KeyframeCameraSpec,
   type KeyframeEntry,
   type ResolvedArtifactReference,
+  type ShotCameraSpec,
   type ShotEntry,
 } from './workflow-data'
 
@@ -98,9 +113,10 @@ type PlaceholderVariant = 'missing' | 'omitted'
 
 type ImageGenerator = (input: GenerateImagenOptionsInput) => Promise<GenerateImagenOptionsResult>
 
-interface RegenerateActionGeneratorOverrides {
+interface RegenerateActionOptions {
   imageGenerator?: ImageGenerator
   shotVideoGenerator?: ShotVideoGenerator
+  cameraOverrides?: Partial<ShotCameraSpec> | null
 }
 
 interface CharacterReviewCard {
@@ -156,7 +172,29 @@ interface ArtifactDetailContext {
   canEdit: boolean
   canEditReferences: boolean
   primaryAction: ArtifactPrimaryAction
+  cameraControl: CameraOverrideControl | null
   removeAction: KeyframeRemovalAction | null
+}
+
+interface CameraOverrideOption {
+  value: string
+  label: string
+  description: string
+}
+
+interface CameraOverrideField {
+  field: CameraFieldKey
+  label: string
+  inputName: string
+  currentValue: string
+  currentLabel: string
+  options: CameraOverrideOption[]
+}
+
+interface CameraOverrideControl {
+  artifactType: 'keyframe' | 'shot'
+  currentSummary: string
+  fields: CameraOverrideField[]
 }
 
 export interface ArtifactReviewServer {
@@ -271,6 +309,18 @@ async function loadShotPromptsOrEmpty(cwd: string) {
   } catch (error) {
     if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
       return []
+    }
+
+    throw error
+  }
+}
+
+async function loadCameraVocabularyOrNull(cwd: string) {
+  try {
+    return await loadCameraVocabulary(cwd)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      return null
     }
 
     throw error
@@ -1190,7 +1240,8 @@ function renderPage(
       }
 
       textarea,
-      input[type="text"] {
+      input[type="text"],
+      select {
         width: 100%;
         border: 1px solid rgba(255,255,255,0.08);
         border-radius: 14px;
@@ -1200,10 +1251,48 @@ function renderPage(
         padding: 14px;
       }
 
+      select {
+        appearance: none;
+      }
+
       textarea {
         min-height: 150px;
         resize: vertical;
         line-height: 1.55;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+
+      .form-field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+
+      .field-label {
+        font-size: 12px;
+        font-weight: 700;
+        color: var(--text);
+      }
+
+      .camera-override-shell {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .camera-current-plan {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(255,255,255,0.05);
+        background: rgba(255,255,255,0.02);
       }
 
       .job-banner {
@@ -1555,12 +1644,19 @@ function renderEditComposer(context: ArtifactDetailContext) {
     `
   }
 
+  const requestRequired = context.cameraControl ? '' : 'required'
+  const requestHelpText = context.cameraControl
+    ? 'Describe the precise change you want from the version you are viewing, or leave the note blank and use camera overrides only.'
+    : 'Describe the precise change you want from the version you are viewing.'
+
   return `
     <section class="panel">
       <p class="section-title">Regenerate</p>
       <form method="post" action="${context.primaryAction.actionUrl}">
         <input type="hidden" name="baseVersionId" value="${escapeHtml(context.historyState.activeVersionId ?? CURRENT_BASE_VERSION_ID)}">
-        <textarea name="regenerateRequest" placeholder="Describe the precise change you want from the version you are viewing." required></textarea>
+        <p class="form-note">${escapeHtml(requestHelpText)}</p>
+        <textarea name="regenerateRequest" placeholder="Describe the precise change you want from the version you are viewing." ${requestRequired}></textarea>
+        ${context.cameraControl ? renderCameraOverrideControls(context.cameraControl) : ''}
         <div class="form-actions">
           <button class="button-primary" type="submit">Regenerate</button>
         </div>
@@ -1786,6 +1882,186 @@ function getBaseVersionMediaPath(descriptor: ArtifactDescriptor, versionId: stri
     : getArtifactVersionMediaPath(descriptor, versionId)
 }
 
+function getCameraOverrideInputName(field: CameraFieldKey) {
+  return `cameraOverride${field[0]!.toUpperCase()}${field.slice(1)}`
+}
+
+function getCameraOptionLabel(entry: CameraVocabularyEntry) {
+  return entry.name
+}
+
+function buildCameraOverrideFields<T extends KeyframeCameraSpec | ShotCameraSpec>(
+  artifactType: 'keyframe' | 'shot',
+  camera: T,
+  fields: readonly (keyof T & CameraFieldKey)[],
+  vocabulary: CameraVocabularyData,
+) {
+  return fields.map((field) => {
+    const options = vocabulary.entries
+      .filter(
+        (entry) =>
+          entry.category === CAMERA_FIELD_CATEGORIES[field] &&
+          (artifactType === 'keyframe' ? entry.appliesToKeyframe : entry.appliesToShot),
+      )
+      .map<CameraOverrideOption>((entry) => ({
+        value: entry.id,
+        label: getCameraOptionLabel(entry),
+        description: entry.description,
+      }))
+    const currentValue = String(camera[field])
+    const currentLabel =
+      options.find((option) => option.value === currentValue)?.label ??
+      humanizeCameraValue(currentValue)
+
+    return {
+      field,
+      label: CAMERA_FIELD_LABELS[field],
+      inputName: getCameraOverrideInputName(field),
+      currentValue,
+      currentLabel,
+      options,
+    } satisfies CameraOverrideField
+  })
+}
+
+function buildCameraOverrideControl(
+  artifactType: 'keyframe' | 'shot',
+  camera: KeyframeCameraSpec | ShotCameraSpec | undefined,
+  vocabulary: CameraVocabularyData | null,
+): CameraOverrideControl | null {
+  if (!vocabulary) {
+    return null
+  }
+
+  if (artifactType === 'keyframe') {
+    const currentCamera = resolveKeyframeCameraSpec(camera as KeyframeCameraSpec | undefined)
+    const fields = buildCameraOverrideFields(
+      artifactType,
+      currentCamera,
+      KEYFRAME_CAMERA_FIELDS,
+      vocabulary,
+    )
+
+    return {
+      artifactType,
+      currentSummary: fields.map((field) => field.currentLabel).join(' / '),
+      fields,
+    }
+  }
+
+  const currentCamera = resolveShotCameraSpec(camera as ShotCameraSpec | undefined)
+  const fields = buildCameraOverrideFields(
+    artifactType,
+    currentCamera,
+    SHOT_CAMERA_FIELDS,
+    vocabulary,
+  )
+
+  return {
+    artifactType,
+    currentSummary: fields.map((field) => field.currentLabel).join(' / '),
+    fields,
+  }
+}
+
+function renderCameraOverrideControls(cameraControl: CameraOverrideControl) {
+  return `
+    <div class="camera-override-shell">
+      <p class="section-title">Camera Overrides</p>
+      <p class="form-note">Leave selectors on "Keep current" to preserve the existing camera plan. Change only the fields you want to override for this regeneration.</p>
+      <div class="camera-current-plan">
+        <p class="small">Current camera plan: ${escapeHtml(cameraControl.currentSummary)}</p>
+        <div class="pill-row">
+          ${cameraControl.fields
+            .map(
+              (field) =>
+                `<span class="pill">${escapeHtml(field.label)}: ${escapeHtml(field.currentLabel)}</span>`,
+            )
+            .join('')}
+        </div>
+      </div>
+      <div class="form-grid">
+        ${cameraControl.fields
+          .map(
+            (field) => `
+              <label class="form-field">
+                <span class="field-label">${escapeHtml(field.label)}</span>
+                <select name="${escapeHtml(field.inputName)}">
+                  <option value="">${escapeHtml(`Keep current (${field.currentLabel})`)}</option>
+                  ${field.options
+                    .map(
+                      (option) =>
+                        `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`,
+                    )
+                    .join('')}
+                </select>
+                <span class="small">${escapeHtml(
+                  field.options.find((option) => option.value === field.currentValue)
+                    ?.description ?? '',
+                )}</span>
+              </label>
+            `,
+          )
+          .join('')}
+      </div>
+    </div>
+  `
+}
+
+function parseCameraOverrideInput(
+  formData: FormData,
+  cameraControl: CameraOverrideControl | null,
+): Partial<ShotCameraSpec> | null {
+  if (!cameraControl) {
+    return null
+  }
+
+  const overrides: Partial<ShotCameraSpec> = {}
+
+  for (const field of cameraControl.fields) {
+    const rawValue = String(formData.get(field.inputName) ?? '').trim()
+
+    if (rawValue.length === 0) {
+      continue
+    }
+
+    if (!field.options.some((option) => option.value === rawValue)) {
+      throw new Error(`${field.label} must use a value from CAMERA_VOCABULARY.json.`)
+    }
+
+    overrides[field.field] = rawValue
+  }
+
+  return Object.keys(overrides).length > 0 ? overrides : null
+}
+
+function resolveEffectiveKeyframeCamera(
+  camera: KeyframeCameraSpec | undefined,
+  overrides: Partial<ShotCameraSpec> | null | undefined,
+) {
+  const resolvedCamera = resolveKeyframeCameraSpec(camera)
+
+  return resolveKeyframeCameraSpec({
+    shotSize: overrides?.shotSize ?? resolvedCamera.shotSize,
+    cameraPosition: overrides?.cameraPosition ?? resolvedCamera.cameraPosition,
+    cameraAngle: overrides?.cameraAngle ?? resolvedCamera.cameraAngle,
+  })
+}
+
+function resolveEffectiveShotCamera(
+  camera: ShotCameraSpec | undefined,
+  overrides: Partial<ShotCameraSpec> | null | undefined,
+) {
+  const resolvedCamera = resolveShotCameraSpec(camera)
+
+  return resolveShotCameraSpec({
+    shotSize: overrides?.shotSize ?? resolvedCamera.shotSize,
+    cameraPosition: overrides?.cameraPosition ?? resolvedCamera.cameraPosition,
+    cameraAngle: overrides?.cameraAngle ?? resolvedCamera.cameraAngle,
+    cameraMovement: overrides?.cameraMovement ?? resolvedCamera.cameraMovement,
+  })
+}
+
 function parseReferenceEditorInput(rawValue: string) {
   const parsed = JSON.parse(rawValue) as unknown
 
@@ -1913,6 +2189,7 @@ async function loadCharacterDetail(
       actionUrl: getArtifactRegenerateActionPath(descriptor),
       enabled: historyState.currentExists || historyState.activeVersionId !== null,
     },
+    cameraControl: null,
     removeAction: null,
   } satisfies ArtifactDetailContext
 }
@@ -1922,11 +2199,12 @@ async function loadKeyframeDetail(
   cwd: string,
   requestedVersionId?: string | null,
 ) {
-  const [config, keyframes, artifacts, shots] = await Promise.all([
+  const [config, keyframes, artifacts, shots, cameraVocabulary] = await Promise.all([
     loadConfig(cwd).catch(() => null),
     loadKeyframesOrEmpty(cwd),
     loadKeyframeArtifactsOrEmpty(cwd),
     loadShotPromptsOrEmpty(cwd),
+    loadCameraVocabularyOrNull(cwd),
   ])
   const keyframe = keyframes.find((entry) => entry.keyframeId === keyframeId)
 
@@ -1975,6 +2253,7 @@ async function loadKeyframeDetail(
         (historyState.currentExists || historyState.activeVersionId !== null) &&
         artifact !== undefined,
     },
+    cameraControl: buildCameraOverrideControl('keyframe', artifact?.camera, cameraVocabulary),
     removeAction: {
       actionUrl: getArtifactRemoveActionPath(descriptor),
       enabled: canRemoveAnchor,
@@ -2037,15 +2316,17 @@ async function loadOmittedKeyframeDetail(
       actionUrl: getArtifactCreateActionPath(descriptor),
       enabled: true,
     },
+    cameraControl: null,
     removeAction: null,
   } satisfies ArtifactDetailContext
 }
 
 async function loadShotDetail(shotId: string, cwd: string, requestedVersionId?: string | null) {
-  const [config, shots, artifacts] = await Promise.all([
+  const [config, shots, artifacts, cameraVocabulary] = await Promise.all([
     loadConfig(cwd).catch(() => null),
     loadShotPromptsOrEmpty(cwd),
     loadShotArtifactsOrEmpty(cwd),
+    loadCameraVocabularyOrNull(cwd),
   ])
   const shot = shots.find((entry) => entry.shotId === shotId)
 
@@ -2092,6 +2373,7 @@ async function loadShotDetail(shotId: string, cwd: string, requestedVersionId?: 
         (historyState.currentExists || historyState.activeVersionId !== null) &&
         artifact !== undefined,
     },
+    cameraControl: buildCameraOverrideControl('shot', artifact?.camera, cameraVocabulary),
     removeAction: null,
   } satisfies ArtifactDetailContext
 }
@@ -2136,6 +2418,7 @@ async function loadStoryboardDetail(cwd: string, requestedVersionId?: string | n
       actionUrl: getArtifactRegenerateActionPath(descriptor),
       enabled: historyState.currentExists || historyState.activeVersionId !== null,
     },
+    cameraControl: null,
     removeAction: null,
   } satisfies ArtifactDetailContext
 }
@@ -2268,7 +2551,7 @@ export async function runApprovedRegenerateAction(
   cwd: string,
   baseVersionId: string,
   regenerateRequest: string,
-  overrides: RegenerateActionGeneratorOverrides = {},
+  options: RegenerateActionOptions = {},
 ) {
   if (pathname === '/storyboard') {
     const config = await loadConfig(cwd)
@@ -2279,7 +2562,7 @@ export async function runApprovedRegenerateAction(
       regenerateRequest,
       selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
       cwd,
-      generator: overrides.imageGenerator,
+      generator: options.imageGenerator,
     })
   }
 
@@ -2299,7 +2582,7 @@ export async function runApprovedRegenerateAction(
       regenerateRequest,
       selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
       cwd,
-      generator: overrides.imageGenerator,
+      generator: options.imageGenerator,
     })
   }
 
@@ -2314,13 +2597,25 @@ export async function runApprovedRegenerateAction(
     }
 
     const descriptor = getKeyframeArtifactDescriptor(pending.generation)
+    const camera = resolveEffectiveKeyframeCamera(
+      pending.generation.camera,
+      options.cameraOverrides,
+    )
 
-    return regenerateKeyframeArtifactVersion(pending.generation, pending.keyframes, pending.shots, {
-      regenerateRequest,
-      selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
-      cwd,
-      generator: overrides.imageGenerator,
-    })
+    return regenerateKeyframeArtifactVersion(
+      {
+        ...pending.generation,
+        camera,
+      },
+      pending.keyframes,
+      pending.shots,
+      {
+        regenerateRequest,
+        selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
+        cwd,
+        generator: options.imageGenerator,
+      },
+    )
   }
 
   const shotMatch = /^\/shots\/([^/]+)$/.exec(pathname)
@@ -2336,8 +2631,13 @@ export async function runApprovedRegenerateAction(
     // Shot regeneration still uses the existing image-to-video anchor flow.
     // The current SDK path does not support passing the selected .mp4 back as
     // a true regeneration baseline.
+    const camera = resolveEffectiveShotCamera(pending.generation.camera, options.cameraOverrides)
+
     return regenerateShotArtifactVersion(
-      pending.generation,
+      {
+        ...pending.generation,
+        camera,
+      },
       pending.keyframes,
       pending.characterSheets,
       {
@@ -2345,7 +2645,8 @@ export async function runApprovedRegenerateAction(
         baseVersionId,
         userReferences: pending.generation.userReferences ?? [],
         cwd,
-        generator: overrides.shotVideoGenerator,
+        regenerationCamera: camera,
+        generator: options.shotVideoGenerator,
       },
     )
   }
@@ -2507,19 +2808,21 @@ async function handleRegenerate(
   request: Request,
   cwd: string,
   jobs: Map<string, ArtifactJobState>,
-  overrides: RegenerateActionGeneratorOverrides,
+  options: RegenerateActionOptions,
 ) {
-  const formData = await request.formData()
-  const baseVersionId = String(formData.get('baseVersionId') ?? '').trim()
-  const regenerateRequest = String(formData.get('regenerateRequest') ?? '').trim()
   const detail = await getDetailContext(pathname, cwd)
 
   if (!detail) {
     return renderErrorPage('characters', 'Missing Artifact', 'Artifact not found.', '/')
   }
 
-  if (baseVersionId.length === 0 || regenerateRequest.length === 0) {
-    throw new Error('Base version and regenerate request are required.')
+  const formData = await request.formData()
+  const baseVersionId = String(formData.get('baseVersionId') ?? '').trim()
+  const regenerateRequest = String(formData.get('regenerateRequest') ?? '').trim()
+  const cameraOverrides = parseCameraOverrideInput(formData, detail.cameraControl)
+
+  if (baseVersionId.length === 0 || (regenerateRequest.length === 0 && cameraOverrides === null)) {
+    throw new Error('Base version and either a regenerate request or camera override are required.')
   }
 
   await assertBaseVersionExists(detail.descriptor, cwd, baseVersionId)
@@ -2530,7 +2833,10 @@ async function handleRegenerate(
       cwd,
       baseVersionId,
       regenerateRequest,
-      overrides,
+      {
+        ...options,
+        cameraOverrides,
+      },
     )
 
     return {
@@ -2546,7 +2852,7 @@ async function handleCreate(
   request: Request,
   cwd: string,
   jobs: Map<string, ArtifactJobState>,
-  overrides: RegenerateActionGeneratorOverrides,
+  options: RegenerateActionOptions,
 ) {
   const detail = await getDetailContext(pathname, cwd)
 
@@ -2580,7 +2886,7 @@ async function handleCreate(
       pending.shots,
       {
         cwd,
-        generator: overrides.imageGenerator,
+        generator: options.imageGenerator,
       },
     )
 
@@ -2706,7 +3012,7 @@ export function startArtifactReviewServer(
 ) {
   const { cwd = process.cwd(), preferredPort = 3000, imageGenerator, shotVideoGenerator } = options
   const activeJobs = new Map<string, ArtifactJobState>()
-  const generatorOverrides: RegenerateActionGeneratorOverrides = {
+  const generatorOverrides: RegenerateActionOptions = {
     imageGenerator,
     shotVideoGenerator,
   }

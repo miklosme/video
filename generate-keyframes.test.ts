@@ -160,6 +160,8 @@ test('runKeyframeRegeneration uses only the selected keyframe image and the appr
     })
 
     expect(result.prompt).toContain('Regenerate the current keyframe image for SHOT-01-START.')
+    expect(result.prompt).toContain('Use this camera plan for this regeneration:')
+    expect(result.prompt).toContain('Shot Size: Medium Shot')
     expect(result.prompt).toContain('Move the camera slightly closer.')
     expect(result.prompt).not.toContain('Prompt for SHOT-01-START.')
     expect(result.references).toEqual([
@@ -168,6 +170,47 @@ test('runKeyframeRegeneration uses only the selected keyframe image and the appr
         path: 'workspace/KEYFRAMES/SHOT-01/HISTORY/SHOT-01-START/v2.png',
       },
     ])
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('runKeyframeRegeneration supports camera-only regeneration requests', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-keyframe-regenerate-'))
+  const keyframe = createKeyframes()[0]!
+  const generation = {
+    ...createArtifacts()[0]!,
+    ...keyframe,
+    camera: {
+      shotSize: 'medium-close-up',
+      cameraPosition: 'eye-level',
+      cameraAngle: 'low-angle',
+    },
+    model: 'image-test',
+    outputPath: keyframe.imagePath,
+  }
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/KEYFRAMES/SHOT-01/HISTORY/SHOT-01-START/v2.png',
+      'selected-keyframe',
+    )
+
+    const result = await runKeyframeRegeneration(generation, {
+      regenerateRequest: '',
+      selectedVersionPath: 'workspace/KEYFRAMES/SHOT-01/HISTORY/SHOT-01-START/v2.png',
+      cwd: rootDir,
+      generator: async (input) => ({
+        generationId: 'gen-camera-only',
+        model: input.model ?? 'image-test',
+        outputPaths: [path.resolve(rootDir, input.outputPath ?? 'out.png')],
+      }),
+    })
+
+    expect(result.prompt).toContain('Medium Close Up')
+    expect(result.prompt).toContain('Low Angle')
+    expect(result.prompt).not.toContain('Approved change:')
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

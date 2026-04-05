@@ -57,6 +57,14 @@ async function writeConfigFixture(
   )
 }
 
+async function writeCameraVocabularyFixture(rootDir: string) {
+  await writeRepoFile(
+    rootDir,
+    'CAMERA_VOCABULARY.json',
+    await readFile(new URL('./CAMERA_VOCABULARY.json', import.meta.url), 'utf8'),
+  )
+}
+
 async function waitFor(check: () => Promise<void>, timeoutMs = 2000) {
   const startedAt = Date.now()
   let lastError: unknown = null
@@ -1123,6 +1131,240 @@ test('artifact review server uses silent video thumbnails in the version rail wh
     } finally {
       await server.stop()
     }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server renders camera override controls for shot regeneration', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeCameraVocabularyFixture(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'ready',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS/SHOT-01.json',
+      `${JSON.stringify(
+        {
+          shotId: 'SHOT-01',
+          camera: {
+            shotSize: 'medium-shot',
+            cameraPosition: 'eye-level',
+            cameraAngle: 'level-angle',
+            cameraMovement: 'static-shot',
+          },
+          prompt: 'The camera glides from the start frame into the end frame.',
+          status: 'ready',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'workspace/SHOTS/SHOT-01.mp4', 'current-shot-video')
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/shots/SHOT-01', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('Camera Overrides')
+      expect(html).toContain('name="cameraOverrideShotSize"')
+      expect(html).toContain('name="cameraOverrideCameraMovement"')
+      expect(html).toContain('Keep current (Medium Shot)')
+      expect(html).toContain('Keep current (Static Shot)')
+      expect(html).toContain('leave the note blank and use camera overrides only')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server accepts camera-only keyframe regeneration requests', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+  let capturedPrompt = ''
+
+  try {
+    await writeConfigFixture(rootDir)
+    await writeCameraVocabularyFixture(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'ready',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-01-START']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.json',
+      `${JSON.stringify(
+        {
+          keyframeId: 'SHOT-01-START',
+          shotId: 'SHOT-01',
+          frameType: 'start',
+          camera: {
+            shotSize: 'medium-shot',
+            cameraPosition: 'eye-level',
+            cameraAngle: 'level-angle',
+          },
+          prompt: 'A stable opening frame.',
+          status: 'ready',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+      'keyframe-current',
+    )
+
+    const server = startArtifactReviewServer({
+      cwd: rootDir,
+      preferredPort: 0,
+      imageGenerator: async (input) => {
+        capturedPrompt = input.prompt
+
+        if (!input.outputPath) {
+          throw new Error('Expected outputPath for keyframe regeneration test.')
+        }
+
+        await writeRepoFile(rootDir, input.outputPath, 'keyframe-regenerated')
+
+        return {
+          generationId: 'gen-keyframe-regenerated',
+          model: input.model ?? 'image-test',
+          outputPaths: [path.resolve(rootDir, input.outputPath)],
+        }
+      },
+    })
+
+    try {
+      const response = await fetch(new URL('/keyframes/SHOT-01-START/regenerate', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+        body: new URLSearchParams({
+          baseVersionId: 'current',
+          cameraOverrideShotSize: 'close-up',
+        }),
+      })
+
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toBe('/keyframes/SHOT-01-START')
+
+      await waitFor(async () => {
+        expect(
+          await readFile(
+            path.resolve(rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png'),
+            'utf8',
+          ),
+        ).toBe('keyframe-regenerated')
+      })
+
+      expect(capturedPrompt).toContain('Shot Size: Close Up')
+      expect(capturedPrompt).not.toContain('Approved change:')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('runApprovedRegenerateAction passes shot camera overrides into regeneration prompts', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+  let capturedPrompt = ''
+
+  try {
+    await writeConfigFixture(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS.json',
+      `${JSON.stringify(
+        [
+          {
+            shotId: 'SHOT-01',
+            status: 'ready',
+            videoPath: 'workspace/SHOTS/SHOT-01.mp4',
+            durationSeconds: 4,
+            keyframes: createPlannedKeyframes(['SHOT-01-START', 'SHOT-01-END']),
+          },
+        ],
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/SHOTS/SHOT-01.json',
+      `${JSON.stringify(
+        {
+          shotId: 'SHOT-01',
+          camera: {
+            shotSize: 'medium-shot',
+            cameraPosition: 'eye-level',
+            cameraAngle: 'level-angle',
+            cameraMovement: 'static-shot',
+          },
+          prompt: 'The camera glides from the start frame into the end frame.',
+          status: 'ready',
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png', 'start-png')
+    await writeRepoFile(rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png', 'end-png')
+
+    await runApprovedRegenerateAction('/shots/SHOT-01', rootDir, 'current', '', {
+      cameraOverrides: {
+        shotSize: 'close-up',
+        cameraMovement: 'tracking-shot',
+      },
+      shotVideoGenerator: async (input) => {
+        capturedPrompt = input.prompt
+
+        return {
+          data: new Uint8Array([1, 2, 3]),
+          mediaType: 'video/mp4',
+        }
+      },
+    })
+
+    expect(capturedPrompt).toContain('Shot Size: Close Up')
+    expect(capturedPrompt).toContain('Camera Movement: Tracking Shot')
+    expect(capturedPrompt).not.toContain('Approved change:')
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

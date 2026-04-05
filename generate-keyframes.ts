@@ -11,6 +11,7 @@ import {
   resolveKeyframeGenerationReferences,
   resolveKeyframeRegenerationReferences,
 } from './artifact-control'
+import { formatKeyframeCameraPlan } from './camera-utils'
 import {
   generateImagenOptions,
   type GenerateImagenOptionsInput,
@@ -27,6 +28,7 @@ import {
   type FrameType,
   type GenerationReferenceEntry,
   type KeyframeArtifactEntry,
+  type KeyframeCameraSpec,
   type KeyframeEntry,
   type ShotEntry,
 } from './workflow-data'
@@ -42,6 +44,7 @@ export interface PendingKeyframeGeneration {
   keyframeId: string
   shotId: string
   frameType: FrameType
+  camera?: KeyframeCameraSpec
   model: string
   prompt: string
   outputPath: string
@@ -189,6 +192,7 @@ export function selectPendingKeyframeGenerations(
           keyframeId: entry.keyframeId,
           shotId: entry.shotId,
           frameType: entry.frameType,
+          camera: artifact.camera,
           model,
           prompt: artifact.prompt,
           outputPath: entry.imagePath,
@@ -281,22 +285,18 @@ async function assertReferenceFilesExist(
 }
 
 export function buildKeyframeRegeneratePrompt(
-  generation: Pick<PendingKeyframeGeneration, 'keyframeId' | 'shotId' | 'frameType'>,
-  regenerateRequest: string,
+  generation: Pick<PendingKeyframeGeneration, 'keyframeId' | 'shotId' | 'frameType' | 'camera'>,
+  regenerateRequest?: string | null,
 ) {
-  const trimmedRequest = regenerateRequest.trim()
-
-  if (trimmedRequest.length === 0) {
-    throw new Error('Keyframe regenerate request is empty.')
-  }
+  const trimmedRequest = regenerateRequest?.trim() ?? ''
 
   return [
     `Regenerate the current keyframe image for ${generation.keyframeId}.`,
     `Use the attached ${generation.frameType} frame from ${generation.shotId} as the direct visual baseline.`,
+    'Use this camera plan for this regeneration:',
+    formatKeyframeCameraPlan(generation.camera),
     'Preserve the rest of the framing, continuity, and character identity unless the approved change below explicitly asks for broader changes.',
-    '',
-    'Approved change:',
-    trimmedRequest,
+    ...(trimmedRequest.length > 0 ? ['', 'Approved change:', trimmedRequest] : []),
   ].join('\n')
 }
 

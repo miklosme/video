@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { getShotArtifactDescriptor } from './artifact-control'
 import {
   planShotGenerationAssets,
+  runShotGeneration,
   selectPendingShotGenerations,
   syncShotGenerations,
   type PendingShotGeneration,
@@ -542,6 +543,77 @@ test('syncShotGenerations honors firstOnly after skipping existing outputs', asy
     expect(await readFile(path.resolve(repo.rootDir, 'workspace/SHOTS/SHOT-02.mp4'), 'utf8')).toBe(
       'video:SHOT-02',
     )
+  } finally {
+    await repo.cleanup()
+  }
+})
+
+test('runShotGeneration injects the effective camera plan for regeneration-only shot edits', async () => {
+  const repo = await createTestRepo()
+  const generation: PendingShotGeneration = {
+    shotId: 'SHOT-01',
+    camera: {
+      shotSize: 'medium-close-up',
+      cameraPosition: 'eye-level',
+      cameraAngle: 'level-angle',
+      cameraMovement: 'tracking-shot',
+    },
+    model: 'video-test',
+    prompt: 'The camera glides from the start frame into the end frame.',
+    outputPath: 'workspace/SHOTS/SHOT-01.mp4',
+    keyframeIds: ['SHOT-01-START', 'SHOT-01-END'],
+    durationSeconds: 4,
+  }
+  const keyframes: KeyframeEntry[] = [
+    {
+      keyframeId: 'SHOT-01-START',
+      shotId: 'SHOT-01',
+      frameType: 'start',
+      title: 'Start frame',
+      goal: 'Open the shot.',
+      status: 'planned',
+      imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png',
+      characterIds: ['dog'],
+    },
+    {
+      keyframeId: 'SHOT-01-END',
+      shotId: 'SHOT-01',
+      frameType: 'end',
+      title: 'End frame',
+      goal: 'Close the shot.',
+      status: 'planned',
+      imagePath: 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png',
+      characterIds: ['dog'],
+    },
+  ]
+
+  try {
+    await writeRepoFile(repo.rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-START.png', 'png')
+    await writeRepoFile(repo.rootDir, 'workspace/KEYFRAMES/SHOT-01/SHOT-01-END.png', 'png')
+
+    let capturedPrompt = ''
+    const result = await runShotGeneration(generation, keyframes, [], {
+      cwd: repo.rootDir,
+      regenerateRequest: '',
+      regenerationCamera: generation.camera,
+      generator: async (input) => {
+        capturedPrompt = input.prompt
+
+        return {
+          data: new Uint8Array([1, 2, 3]),
+          mediaType: 'video/mp4',
+        }
+      },
+    })
+
+    expect(result.prompt).toContain('Use this camera plan for this regeneration:')
+    expect(result.prompt).toContain('Shot Size: Medium Close Up')
+    expect(result.prompt).toContain('Camera Movement: Tracking Shot')
+    expect(result.prompt).toContain(
+      'This camera plan overrides any conflicting shot framing or motion language above.',
+    )
+    expect(result.prompt).not.toContain('Approved change:')
+    expect(capturedPrompt).toBe(result.prompt)
   } finally {
     await repo.cleanup()
   }

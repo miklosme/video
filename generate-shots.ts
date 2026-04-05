@@ -11,6 +11,7 @@ import {
   recordArtifactVersionFromStage,
   resolveShotGenerationAssets,
 } from './artifact-control'
+import { formatShotCameraPlan } from './camera-utils'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import { ensureActiveWorkspace } from './project-workspace'
 import {
@@ -24,6 +25,7 @@ import {
   type GenerationLogEntry,
   type KeyframeEntry,
   type ShotArtifactEntry,
+  type ShotCameraSpec,
   type ShotEntry,
 } from './workflow-data'
 
@@ -36,6 +38,7 @@ interface GenerateShotsArgs {
 
 export interface PendingShotGeneration {
   shotId: string
+  camera?: ShotCameraSpec
   model: string
   prompt: string
   outputPath: string
@@ -213,6 +216,7 @@ export function selectPendingShotGenerations(
 
       return {
         shotId: entry.shotId,
+        camera: artifact.camera,
         model,
         prompt: artifact.prompt,
         outputPath: entry.videoPath,
@@ -337,18 +341,38 @@ export async function generateShotVideoWithGateway(
   }
 }
 
-function buildShotRegeneratePrompt(prompt: string, regenerateRequest?: string | null) {
-  if (!regenerateRequest) {
+function buildShotRegeneratePrompt(
+  prompt: string,
+  options: {
+    camera?: ShotCameraSpec | null
+    regenerateRequest?: string | null
+  } = {},
+) {
+  const trimmedRequest = options.regenerateRequest?.trim() ?? ''
+
+  if (!options.camera && trimmedRequest.length === 0) {
     return prompt
   }
 
   return [
     prompt,
-    '',
-    'Approved change:',
-    regenerateRequest,
-    '',
-    'Apply only this approved change while preserving the rest of the current shot intent unless the edit explicitly asks for broader changes.',
+    ...(options.camera
+      ? [
+          '',
+          'Use this camera plan for this regeneration:',
+          formatShotCameraPlan(options.camera),
+          'This camera plan overrides any conflicting shot framing or motion language above.',
+        ]
+      : []),
+    ...(trimmedRequest.length > 0
+      ? [
+          '',
+          'Approved change:',
+          trimmedRequest,
+          '',
+          'Apply only this approved change while preserving the rest of the current shot intent unless the edit explicitly asks for broader changes.',
+        ]
+      : []),
   ].join('\n')
 }
 
@@ -362,6 +386,7 @@ export async function runShotGeneration(
     cwd?: string
     firstOnly?: boolean
     regenerateRequest?: string | null
+    regenerationCamera?: ShotCameraSpec | null
     userReferences?: readonly ArtifactReferenceEntry[]
     outputPath?: string
     seed?: number
@@ -398,7 +423,10 @@ export async function runShotGeneration(
   let errorDetails: GenerationLogEntry['error'] = null
   // Shot regeneration still reuses the original shot prompt because the current
   // video path supports image-to-video anchoring, not a selected video baseline.
-  const prompt = buildShotRegeneratePrompt(generation.prompt, options.regenerateRequest)
+  const prompt = buildShotRegeneratePrompt(generation.prompt, {
+    camera: options.regenerationCamera,
+    regenerateRequest: options.regenerateRequest,
+  })
 
   try {
     const result = await generator({
@@ -482,6 +510,7 @@ export async function generateShotArtifactVersion(
     logFile?: string
     cwd?: string
     regenerateRequest?: string | null
+    regenerationCamera?: ShotCameraSpec | null
     userReferences?: readonly ArtifactReferenceEntry[]
     baseVersionId?: string | null
     seed?: number
@@ -499,6 +528,7 @@ export async function generateShotArtifactVersion(
       logFile: options.logFile,
       cwd,
       regenerateRequest: options.regenerateRequest,
+      regenerationCamera: options.regenerationCamera,
       userReferences: options.userReferences,
       outputPath: stagedVersion.stagedPath,
       seed: seed ?? undefined,
@@ -533,11 +563,15 @@ export async function regenerateShotArtifactVersion(
     regenerateRequest?: string | null
     userReferences?: readonly ArtifactReferenceEntry[]
     baseVersionId?: string | null
+    regenerationCamera?: ShotCameraSpec | null
     seed?: number
     autoSelect?: boolean
   } = {},
 ) {
-  return generateShotArtifactVersion(generation, keyframes, characterSheets, options)
+  return generateShotArtifactVersion(generation, keyframes, characterSheets, {
+    ...options,
+    regenerationCamera: options.regenerationCamera ?? generation.camera ?? null,
+  })
 }
 
 export async function syncShotGenerations(
