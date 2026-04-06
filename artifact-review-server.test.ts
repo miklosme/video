@@ -130,6 +130,75 @@ test('artifact review server renders idea and story document pages and puts them
   }
 })
 
+test('artifact review server exposes the recent generation log and links to it from the top nav', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    const logEntries = Array.from({ length: 6 }, (_, index) => ({
+      generationId: `gen-${index + 1}`,
+      startedAt: `2026-04-0${index + 1}T10:00:00.000Z`,
+      completedAt: `2026-04-0${index + 1}T10:00:05.000Z`,
+      status: index === 4 ? 'error' : 'success',
+      model: 'image-test',
+      prompt: `Prompt ${index + 1}`,
+      settings: {
+        imageCount: 1,
+        aspectRatio: '16:9',
+      },
+      outputDir: 'workspace/KEYFRAMES/SHOT-01',
+      outputPaths: [`workspace/KEYFRAMES/SHOT-01/gen-${index + 1}.png`],
+      keyframeId: 'SHOT-01-START',
+      shotId: 'SHOT-01',
+      frameType: 'start',
+      promptId: null,
+      artifactType: 'keyframe',
+      artifactId: 'SHOT-01-START',
+      logFile: 'workspace/GENERATION-LOG.jsonl',
+      references: [],
+      error:
+        index === 4
+          ? {
+              name: 'TestError',
+              message: 'generation failed',
+            }
+          : null,
+    }))
+
+    await writeRepoFile(
+      rootDir,
+      'workspace/GENERATION-LOG.jsonl',
+      `${logEntries.map((entry) => JSON.stringify(entry)).join('\n')}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const homeResponse = await fetch(new URL('/', server.url))
+      const homeHtml = await homeResponse.text()
+      const logsResponse = await fetch(new URL('/logs', server.url))
+      const logsHtml = await logsResponse.text()
+
+      expect(homeResponse.status).toBe(200)
+      expect(homeHtml).toContain('class="top-nav"')
+      expect(homeHtml).toContain('justify-content: space-between;')
+      expect(homeHtml).toContain('class="button button-link" href="/logs">Logs</a>')
+
+      expect(logsResponse.status).toBe(200)
+      expect(logsHtml).toContain('workspace/GENERATION-LOG.jsonl')
+      expect(logsHtml).toContain('&quot;generationId&quot;: &quot;gen-6&quot;')
+      expect(logsHtml).toContain('&quot;generationId&quot;: &quot;gen-2&quot;')
+      expect(logsHtml).not.toContain('&quot;generationId&quot;: &quot;gen-1&quot;')
+      expect(logsHtml.indexOf('&quot;generationId&quot;: &quot;gen-6&quot;')).toBeLessThan(
+        logsHtml.indexOf('&quot;generationId&quot;: &quot;gen-5&quot;'),
+      )
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('artifact review server renders an empty storyboard editor when no storyboard sidecar exists', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 

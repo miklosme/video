@@ -92,6 +92,7 @@ import {
   type CameraVocabularyEntry,
   type CharacterSheetEntry,
   type FrameType,
+  type GenerationLogEntry,
   type KeyframeCameraSpec,
   type KeyframeEntry,
   type ResolvedArtifactReference,
@@ -1020,7 +1021,7 @@ async function loadShotArtifactsOrEmpty(cwd: string) {
   }
 }
 
-function renderTabs(activeTab: Tab) {
+function renderTabs(activeTab: Tab | null) {
   const tabs: { id: Tab; label: string; href: string }[] = [
     { id: 'idea', label: 'Idea', href: '/idea' },
     { id: 'story', label: 'Story', href: '/story' },
@@ -1041,8 +1042,19 @@ function renderTabs(activeTab: Tab) {
   `
 }
 
+function renderTopNav(activeTab: Tab | null) {
+  return `
+    <div class="top-nav">
+      ${renderTabs(activeTab)}
+      <div class="top-nav-actions">
+        <a class="button button-link" href="/logs">Logs</a>
+      </div>
+    </div>
+  `
+}
+
 function renderPage(
-  activeTab: Tab,
+  activeTab: Tab | null,
   content: string,
   options: {
     autoRefresh?: boolean
@@ -1138,6 +1150,21 @@ function renderPage(
         border-radius: 999px;
         background: rgba(255,255,255,0.02);
         width: fit-content;
+      }
+
+      .top-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .top-nav-actions {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 10px;
+        margin-left: auto;
       }
 
       .tab {
@@ -1441,6 +1468,19 @@ function renderPage(
       button.button-danger {
         background: rgba(248,115,115,0.12);
         color: var(--error);
+      }
+
+      .button-link,
+      button.button-link {
+        border-color: transparent;
+        background: transparent;
+        color: var(--accent-2);
+      }
+
+      .button-link:hover,
+      button.button-link:hover {
+        border-color: rgba(125,211,252,0.18);
+        background: rgba(125,211,252,0.08);
       }
 
       button:disabled { opacity: 0.45; cursor: not-allowed; }
@@ -1824,6 +1864,17 @@ function renderPage(
         background: rgba(255,255,255,0.015);
       }
 
+      .log-entry-list {
+        display: grid;
+        gap: 16px;
+      }
+
+      .log-entry {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
       .form-note {
         color: var(--soft);
         font-size: 12px;
@@ -1855,6 +1906,14 @@ function renderPage(
 
       @media (max-width: 720px) {
         .board { padding: 16px; }
+        .top-nav {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .top-nav-actions {
+          justify-content: flex-start;
+          margin-left: 0;
+        }
         .hero { flex-direction: column; }
         .shot { grid-template-columns: 1fr; }
         .shot-id { text-align: left; }
@@ -1867,7 +1926,7 @@ function renderPage(
   </head>
   <body class="${bodyClass}">
     <div class="${boardClass}">
-      ${options.embedded ? '' : renderTabs(activeTab)}
+      ${options.embedded ? '' : renderTopNav(activeTab)}
       ${content}
     </div>
     ${refreshParentScript}
@@ -2510,6 +2569,82 @@ async function loadWorkspaceMarkdownDocument(fileName: string, cwd: string) {
 
     throw error
   }
+}
+
+async function loadRecentGenerationLogEntries(
+  cwd: string,
+  limit = 5,
+): Promise<GenerationLogEntry[]> {
+  try {
+    const raw = await readFile(path.resolve(cwd, 'workspace', 'GENERATION-LOG.jsonl'), 'utf8')
+    const lines = raw
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0)
+
+    return lines
+      .slice(-limit)
+      .reverse()
+      .map((line, index) => {
+        try {
+          return JSON.parse(line) as GenerationLogEntry
+        } catch (error) {
+          const suffix = error instanceof Error ? ` ${error.message}` : ''
+          throw new Error(`Failed to parse recent generation log entry ${index + 1}.${suffix}`)
+        }
+      })
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      return []
+    }
+
+    throw error
+  }
+}
+
+function renderGenerationLogPage(entries: GenerationLogEntry[]) {
+  return new Response(
+    renderPage(
+      null,
+      `<div class="stack">
+        ${renderHero(
+          'Generation Log',
+          'Inspect the five most recent generation runs from workspace/GENERATION-LOG.jsonl, rendered as readable JSON.',
+          'Utility View',
+        )}
+        <section class="panel">
+          <div class="meta-stack">
+            <p class="section-title">workspace/GENERATION-LOG.jsonl</p>
+            <p class="form-note">Most recent entries first.</p>
+          </div>
+          <div class="spacer"></div>
+          ${
+            entries.length === 0
+              ? '<div class="empty-state">No generation log entries yet.</div>'
+              : `<div class="log-entry-list">
+                  ${entries
+                    .map(
+                      (entry) => `
+                        <section class="summary-card log-entry">
+                          <div class="pill-row">
+                            <span class="pill ${entry.status === 'success' ? 'pill-accent' : 'pill-error'}">${escapeHtml(entry.status)}</span>
+                            <span class="pill">${escapeHtml(entry.generationId)}</span>
+                            <span class="pill">${escapeHtml(entry.model)}</span>
+                          </div>
+                          <pre class="storyboard-markdown">${escapeHtml(JSON.stringify(entry, null, 2))}</pre>
+                        </section>
+                      `,
+                    )
+                    .join('')}
+                </div>`
+          }
+        </section>
+      </div>`,
+    ),
+    {
+      headers: HTML_HEADERS,
+    },
+  )
 }
 
 function renderWorkspaceMarkdownDocumentPage(options: {
@@ -4699,6 +4834,10 @@ export function startArtifactReviewServer(
             })
           }
 
+          if ((request.method === 'GET' || request.method === 'HEAD') && url.pathname === '/logs') {
+            return renderGenerationLogPage(await loadRecentGenerationLogEntries(cwd))
+          }
+
           if (
             (request.method === 'GET' || request.method === 'HEAD') &&
             (url.pathname === '/keyframes' || url.pathname === '/shots')
@@ -5069,7 +5208,7 @@ export function startArtifactReviewServer(
           return new Response('Not Found', { status: 404 })
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
-          const activeTab: Tab = url.pathname.startsWith('/timeline')
+          const activeTab: Tab | null = url.pathname.startsWith('/timeline')
             ? 'timeline'
             : url.pathname.startsWith('/shots') || url.pathname.startsWith('/keyframes')
               ? 'timeline'
@@ -5079,7 +5218,9 @@ export function startArtifactReviewServer(
                   ? 'story'
                   : url.pathname.startsWith('/idea')
                     ? 'idea'
-                    : 'characters'
+                    : url.pathname.startsWith('/logs')
+                      ? null
+                      : 'characters'
 
           return new Response(
             renderPage(
