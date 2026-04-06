@@ -2469,24 +2469,20 @@ function renderStoryboardSummary(options: {
             </form>
           </section>
           ${
-            selectedEntry
+            selectedEntry && options.selectedCard?.imageExists
               ? `
                 <section class="panel">
-                  <p class="section-title">Delete</p>
+                  <p class="section-title">Drop Image</p>
                   <p class="form-note">${escapeHtml(
-                    selectedEntry.entry.frameType === 'start' && pairedEnd
-                      ? 'Deleting this start frame also removes its paired end frame.'
-                      : 'Delete the selected storyboard thumbnail from the plan.',
+                    'Remove the current storyboard image artifact while keeping this storyboard slot and its planning data in place.',
                   )}</p>
-                  <form method="post" action="/storyboard/delete" onsubmit="return window.confirm(${escapeHtml(
+                  <form method="post" action="/storyboard/drop-image" onsubmit="return window.confirm(${escapeHtml(
                     JSON.stringify(
-                      selectedEntry.entry.frameType === 'start' && pairedEnd
-                        ? `Delete ${selectedEntry.storyboardImageId} and ${pairedEnd.storyboardImageId}?`
-                        : `Delete ${selectedEntry.storyboardImageId}?`,
+                      `Drop the current image for ${selectedEntry.storyboardImageId}? The storyboard entry will stay in place.`,
                     ),
                   )})">
                     <input type="hidden" name="selectedImageId" value="${escapeHtml(options.selected.selectedImageId)}">
-                    <button class="button-danger" type="submit">Delete thumbnail</button>
+                    <button class="button-danger" type="submit">Drop image</button>
                   </form>
                 </section>
               `
@@ -4068,6 +4064,36 @@ async function writeStoryboardManifest(
   )
 }
 
+async function dropStoryboardImageArtifact(entry: StoryboardDerivedImageEntry, cwd: string) {
+  if (entry.entry.imagePath === null) {
+    throw new Error(`Storyboard image "${entry.storyboardImageId}" is missing imagePath.`)
+  }
+
+  const dependents = await findStoryboardImageDependents(entry.entry.imagePath, cwd)
+
+  if (dependents.length > 0) {
+    throw new Error(
+      `Storyboard image "${entry.storyboardImageId}" is already referenced by ${dependents.join(', ')} and cannot be dropped safely.`,
+    )
+  }
+
+  await rm(resolveRepoPath(entry.entry.imagePath, cwd), { force: true }).catch(() => undefined)
+  await rm(
+    resolveRepoPath(
+      getStoryboardArtifactDescriptor({
+        imagePath: entry.entry.imagePath,
+        shotId: entry.shotId,
+        storyboardImageId: entry.storyboardImageId,
+      }).historyDir,
+      cwd,
+    ),
+    {
+      recursive: true,
+      force: true,
+    },
+  ).catch(() => undefined)
+}
+
 interface StoryboardEditorFormInput {
   selectedImageId: string
   goal: string
@@ -4391,82 +4417,28 @@ async function handleStoryboardInsertEnd(
   )
 }
 
-async function handleStoryboardDelete(request: Request, cwd: string) {
+async function handleStoryboardDropImage(request: Request, cwd: string) {
   const formData = await request.formData()
   const selectedImageId = String(formData.get('selectedImageId') ?? '').trim()
   const storyboard = await loadStoryboardOrEmpty(cwd)
 
   if (!storyboard || selectedImageId.length === 0) {
-    throw new Error('Select a storyboard thumbnail before deleting it.')
+    throw new Error('Select a storyboard thumbnail before dropping its image.')
   }
 
-  const currentIndex = getStoryboardImageIndex(storyboard, selectedImageId)
   const current = findStoryboardImage(storyboard, selectedImageId)
 
-  if (!current || currentIndex < 0) {
+  if (!current) {
     throw new Error(
       `Storyboard image "${selectedImageId}" is missing from workspace/STORYBOARD.json.`,
     )
   }
 
-  const pairedEnd =
-    current.entry.frameType === 'start' ? getStoryboardPairedEnd(storyboard, selectedImageId) : null
-  const removedEntries = pairedEnd ? [current, pairedEnd] : [current]
-
-  for (const entry of removedEntries) {
-    const dependents =
-      entry.entry.imagePath === null
-        ? []
-        : await findStoryboardImageDependents(entry.entry.imagePath, cwd)
-
-    if (dependents.length > 0) {
-      throw new Error(
-        `Storyboard image "${entry.storyboardImageId}" is already referenced by ${dependents.join(', ')} and cannot be removed safely.`,
-      )
-    }
-  }
-
-  const removedIndices = new Set(removedEntries.map((entry) => entry.imageIndex))
-  const nextImages = storyboard.images.filter((_, index) => !removedIndices.has(index))
-
-  await writeStoryboardManifest(
-    {
-      ...storyboard,
-      images: nextImages,
-    },
-    cwd,
-  )
-
-  for (const entry of removedEntries) {
-    if (entry.entry.imagePath !== null) {
-      await rm(resolveRepoPath(entry.entry.imagePath, cwd), { force: true }).catch(() => undefined)
-      await rm(
-        resolveRepoPath(
-          getStoryboardArtifactDescriptor({
-            imagePath: entry.entry.imagePath,
-            shotId: entry.shotId,
-            storyboardImageId: entry.storyboardImageId,
-          }).historyDir,
-          cwd,
-        ),
-        {
-          recursive: true,
-          force: true,
-        },
-      ).catch(() => undefined)
-    }
-  }
-
-  const nextSelection =
-    nextImages[currentIndex] !== undefined
-      ? getStoryboardSelectionId(currentIndex)
-      : nextImages[currentIndex - 1] !== undefined
-        ? getStoryboardSelectionId(currentIndex - 1)
-        : STORYBOARD_NEW_SELECTION_ID
+  await dropStoryboardImageArtifact(current, cwd)
 
   return redirectTo(
     appendSearchParams(buildPostActionRedirectLocation('/storyboard', request, { updated: true }), {
-      image: nextSelection,
+      image: getStoryboardSelectionId(current.imageIndex),
     }),
   )
 }
@@ -4501,42 +4473,7 @@ async function handleStoryboardRemoveImage(pathname: string, request: Request, c
     )
   }
 
-  const dependents = await findStoryboardImageDependents(current.entry.imagePath, cwd)
-
-  if (dependents.length > 0) {
-    throw new Error(
-      `Storyboard image "${current.storyboardImageId}" is already referenced by ${dependents.join(', ')} and cannot be removed safely.`,
-    )
-  }
-
-  await writeStoryboardManifest(
-    {
-      images: storyboard.images.map((entry, index) =>
-        index === current.imageIndex
-          ? {
-              ...entry,
-              imagePath: null,
-            }
-          : entry,
-      ),
-    },
-    cwd,
-  )
-  await rm(resolveRepoPath(current.entry.imagePath, cwd), { force: true }).catch(() => undefined)
-  await rm(
-    resolveRepoPath(
-      getStoryboardArtifactDescriptor({
-        imagePath: current.entry.imagePath,
-        shotId: current.shotId,
-        storyboardImageId: current.storyboardImageId,
-      }).historyDir,
-      cwd,
-    ),
-    {
-      recursive: true,
-      force: true,
-    },
-  ).catch(() => undefined)
+  await dropStoryboardImageArtifact(current, cwd)
 
   return redirectTo(
     appendSearchParams(buildPostActionRedirectLocation('/storyboard', request, { updated: true }), {
@@ -5018,8 +4955,12 @@ export function startArtifactReviewServer(
             return await handleStoryboardInsertEnd(request, cwd, activeJobs, generatorOverrides)
           }
 
+          if (request.method === 'POST' && url.pathname === '/storyboard/drop-image') {
+            return await handleStoryboardDropImage(request, cwd)
+          }
+
           if (request.method === 'POST' && url.pathname === '/storyboard/delete') {
-            return await handleStoryboardDelete(request, cwd)
+            return await handleStoryboardDropImage(request, cwd)
           }
 
           if (request.method === 'POST' && /\/references$/.test(url.pathname)) {
