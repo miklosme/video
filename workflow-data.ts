@@ -216,8 +216,11 @@ export interface GenerationLogEntry {
   startedAt: string
   completedAt: string | null
   status: 'success' | 'error'
+  operation?: string | null
   model: string
+  system?: string | null
   prompt: string
+  outputText?: string | null
   settings: {
     imageCount?: number
     videoCount?: number
@@ -227,6 +230,9 @@ export interface GenerationLogEntry {
     durationSeconds?: number
     referenceImageCount?: number
     seed?: number
+    temperature?: number
+    maxOutputTokens?: number
+    targetModel?: string
   }
   outputDir: string
   outputPaths: string[]
@@ -238,6 +244,19 @@ export interface GenerationLogEntry {
   artifactId?: string | null
   logFile: string
   references: GenerationReferenceEntry[]
+  usage?: {
+    inputTokens?: number
+    outputTokens?: number
+    totalTokens?: number
+    reasoningTokens?: number
+    cacheReadInputTokens?: number
+    cacheCreationInputTokens?: number
+  } | null
+  providerMetadata?: unknown
+  finishReason?: string | null
+  rawFinishReason?: string | null
+  responseId?: string | null
+  metadata?: Record<string, unknown> | null
   error: {
     name: string
     message: string

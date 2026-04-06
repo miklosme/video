@@ -3695,6 +3695,9 @@ async function buildStoryboardPendingGeneration(
     {
       storyboardImageId: entry.storyboardImageId,
     },
+    {
+      rewriteModel: config.agentModel,
+    },
   )
 
   return generations[0] ?? null

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { getStoryboardArtifactDescriptor } from './artifact-control'
 import {
   buildStoryboardPrompt,
+  runStoryboardGeneration,
   runStoryboardRegeneration,
   selectPendingStoryboardGenerations,
   syncStoryboardGeneration,
@@ -132,6 +133,95 @@ test('runStoryboardRegeneration keeps the selected storyboard image and retained
       },
       { kind: 'user-reference', path: 'workspace/references/window.png' },
     ])
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('runStoryboardGeneration rewrites flux klein storyboard prompts before image generation', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-flux-rewrite-'))
+
+  try {
+    await writeRepoFile(rootDir, 'workspace/IDEA.md', '# IDEA\nComic market panic.\n')
+    await writeRepoFile(rootDir, 'workspace/STORY.md', '# STORY\nThe merchant loses the bag.\n')
+    await writeRepoFile(rootDir, 'workspace/references/window.png', 'reference-image')
+
+    let seenPrompt = ''
+    let promptText = ''
+    const logFile = 'workspace/test-log.jsonl'
+    const result = await runStoryboardGeneration(
+      {
+        imageIndex: 0,
+        storyboardImageId: 'SHOT-01-START',
+        shotId: 'SHOT-01',
+        frameType: 'start',
+        goal: 'Establish the merchant realizing the bag is gone.',
+        previousFrameSummary: null,
+        nextFrameSummary: 'SHOT-01-END (end) — The merchant lunges into the crowd.',
+        artifactId: 'storyboard-image-alpha',
+        model: 'bfl/flux-2-klein-4b',
+        rewriteModel: 'openai/gpt-5.4-mini',
+        prompt: 'Base storyboard prompt.',
+        outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+        userReferences: [
+          {
+            kind: 'user-reference',
+            path: 'workspace/references/window.png',
+          },
+        ],
+      },
+      {
+        cwd: rootDir,
+        logFile,
+        promptRewriter: async () =>
+          'A frantic merchant freezes beside a market stall, clutching an empty satchel as the crowd swirls behind him. Style: rough graphite storyboard sketch.',
+        generator: async (input) => {
+          seenPrompt = input.prompt
+          promptText =
+            input.promptTextBuilder?.({
+              prompt: input.prompt,
+              references: input.references ?? [],
+              aspectRatio: input.aspectRatio ?? '16:9',
+              model: input.model ?? 'bfl/flux-2-klein-4b',
+              shotId: input.shotId,
+              size: input.size,
+            }) ?? ''
+
+          return {
+            generationId: 'gen-1',
+            model: input.model ?? 'bfl/flux-2-klein-4b',
+            outputPaths: [path.resolve(rootDir, input.outputPath ?? 'out.png')],
+          }
+        },
+      },
+    )
+
+    expect(seenPrompt).toContain('A frantic merchant freezes beside a market stall')
+    expect(promptText).toBe(seenPrompt)
+    expect(result.prompt).toBe(seenPrompt)
+    const logEntries = (await readFile(path.resolve(rootDir, logFile), 'utf8'))
+      .trim()
+      .split('\n')
+      .map(
+        (line) =>
+          JSON.parse(line) as {
+            operation?: string
+            model: string
+            outputText?: string | null
+            settings: { targetModel?: string }
+          },
+      )
+
+    expect(logEntries).toHaveLength(1)
+    expect(logEntries[0]).toMatchObject({
+      operation: 'storyboard-prompt-rewrite',
+      model: 'openai/gpt-5.4-mini',
+      outputText:
+        'A frantic merchant freezes beside a market stall, clutching an empty satchel as the crowd swirls behind him. Style: rough graphite storyboard sketch.',
+      settings: {
+        targetModel: 'bfl/flux-2-klein-4b',
+      },
+    })
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

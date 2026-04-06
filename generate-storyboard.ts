@@ -20,10 +20,14 @@ import {
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import { ensureActiveWorkspace } from './project-workspace'
 import {
+  buildStoryboardDirectPromptText,
   buildStoryboardPrompt,
   buildStoryboardPromptText,
   buildStoryboardRegeneratePrompt,
+  modelUsesStoryboardPromptRewrite,
+  rewriteStoryboardPrompt,
   STORYBOARD_THUMBNAIL_IMAGE_SIZE,
+  type StoryboardPromptRewriter,
 } from './storyboard-prompting'
 import { buildStoryboardDerivedImages, createStoryboardImagePath } from './storyboard-utils'
 import {
@@ -47,8 +51,11 @@ export interface PendingStoryboardGeneration {
   shotId: string
   frameType: StoryboardImageEntry['frameType']
   goal: string
+  previousFrameSummary?: string | null
+  nextFrameSummary?: string | null
   artifactId: string
   model: string
+  rewriteModel?: string | null
   prompt: string
   outputPath: string
   userReferences?: StoryboardImageEntry['references']
@@ -148,8 +155,13 @@ export function selectPendingStoryboardGenerations(
   storyboard: StoryboardSidecar,
   model: string,
   filters: GenerateStoryboardArgs = {},
+  options: {
+    rewriteModel?: string | null
+  } = {},
 ): PendingStoryboardGeneration[] {
-  return buildStoryboardDerivedImages(storyboard.images)
+  const derivedImages = buildStoryboardDerivedImages(storyboard.images)
+
+  return derivedImages
     .filter((entry) => matchesStoryboardFilters(entry, filters))
     .map((entry) => {
       if (entry.entry.imagePath === null) {
@@ -158,19 +170,69 @@ export function selectPendingStoryboardGenerations(
         )
       }
 
+      const previousEntry =
+        entry.imageIndex > 0 ? (derivedImages[entry.imageIndex - 1] ?? null) : null
+      const nextEntry = derivedImages[entry.imageIndex + 1] ?? null
+
       return {
         imageIndex: entry.imageIndex,
         storyboardImageId: entry.storyboardImageId,
         shotId: entry.shotId,
         frameType: entry.entry.frameType,
         goal: entry.entry.goal,
+        previousFrameSummary: previousEntry
+          ? `${previousEntry.storyboardImageId} (${previousEntry.entry.frameType}) — ${previousEntry.entry.goal.trim()}`
+          : null,
+        nextFrameSummary: nextEntry
+          ? `${nextEntry.storyboardImageId} (${nextEntry.entry.frameType}) — ${nextEntry.entry.goal.trim()}`
+          : null,
         artifactId: getStoryboardArtifactIdFromPath(entry.entry.imagePath),
         model,
+        rewriteModel: options.rewriteModel ?? null,
         prompt: buildStoryboardPrompt(storyboard, entry.imageIndex),
         outputPath: entry.entry.imagePath,
         userReferences: entry.entry.references,
       }
     })
+}
+
+export async function resolveStoryboardGenerationPrompt(
+  generation: PendingStoryboardGeneration,
+  references: NonNullable<GenerateImagenOptionsInput['references']>,
+  options: {
+    basePrompt?: string
+    regenerateRequest?: string | null
+    logFile?: string
+    cwd?: string
+    promptRewriter?: StoryboardPromptRewriter
+  } = {},
+) {
+  if (modelUsesStoryboardPromptRewrite(generation.model) && !generation.rewriteModel) {
+    throw new Error(
+      `Storyboard image "${generation.storyboardImageId}" requires a configured agent rewrite model before it can be generated with ${generation.model}.`,
+    )
+  }
+
+  return rewriteStoryboardPrompt(
+    {
+      prompt: options.basePrompt ?? generation.prompt,
+      imageModel: generation.model,
+      rewriteModel: generation.rewriteModel ?? generation.model,
+      storyboardImageId: generation.storyboardImageId,
+      shotId: generation.shotId,
+      frameType: generation.frameType,
+      goal: generation.goal,
+      previousFrameSummary: generation.previousFrameSummary ?? null,
+      nextFrameSummary: generation.nextFrameSummary ?? null,
+      references,
+      regenerateRequest: options.regenerateRequest,
+      cwd: options.cwd,
+    },
+    {
+      logFile: options.logFile,
+      rewriter: options.promptRewriter,
+    },
+  )
 }
 
 export async function runStoryboardGeneration(
@@ -182,16 +244,25 @@ export async function runStoryboardGeneration(
     cwd?: string
     seed?: number
     generator?: ImageGenerator
+    resolvedPrompt?: string
+    promptRewriter?: StoryboardPromptRewriter
   } = {},
 ) {
   const { resolvedReferences, references } = resolveStoryboardGenerationReferences(
     options.userReferences ?? generation.userReferences ?? [],
   )
   await assertResolvedReferencesExist(resolvedReferences, options.cwd)
+  const prompt =
+    options.resolvedPrompt ??
+    (await resolveStoryboardGenerationPrompt(generation, references, {
+      logFile: options.logFile,
+      cwd: options.cwd,
+      promptRewriter: options.promptRewriter,
+    }))
 
   const generator = options.generator ?? generateImagenOptions
   const result = await generator({
-    prompt: generation.prompt,
+    prompt,
     model: generation.model,
     outputPath: options.outputPath ?? generation.outputPath,
     size: STORYBOARD_THUMBNAIL_IMAGE_SIZE,
@@ -201,12 +272,14 @@ export async function runStoryboardGeneration(
     seed: options.seed,
     artifactType: 'storyboard',
     artifactId: generation.artifactId,
-    promptTextBuilder: buildStoryboardPromptText,
+    promptTextBuilder: modelUsesStoryboardPromptRewrite(generation.model)
+      ? buildStoryboardDirectPromptText
+      : buildStoryboardPromptText,
   })
 
   return {
     ...result,
-    prompt: generation.prompt,
+    prompt,
     resolvedReferences,
     references,
   }
@@ -221,6 +294,8 @@ export async function generateStoryboardArtifactVersion(
     seed?: number
     autoSelect?: boolean
     generator?: ImageGenerator
+    resolvedPrompt?: string
+    promptRewriter?: StoryboardPromptRewriter
   } = {},
 ) {
   const descriptor = getStoryboardArtifactDescriptor({
@@ -240,6 +315,8 @@ export async function generateStoryboardArtifactVersion(
       cwd,
       seed: seed ?? undefined,
       generator: options.generator,
+      resolvedPrompt: options.resolvedPrompt,
+      promptRewriter: options.promptRewriter,
     })
     const recorded = await recordArtifactVersionFromStage({
       descriptor,
@@ -271,6 +348,8 @@ export async function runStoryboardRegeneration(
     cwd?: string
     seed?: number
     generator?: ImageGenerator
+    resolvedPrompt?: string
+    promptRewriter?: StoryboardPromptRewriter
   },
 ) {
   const { resolvedReferences, references } = resolveStoryboardRegenerationReferences(
@@ -279,7 +358,16 @@ export async function runStoryboardRegeneration(
   )
   await assertResolvedReferencesExist(resolvedReferences, options.cwd)
 
-  const prompt = buildStoryboardRegeneratePrompt(generation, options.regenerateRequest)
+  const basePrompt = buildStoryboardRegeneratePrompt(generation, options.regenerateRequest)
+  const prompt =
+    options.resolvedPrompt ??
+    (await resolveStoryboardGenerationPrompt(generation, references, {
+      basePrompt,
+      regenerateRequest: options.regenerateRequest,
+      logFile: options.logFile,
+      cwd: options.cwd,
+      promptRewriter: options.promptRewriter,
+    }))
   const generator = options.generator ?? generateImagenOptions
   const result = await generator({
     prompt,
@@ -292,7 +380,9 @@ export async function runStoryboardRegeneration(
     seed: options.seed,
     artifactType: 'storyboard',
     artifactId: generation.artifactId,
-    promptTextBuilder: buildStoryboardPromptText,
+    promptTextBuilder: modelUsesStoryboardPromptRewrite(generation.model)
+      ? buildStoryboardDirectPromptText
+      : buildStoryboardPromptText,
   })
 
   return {
@@ -314,6 +404,8 @@ export async function regenerateStoryboardArtifactVersion(
     seed?: number
     autoSelect?: boolean
     generator?: ImageGenerator
+    resolvedPrompt?: string
+    promptRewriter?: StoryboardPromptRewriter
   },
 ) {
   const descriptor = getStoryboardArtifactDescriptor({
@@ -335,6 +427,8 @@ export async function regenerateStoryboardArtifactVersion(
       cwd,
       seed: seed ?? undefined,
       generator: options.generator,
+      resolvedPrompt: options.resolvedPrompt,
+      promptRewriter: options.promptRewriter,
     })
     const recorded = await recordArtifactVersionFromStage({
       descriptor,
@@ -358,15 +452,24 @@ export async function regenerateStoryboardArtifactVersion(
 export async function syncStoryboardGeneration(options: {
   storyboard: StoryboardSidecar
   model: string
+  rewriteModel?: string | null
   filters?: GenerateStoryboardArgs
   variantCount?: number
   logFile?: string
   cwd?: string
   generator?: ImageGenerator
+  promptRewriter?: StoryboardPromptRewriter
 }): Promise<StoryboardGenerationSummary> {
   const cwd = options.cwd ?? process.cwd()
   const storyboard = await ensureStoryboardImagePaths(options.storyboard, options.filters, cwd)
-  const generations = selectPendingStoryboardGenerations(storyboard, options.model, options.filters)
+  const generations = selectPendingStoryboardGenerations(
+    storyboard,
+    options.model,
+    options.filters,
+    {
+      rewriteModel: options.rewriteModel,
+    },
+  )
   const variantCount = options.variantCount ?? 1
   let generatedCount = 0
   let skippedCount = 0
@@ -388,6 +491,19 @@ export async function syncStoryboardGeneration(options: {
       continue
     }
 
+    const generationReferences = resolveStoryboardGenerationReferences(
+      generation.userReferences ?? [],
+    ).references
+    const resolvedPrompt = await resolveStoryboardGenerationPrompt(
+      generation,
+      generationReferences,
+      {
+        logFile: options.logFile,
+        cwd,
+        promptRewriter: options.promptRewriter,
+      },
+    )
+
     for (let variantIndex = 0; variantIndex < variantCount; variantIndex += 1) {
       if (variantCount === 1) {
         console.log(
@@ -405,6 +521,8 @@ export async function syncStoryboardGeneration(options: {
         cwd,
         autoSelect: variantIndex === variantCount - 1,
         generator: options.generator,
+        resolvedPrompt,
+        promptRewriter: options.promptRewriter,
       })
     }
 
@@ -448,6 +566,7 @@ async function main() {
   await syncStoryboardGeneration({
     storyboard,
     model: config.fastImageModel,
+    rewriteModel: config.agentModel,
     filters,
     variantCount: config.variantCount,
   })
