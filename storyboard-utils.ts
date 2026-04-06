@@ -82,12 +82,14 @@ export function getNextStoryboardShotId(images: readonly StoryboardImageEntry[])
 export function createStoryboardImageEntry(options: {
   frameType: FrameType
   goal: string
+  prompt?: string | null
   imagePath?: string | null
   references?: ArtifactReferenceEntry[]
 }) {
   return {
     frameType: options.frameType,
     goal: options.goal.trim(),
+    prompt: options.prompt ?? null,
     imagePath: options.imagePath ?? null,
     ...(options.references && options.references.length > 0
       ? { references: [...options.references] }

@@ -3539,7 +3539,9 @@ async function loadStoryboardDetail(
     mediaPlaceholder: 'No storyboard image yet',
     mediaPlaceholderVariant: 'missing',
     sourceReferences: storyboardImage.entry.references ?? [],
-    sourcePrompt: buildStoryboardPrompt(storyboard, storyboardImage.imageIndex),
+    sourcePrompt: storyboardImage.entry.prompt?.trim()
+      ? storyboardImage.entry.prompt
+      : buildStoryboardPrompt(storyboard, storyboardImage.imageIndex),
     sourceModel: config?.fastImageModel ?? null,
     sourceStatus: null,
     historyState,
@@ -3674,14 +3676,16 @@ async function buildStoryboardPendingGeneration(
   storyboardArtifactId: string,
   cwd: string,
 ): Promise<PendingStoryboardGeneration | null> {
-  const [config, existingStoryboard] = await Promise.all([
+  const [config, loadedStoryboard] = await Promise.all([
     loadConfig(cwd),
     loadStoryboardOrEmpty(cwd),
   ])
 
-  if (!existingStoryboard) {
+  if (!loadedStoryboard) {
     return null
   }
+
+  const existingStoryboard = loadedStoryboard
 
   const entry = findStoryboardImageByArtifactId(existingStoryboard, storyboardArtifactId)
 
@@ -4200,6 +4204,8 @@ async function writeStoryboardManifest(
     `${JSON.stringify(storyboard, null, 2)}\n`,
     'utf8',
   )
+
+  return storyboard
 }
 
 async function dropStoryboardImageArtifact(entry: StoryboardDerivedImageEntry, cwd: string) {
@@ -4342,11 +4348,13 @@ async function upsertStoryboardSelection(input: StoryboardEditorFormInput, cwd: 
       images: [...existingStoryboard.images, createStoryboardDraftFromForm(input, 'start')],
     } satisfies StoryboardSidecar
 
-    await writeStoryboardManifest(nextStoryboard, cwd)
+    const savedStoryboard = await writeStoryboardManifest(nextStoryboard, cwd)
 
     return {
-      storyboard: nextStoryboard,
-      entry: buildStoryboardDerivedImages(nextStoryboard.images)[nextStoryboard.images.length - 1]!,
+      storyboard: savedStoryboard,
+      entry: buildStoryboardDerivedImages(savedStoryboard.images)[
+        savedStoryboard.images.length - 1
+      ]!,
     }
   }
 
@@ -4361,6 +4369,12 @@ async function upsertStoryboardSelection(input: StoryboardEditorFormInput, cwd: 
   const nextEntry = {
     ...current.entry,
     goal: input.goal,
+    prompt:
+      current.entry.goal === input.goal &&
+      JSON.stringify(current.entry.references ?? []) ===
+        JSON.stringify(input.references.length > 0 ? input.references : [])
+        ? (current.entry.prompt ?? null)
+        : null,
     references: input.references.length > 0 ? input.references : undefined,
   } satisfies StoryboardImageEntry
 
@@ -4370,11 +4384,11 @@ async function upsertStoryboardSelection(input: StoryboardEditorFormInput, cwd: 
     ),
   } satisfies StoryboardSidecar
 
-  await writeStoryboardManifest(nextStoryboard, cwd)
+  const savedStoryboard = await writeStoryboardManifest(nextStoryboard, cwd)
 
   return {
-    storyboard: nextStoryboard,
-    entry: buildStoryboardDerivedImages(nextStoryboard.images)[current.imageIndex]!,
+    storyboard: savedStoryboard,
+    entry: buildStoryboardDerivedImages(savedStoryboard.images)[current.imageIndex]!,
   }
 }
 
@@ -4503,11 +4517,11 @@ async function handleStoryboardInsertEnd(
     ],
   }
 
-  await writeStoryboardManifest(nextStoryboard, cwd)
+  const savedStoryboard = await writeStoryboardManifest(nextStoryboard, cwd)
 
-  const insertedEntry = buildStoryboardDerivedImages(nextStoryboard.images)[insertIndex + 1]!
+  const insertedEntry = buildStoryboardDerivedImages(savedStoryboard.images)[insertIndex + 1]!
   const preparedStoryboard = await ensureStoryboardImagePaths(
-    nextStoryboard,
+    savedStoryboard,
     { storyboardImageId: insertedEntry.storyboardImageId },
     cwd,
   )

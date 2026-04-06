@@ -280,6 +280,48 @@ test('artifact review server renders the storyboard board before the editor and 
   }
 })
 
+test('artifact review server leaves storyboard prompt cache empty until generation runs', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify({ images: [] }, null, 2)}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard/save', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+        body: new URLSearchParams({
+          selectedImageId: '__new__',
+          goal: 'Establish the dog noticing something wrong in the glass.',
+          referencesJson: '[]',
+          regenerateRequest: '',
+        }),
+      })
+
+      expect(response.status).toBe(303)
+
+      const storyboard = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+      ) as {
+        images: Array<{ prompt?: string | null }>
+      }
+
+      expect(storyboard.images).toHaveLength(1)
+      expect(storyboard.images[0]?.prompt ?? null).toBeNull()
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('artifact review server redirects legacy keyframe and shot summary routes to the timeline', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 

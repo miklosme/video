@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 import { getStoryboardArtifactDescriptor } from './artifact-control'
 import {
   buildStoryboardPrompt,
+  resolveStoryboardGenerationPrompt,
   runStoryboardGeneration,
   runStoryboardRegeneration,
   selectPendingStoryboardGenerations,
@@ -71,6 +72,45 @@ test('selectPendingStoryboardGenerations preserves per-image references', () => 
       path: 'workspace/references/window.png',
     },
   ])
+})
+
+test('selectPendingStoryboardGenerations uses cached storyboard prompts when present', () => {
+  const storyboard = createStoryboard()
+  storyboard.images[0] = {
+    ...storyboard.images[0]!,
+    prompt: 'Cached storyboard prompt.',
+  }
+
+  const generations = selectPendingStoryboardGenerations(storyboard, 'image-test', {
+    storyboardImageId: 'SHOT-01-START',
+  })
+
+  expect(generations).toHaveLength(1)
+  expect(generations[0]?.prompt).toBe('Cached storyboard prompt.')
+})
+
+test('resolveStoryboardGenerationPrompt returns cached final prompts unchanged for rewrite models', async () => {
+  const prompt = await resolveStoryboardGenerationPrompt(
+    {
+      imageIndex: 0,
+      storyboardImageId: 'SHOT-01-START',
+      shotId: 'SHOT-01',
+      frameType: 'start',
+      goal: 'Establish the dog noticing something off in the window reflection.',
+      artifactId: 'storyboard-image-alpha',
+      model: 'bfl/flux-2-klein-4b',
+      rewriteModel: 'openai/gpt-5.4-mini',
+      prompt: 'Cached final storyboard prompt.',
+      promptIsFinal: true,
+      outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+    },
+    [],
+    {
+      promptRewriter: async () => 'This should not be used.',
+    },
+  )
+
+  expect(prompt).toBe('Cached final storyboard prompt.')
 })
 
 test('runStoryboardRegeneration keeps the selected storyboard image and retained references', async () => {
@@ -222,6 +262,76 @@ test('runStoryboardGeneration rewrites flux klein storyboard prompts before imag
         targetModel: 'bfl/flux-2-klein-4b',
       },
     })
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('syncStoryboardGeneration upgrades legacy planning prompts to final cached model prompts', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-prompt-cache-'))
+  const storyboard = {
+    images: [createStoryboard().images[0]!],
+  } satisfies StoryboardSidecar
+  const legacyPrompt = buildStoryboardPrompt(storyboard, 'SHOT-01-START')
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              ...storyboard.images[0],
+              prompt: legacyPrompt,
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'workspace/IDEA.md', '# IDEA\nComic market panic.\n')
+    await writeRepoFile(rootDir, 'workspace/STORY.md', '# STORY\nThe merchant loses the bag.\n')
+    await writeRepoFile(rootDir, 'workspace/references/window.png', 'reference-image')
+
+    let seenPrompt = ''
+    await syncStoryboardGeneration({
+      storyboard: {
+        images: [
+          {
+            ...storyboard.images[0]!,
+            prompt: legacyPrompt,
+          },
+        ],
+      },
+      model: 'bfl/flux-2-klein-4b',
+      rewriteModel: 'openai/gpt-5.4-mini',
+      cwd: rootDir,
+      promptRewriter: async () => 'Final cached FLUX prompt.',
+      generator: async (input) => {
+        seenPrompt = input.prompt
+
+        if (!input.outputPath) {
+          throw new Error('Expected outputPath for storyboard generation test.')
+        }
+
+        await writeRepoFile(rootDir, input.outputPath, 'storyboard-image')
+
+        return {
+          generationId: 'gen-1',
+          model: input.model ?? 'bfl/flux-2-klein-4b',
+          outputPaths: [path.resolve(rootDir, input.outputPath)],
+        }
+      },
+    })
+
+    const savedStoryboard = JSON.parse(
+      await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+    ) as StoryboardSidecar
+
+    expect(seenPrompt).toBe('Final cached FLUX prompt.')
+    expect(savedStoryboard.images[0]?.prompt).toBe('Final cached FLUX prompt.')
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }
