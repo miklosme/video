@@ -29,7 +29,11 @@ import {
   STORYBOARD_THUMBNAIL_IMAGE_SIZE,
   type StoryboardPromptRewriter,
 } from './storyboard-prompting'
-import { buildStoryboardDerivedImages, createStoryboardImagePath } from './storyboard-utils'
+import {
+  buildStoryboardDerivedImages,
+  createStoryboardImagePath,
+  stripStoryboardPromptFields,
+} from './storyboard-utils'
 import {
   getStoryboardArtifactIdFromPath,
   loadConfig,
@@ -57,7 +61,6 @@ export interface PendingStoryboardGeneration {
   model: string
   rewriteModel?: string | null
   prompt: string
-  promptIsFinal?: boolean
   outputPath: string
   userReferences?: StoryboardImageEntry['references']
 }
@@ -96,33 +99,12 @@ async function fileExists(filePath: string) {
   }
 }
 
-function normalizeCachedStoryboardPrompt(prompt: string | null | undefined) {
-  const trimmed = prompt?.trim()
-  return trimmed && trimmed.length > 0 ? trimmed : null
-}
-
-function resolveStoryboardPromptCache(
-  storyboard: StoryboardSidecar,
-  imageIndex: number,
-  model: string,
-  cachedPrompt?: string | null,
-) {
-  const planningPrompt = buildStoryboardPrompt(storyboard, imageIndex)
-  const prompt = normalizeCachedStoryboardPrompt(cachedPrompt) ?? planningPrompt
-  const promptIsLegacyPlanningCache =
-    modelUsesStoryboardPromptRewrite(model) && prompt === planningPrompt
-
-  return {
-    prompt,
-    promptIsFinal:
-      normalizeCachedStoryboardPrompt(cachedPrompt) !== null && !promptIsLegacyPlanningCache,
-  }
-}
-
 async function writeStoryboardSidecar(storyboard: StoryboardSidecar, cwd = process.cwd()) {
+  const sanitizedStoryboard = stripStoryboardPromptFields(storyboard)
+
   await writeFile(
     resolveWorkflowPath(WORKFLOW_FILES.storyboardSidecar, cwd),
-    `${JSON.stringify(storyboard, null, 2)}\n`,
+    `${JSON.stringify(sanitizedStoryboard, null, 2)}\n`,
     'utf8',
   )
 }
@@ -175,56 +157,6 @@ export async function ensureStoryboardImagePaths(
   return nextStoryboard
 }
 
-async function persistResolvedStoryboardPrompt(
-  storyboardImageId: string,
-  prompt: string,
-  cwd = process.cwd(),
-) {
-  const normalizedPrompt = normalizeCachedStoryboardPrompt(prompt)
-
-  if (!normalizedPrompt) {
-    return
-  }
-
-  let storyboard: StoryboardSidecar | null = null
-
-  try {
-    storyboard = await loadStoryboardSidecar(cwd)
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
-      return
-    }
-
-    throw error
-  }
-
-  if (!storyboard) {
-    return
-  }
-
-  const loadedStoryboard = storyboard
-  const current = buildStoryboardDerivedImages(loadedStoryboard.images).find(
-    (entry) => entry.storyboardImageId === storyboardImageId,
-  )
-
-  if (!current || normalizeCachedStoryboardPrompt(current.entry.prompt) === normalizedPrompt) {
-    return
-  }
-
-  const nextStoryboard = {
-    images: loadedStoryboard.images.map((entry, index) =>
-      index === current.imageIndex
-        ? ({
-            ...entry,
-            prompt: normalizedPrompt,
-          } satisfies StoryboardImageEntry)
-        : entry,
-    ),
-  } satisfies StoryboardSidecar
-
-  await writeStoryboardSidecar(nextStoryboard, cwd)
-}
-
 export function selectPendingStoryboardGenerations(
   storyboard: StoryboardSidecar,
   model: string,
@@ -247,12 +179,6 @@ export function selectPendingStoryboardGenerations(
       const previousEntry =
         entry.imageIndex > 0 ? (derivedImages[entry.imageIndex - 1] ?? null) : null
       const nextEntry = derivedImages[entry.imageIndex + 1] ?? null
-      const prompt = resolveStoryboardPromptCache(
-        storyboard,
-        entry.imageIndex,
-        model,
-        entry.entry.prompt,
-      )
 
       return {
         imageIndex: entry.imageIndex,
@@ -269,8 +195,7 @@ export function selectPendingStoryboardGenerations(
         artifactId: getStoryboardArtifactIdFromPath(entry.entry.imagePath),
         model,
         rewriteModel: options.rewriteModel ?? null,
-        prompt: prompt.prompt,
-        promptIsFinal: prompt.promptIsFinal,
+        prompt: buildStoryboardPrompt(storyboard, entry.imageIndex),
         outputPath: entry.entry.imagePath,
         userReferences: entry.entry.references,
       }
@@ -288,14 +213,6 @@ export async function resolveStoryboardGenerationPrompt(
     promptRewriter?: StoryboardPromptRewriter
   } = {},
 ) {
-  if (
-    generation.promptIsFinal &&
-    options.basePrompt === undefined &&
-    options.regenerateRequest === undefined
-  ) {
-    return generation.prompt
-  }
-
   if (modelUsesStoryboardPromptRewrite(generation.model) && !generation.rewriteModel) {
     throw new Error(
       `Storyboard image "${generation.storyboardImageId}" requires a configured agent rewrite model before it can be generated with ${generation.model}.`,
@@ -352,11 +269,6 @@ export async function runStoryboardGeneration(
       cwd: options.cwd,
       promptRewriter: options.promptRewriter,
     }))
-  await persistResolvedStoryboardPrompt(
-    generation.storyboardImageId,
-    prompt,
-    options.cwd ?? process.cwd(),
-  )
 
   const generator = options.generator ?? generateImagenOptions
   const result = await generator({
@@ -466,11 +378,6 @@ export async function runStoryboardRegeneration(
       cwd: options.cwd,
       promptRewriter: options.promptRewriter,
     }))
-  await persistResolvedStoryboardPrompt(
-    generation.storyboardImageId,
-    prompt,
-    options.cwd ?? process.cwd(),
-  )
   const generator = options.generator ?? generateImagenOptions
   const result = await generator({
     prompt,
@@ -569,7 +476,14 @@ export async function syncStoryboardGeneration(options: {
     options.filters,
     cwd,
   )
-  const storyboard = storyboardWithPaths
+  const storyboard = storyboardWithPaths.images.some((entry) => entry.prompt !== undefined)
+    ? stripStoryboardPromptFields(storyboardWithPaths)
+    : storyboardWithPaths
+
+  if (storyboard !== storyboardWithPaths) {
+    await writeStoryboardSidecar(storyboard, cwd)
+  }
+
   const generations = selectPendingStoryboardGenerations(
     storyboard,
     options.model,

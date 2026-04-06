@@ -7,6 +7,7 @@ import {
   type ArtifactReferenceEntry,
   type FrameType,
   type StoryboardImageEntry,
+  type StoryboardSidecar,
 } from './workflow-data'
 
 export const STORYBOARD_NEW_SELECTION_ID = '__new__'
@@ -82,19 +83,27 @@ export function getNextStoryboardShotId(images: readonly StoryboardImageEntry[])
 export function createStoryboardImageEntry(options: {
   frameType: FrameType
   goal: string
-  prompt?: string | null
   imagePath?: string | null
   references?: ArtifactReferenceEntry[]
 }) {
   return {
     frameType: options.frameType,
     goal: options.goal.trim(),
-    prompt: options.prompt ?? null,
     imagePath: options.imagePath ?? null,
     ...(options.references && options.references.length > 0
       ? { references: [...options.references] }
       : {}),
   } satisfies StoryboardImageEntry
+}
+
+export function stripStoryboardPromptFields(
+  storyboard: Pick<StoryboardSidecar, 'images'>,
+): StoryboardSidecar {
+  return {
+    images: storyboard.images.map(({ prompt: _prompt, ...entry }) => ({
+      ...entry,
+    })),
+  } satisfies StoryboardSidecar
 }
 
 export function buildStoryboardShotSlots(images: readonly StoryboardImageEntry[]) {

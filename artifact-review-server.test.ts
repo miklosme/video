@@ -376,7 +376,7 @@ test('artifact review server renders optional end frame tiles without a visible 
   }
 })
 
-test('artifact review server leaves storyboard prompt cache empty until generation runs', async () => {
+test('artifact review server does not persist storyboard prompt fields', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
@@ -409,7 +409,7 @@ test('artifact review server leaves storyboard prompt cache empty until generati
       }
 
       expect(storyboard.images).toHaveLength(1)
-      expect(storyboard.images[0]?.prompt ?? null).toBeNull()
+      expect(storyboard.images[0]?.prompt).toBeUndefined()
     } finally {
       await server.stop()
     }
@@ -575,7 +575,6 @@ test('artifact review server reorder endpoint flips frame sides and materializes
         {
           frameType: 'start',
           goal: 'He rushes toward the library doors.',
-          prompt: null,
           imagePath: null,
           references: [
             {

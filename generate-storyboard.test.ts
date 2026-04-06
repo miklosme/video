@@ -74,11 +74,11 @@ test('selectPendingStoryboardGenerations preserves per-image references', () => 
   ])
 })
 
-test('selectPendingStoryboardGenerations uses cached storyboard prompts when present', () => {
+test('selectPendingStoryboardGenerations rebuilds storyboard prompts even when legacy prompt data exists', () => {
   const storyboard = createStoryboard()
   storyboard.images[0] = {
     ...storyboard.images[0]!,
-    prompt: 'Cached storyboard prompt.',
+    prompt: 'Legacy storyboard prompt.',
   }
 
   const generations = selectPendingStoryboardGenerations(storyboard, 'image-test', {
@@ -86,10 +86,10 @@ test('selectPendingStoryboardGenerations uses cached storyboard prompts when pre
   })
 
   expect(generations).toHaveLength(1)
-  expect(generations[0]?.prompt).toBe('Cached storyboard prompt.')
+  expect(generations[0]?.prompt).toBe(buildStoryboardPrompt(storyboard, 'SHOT-01-START'))
 })
 
-test('resolveStoryboardGenerationPrompt returns cached final prompts unchanged for rewrite models', async () => {
+test('resolveStoryboardGenerationPrompt rewrites storyboard prompts for rewrite models', async () => {
   const prompt = await resolveStoryboardGenerationPrompt(
     {
       imageIndex: 0,
@@ -100,17 +100,16 @@ test('resolveStoryboardGenerationPrompt returns cached final prompts unchanged f
       artifactId: 'storyboard-image-alpha',
       model: 'bfl/flux-2-klein-9b',
       rewriteModel: 'openai/gpt-5.4-mini',
-      prompt: 'Cached final storyboard prompt.',
-      promptIsFinal: true,
+      prompt: 'Base storyboard prompt.',
       outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
     },
     [],
     {
-      promptRewriter: async () => 'This should not be used.',
+      promptRewriter: async () => 'Fresh storyboard prompt.',
     },
   )
 
-  expect(prompt).toBe('Cached final storyboard prompt.')
+  expect(prompt).toBe('Fresh storyboard prompt.')
 })
 
 test('runStoryboardRegeneration keeps the selected storyboard image and retained references', async () => {
@@ -267,12 +266,11 @@ test('runStoryboardGeneration rewrites flux klein storyboard prompts before imag
   }
 })
 
-test('syncStoryboardGeneration upgrades legacy planning prompts to final cached model prompts', async () => {
-  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-prompt-cache-'))
+test('syncStoryboardGeneration regenerates rewrite prompts without persisting them', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-prompt-refresh-'))
   const storyboard = {
     images: [createStoryboard().images[0]!],
   } satisfies StoryboardSidecar
-  const legacyPrompt = buildStoryboardPrompt(storyboard, 'SHOT-01-START')
 
   try {
     await writeRepoFile(
@@ -283,7 +281,7 @@ test('syncStoryboardGeneration upgrades legacy planning prompts to final cached 
           images: [
             {
               ...storyboard.images[0],
-              prompt: legacyPrompt,
+              prompt: 'Stale storyboard cache.',
             },
           ],
         },
@@ -301,14 +299,14 @@ test('syncStoryboardGeneration upgrades legacy planning prompts to final cached 
         images: [
           {
             ...storyboard.images[0]!,
-            prompt: legacyPrompt,
+            prompt: 'Stale storyboard cache.',
           },
         ],
       },
       model: 'bfl/flux-2-klein-9b',
       rewriteModel: 'openai/gpt-5.4-mini',
       cwd: rootDir,
-      promptRewriter: async () => 'Final cached FLUX prompt.',
+      promptRewriter: async () => 'Fresh FLUX prompt.',
       generator: async (input) => {
         seenPrompt = input.prompt
 
@@ -330,8 +328,8 @@ test('syncStoryboardGeneration upgrades legacy planning prompts to final cached 
       await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
     ) as StoryboardSidecar
 
-    expect(seenPrompt).toBe('Final cached FLUX prompt.')
-    expect(savedStoryboard.images[0]?.prompt).toBe('Final cached FLUX prompt.')
+    expect(seenPrompt).toBe('Fresh FLUX prompt.')
+    expect(savedStoryboard.images[0]?.prompt).toBeUndefined()
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

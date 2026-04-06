@@ -66,6 +66,7 @@ import {
   getStoryboardSelectionId,
   parseStoryboardSelectionId,
   STORYBOARD_NEW_SELECTION_ID,
+  stripStoryboardPromptFields,
   type StoryboardDerivedImageEntry,
 } from './storyboard-utils'
 import { renderTimelineContent } from './timeline-component'
@@ -3657,9 +3658,7 @@ async function loadStoryboardDetail(
     mediaPlaceholder: 'No storyboard image yet',
     mediaPlaceholderVariant: 'missing',
     sourceReferences: storyboardImage.entry.references ?? [],
-    sourcePrompt: storyboardImage.entry.prompt?.trim()
-      ? storyboardImage.entry.prompt
-      : buildStoryboardPrompt(storyboard, storyboardImage.imageIndex),
+    sourcePrompt: buildStoryboardPrompt(storyboard, storyboardImage.imageIndex),
     sourceModel: config?.fastImageModel ?? null,
     sourceStatus: null,
     historyState,
@@ -4332,13 +4331,15 @@ async function writeStoryboardManifest(
   storyboard: { images: StoryboardImageEntry[] },
   cwd: string,
 ) {
+  const sanitizedStoryboard = stripStoryboardPromptFields(storyboard)
+
   await writeFile(
     resolveWorkflowPath(WORKFLOW_FILES.storyboardSidecar, cwd),
-    `${JSON.stringify(storyboard, null, 2)}\n`,
+    `${JSON.stringify(sanitizedStoryboard, null, 2)}\n`,
     'utf8',
   )
 
-  return storyboard
+  return sanitizedStoryboard
 }
 
 async function dropStoryboardImageArtifact(entry: StoryboardDerivedImageEntry, cwd: string) {
@@ -4707,12 +4708,6 @@ async function upsertStoryboardSelection(input: StoryboardEditorFormInput, cwd: 
   const nextEntry = {
     ...current.entry,
     goal: input.goal,
-    prompt:
-      current.entry.goal === input.goal &&
-      JSON.stringify(current.entry.references ?? []) ===
-        JSON.stringify(input.references.length > 0 ? input.references : [])
-        ? (current.entry.prompt ?? null)
-        : null,
     references: input.references.length > 0 ? input.references : undefined,
   } satisfies StoryboardImageEntry
 
