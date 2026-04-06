@@ -5,6 +5,7 @@ export const FRAME_TYPES = ['start', 'end'] as const
 export const END_FRAME_MODES = ['bridge'] as const
 export const DEFAULT_VIDEO_DURATION_SECONDS = 4
 export const DEFAULT_VARIANT_COUNT = 1
+export const DEFAULT_FAST_IMAGE_MODEL = 'bfl/flux-2-klein-4b'
 export const FINAL_CUT_VERSION = 1
 export const FINAL_CUT_TRANSITION_TYPES = ['cut', 'fade'] as const
 export const ARTIFACT_TYPES = ['storyboard', 'character', 'keyframe', 'shot'] as const
@@ -120,10 +121,26 @@ export interface ShotArtifactEntry {
 }
 
 export interface StoryboardSidecar {
-  references?: ArtifactReferenceEntry[]
+  sequenceSummary: string
+  images: StoryboardImageEntry[]
 }
 
 export type ShotArtifactsData = ShotArtifactEntry[]
+
+export interface StoryboardImageEntry {
+  storyboardImageId: string
+  shotId: string
+  frameType: FrameType
+  title: string
+  purpose: string
+  visual: string
+  transition: string
+  status: string
+  imagePath: string
+  references?: ArtifactReferenceEntry[]
+}
+
+export type StoryboardImagesData = StoryboardImageEntry[]
 
 export interface KeyframeCameraSpec {
   shotSize: string
@@ -190,6 +207,7 @@ export interface FinalCutData {
 export interface ConfigData {
   agentModel: string
   imageModel: string
+  fastImageModel: string
   videoModel: string
   variantCount: number
 }
@@ -256,7 +274,7 @@ export const LEGACY_KEYFRAMES_FILE = 'KEYFRAMES.json'
 export const WORKFLOW_FILES = {
   config: 'CONFIG.json',
   status: 'STATUS.json',
-  storyboard: 'STORYBOARD.md',
+  storyboard: 'STORYBOARD.json',
   storyboardSidecar: 'STORYBOARD.json',
   storyboardImage: 'STORYBOARD.png',
   shotPrompts: 'SHOTS.json',
@@ -264,6 +282,7 @@ export const WORKFLOW_FILES = {
 } as const
 
 export const WORKFLOW_FOLDERS = {
+  storyboard: 'STORYBOARD/',
   characters: 'CHARACTERS/',
   keyframes: 'KEYFRAMES/',
   shots: 'SHOTS/',
@@ -289,7 +308,23 @@ export function getCharacterSheetImagePath(characterId: string) {
   )
 }
 
-export function getStoryboardImagePath() {
+export function getStoryboardImageId(entry: Pick<StoryboardImageEntry, 'shotId' | 'frameType'>) {
+  return `${entry.shotId}-${entry.frameType.toUpperCase()}`
+}
+
+export function getStoryboardImagePath(
+  entry: string | Pick<StoryboardImageEntry, 'storyboardImageId'>,
+) {
+  const storyboardImageId = typeof entry === 'string' ? entry : entry.storyboardImageId
+
+  return path.posix.join(
+    WORKSPACE_DIR,
+    folderStem(WORKFLOW_FOLDERS.storyboard),
+    `${storyboardImageId}.png`,
+  )
+}
+
+export function getLegacyStoryboardImagePath() {
   return path.posix.join(WORKSPACE_DIR, WORKFLOW_FILES.storyboardImage)
 }
 
@@ -630,6 +665,40 @@ function flattenShotKeyframes(shots: ShotsData): KeyframesData {
   )
 }
 
+function parseStoryboardImageEntry(value: unknown, context: string): StoryboardImageEntry {
+  const object = expectObject(value, context)
+  const shotId = expectString(object.shotId, `${context}.shotId`)
+  const frameType = expectFrameType(object.frameType, `${context}.frameType`)
+  const storyboardImageId = expectString(object.storyboardImageId, `${context}.storyboardImageId`)
+  const imagePath = expectString(object.imagePath, `${context}.imagePath`)
+  const expectedStoryboardImageId = getStoryboardImageId({ shotId, frameType })
+  const expectedImagePath = getStoryboardImagePath(storyboardImageId)
+
+  if (storyboardImageId !== expectedStoryboardImageId) {
+    throw new Error(`${context}.storyboardImageId must be "${expectedStoryboardImageId}".`)
+  }
+
+  if (imagePath !== expectedImagePath) {
+    throw new Error(`${context}.imagePath must be "${expectedImagePath}".`)
+  }
+
+  return {
+    storyboardImageId,
+    shotId,
+    frameType,
+    title: expectString(object.title, `${context}.title`),
+    purpose: expectString(object.purpose, `${context}.purpose`),
+    visual: expectString(object.visual, `${context}.visual`),
+    transition: expectString(object.transition, `${context}.transition`),
+    status: expectString(object.status, `${context}.status`),
+    imagePath,
+    references:
+      object.references === undefined
+        ? undefined
+        : parseArtifactReferenceEntries(object.references, `${context}.references`),
+  }
+}
+
 export function parseKeyframeArtifactEntry(value: unknown, context: string): KeyframeArtifactEntry {
   const object = expectObject(value, context)
 
@@ -669,13 +738,14 @@ export function parseStoryboardSidecar(value: unknown): StoryboardSidecar {
   const object = expectObject(value, WORKFLOW_FILES.storyboardSidecar)
 
   return {
-    references:
-      object.references === undefined
-        ? undefined
-        : parseArtifactReferenceEntries(
-            object.references,
-            `${WORKFLOW_FILES.storyboardSidecar}.references`,
-          ),
+    sequenceSummary: expectString(
+      object.sequenceSummary,
+      `${WORKFLOW_FILES.storyboardSidecar}.sequenceSummary`,
+    ),
+    images: expectArray(object.images, `${WORKFLOW_FILES.storyboardSidecar}.images`).map(
+      (entry, index) =>
+        parseStoryboardImageEntry(entry, `${WORKFLOW_FILES.storyboardSidecar}.images[${index}]`),
+    ),
   }
 }
 
@@ -808,6 +878,10 @@ function parseConfigData(value: unknown): ConfigData {
   return {
     agentModel: expectConcreteString(object.agentModel, 'CONFIG.json.agentModel'),
     imageModel: expectConcreteString(object.imageModel, 'CONFIG.json.imageModel'),
+    fastImageModel:
+      object.fastImageModel === undefined
+        ? DEFAULT_FAST_IMAGE_MODEL
+        : expectConcreteString(object.fastImageModel, 'CONFIG.json.fastImageModel'),
     videoModel: expectConcreteString(object.videoModel, 'CONFIG.json.videoModel'),
     variantCount,
   }
@@ -1046,6 +1120,7 @@ export function validateConfigAgainstModelOptions(
   const checks: Array<[value: string, options: string[], context: string]> = [
     [config.agentModel, modelOptions.agentModels, 'CONFIG.json.agentModel'],
     [config.imageModel, modelOptions.imageModels, 'CONFIG.json.imageModel'],
+    [config.fastImageModel, modelOptions.imageModels, 'CONFIG.json.fastImageModel'],
     [config.videoModel, modelOptions.videoModels, 'CONFIG.json.videoModel'],
   ]
 

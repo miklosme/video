@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 
@@ -47,13 +47,27 @@ import {
   type PendingShotGeneration,
   type ShotVideoGenerator,
 } from './generate-shots'
-import { regenerateStoryboardArtifactVersion } from './generate-storyboard'
+import {
+  buildStoryboardPrompt,
+  generateStoryboardArtifactVersion,
+  regenerateStoryboardArtifactVersion,
+  selectPendingStoryboardGenerations,
+  type PendingStoryboardGeneration,
+} from './generate-storyboard'
+import {
+  buildStoryboardShotSlots,
+  createStoryboardImageEntry,
+  findStoryboardImageForShotIndex,
+  getNextStoryboardShotId,
+  STORYBOARD_NEW_SELECTION_ID,
+} from './storyboard-utils'
 import { renderTimelineContent } from './timeline-component'
 import {
   AUTHORED_REFERENCE_KINDS,
   getCharacterSheetImagePath,
   getKeyframeArtifactJsonPath,
   getKeyframeImagePath,
+  getLegacyStoryboardImagePath,
   getShotVideoPath,
   getStoryboardImagePath,
   loadCameraVocabulary,
@@ -78,6 +92,7 @@ import {
   type ResolvedArtifactReference,
   type ShotCameraSpec,
   type ShotEntry,
+  type StoryboardImageEntry,
 } from './workflow-data'
 
 const FRAME_ORDER: Record<FrameType, number> = {
@@ -128,6 +143,39 @@ interface CharacterReviewCard {
   imageExists: boolean
 }
 
+interface StoryboardReviewCard {
+  storyboardImageId: string
+  shotId: string
+  frameType: FrameType
+  title: string
+  purpose: string
+  imageUrl: string
+  imageExists: boolean
+}
+
+interface StoryboardGridTile {
+  storyboardImageId: string
+  shotId: string
+  frameType: FrameType
+  title: string
+  purpose: string
+  imageUrl: string
+  imageExists: boolean
+  isSelected: boolean
+}
+
+interface StoryboardGridSlot {
+  shotId: string
+  tiles: StoryboardGridTile[]
+  isPaired: boolean
+}
+
+interface StoryboardSelectionState {
+  selectedImageId: string
+  selectedEntry: StoryboardImageEntry | null
+  isNewSelection: boolean
+}
+
 interface VersionRailItem {
   versionId: string
   label: string
@@ -139,7 +187,7 @@ interface VersionRailItem {
 }
 
 interface ArtifactPrimaryAction {
-  kind: 'regenerate' | 'create-keyframe'
+  kind: 'regenerate' | 'create-keyframe' | 'generate'
   actionUrl: string
   enabled: boolean
 }
@@ -177,6 +225,7 @@ interface ArtifactDetailContext {
   primaryAction: ArtifactPrimaryAction | null
   cameraControl: CameraOverrideControl | null
   anchorPlanningAction: AnchorPlanningAction | null
+  extraSideHtml?: string
 }
 
 interface CameraOverrideOption {
@@ -420,6 +469,101 @@ async function loadShotPromptsOrEmpty(cwd: string) {
 
     throw error
   }
+}
+
+async function loadStoryboardOrEmpty(cwd: string) {
+  try {
+    return await loadStoryboardSidecar(cwd)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException)?.code === 'ENOENT') {
+      return null
+    }
+
+    throw error
+  }
+}
+
+function findStoryboardImage(
+  storyboard: { images: StoryboardImageEntry[] } | null,
+  storyboardImageId: string,
+) {
+  return storyboard?.images.find((entry) => entry.storyboardImageId === storyboardImageId) ?? null
+}
+
+function getStoryboardSelectionState(
+  storyboard: { images: StoryboardImageEntry[] } | null,
+  requestedImageId: string | null,
+): StoryboardSelectionState {
+  const selectedEntry = requestedImageId ? findStoryboardImage(storyboard, requestedImageId) : null
+  const fallbackEntry = storyboard?.images[0] ?? null
+
+  if (selectedEntry) {
+    return {
+      selectedImageId: selectedEntry.storyboardImageId,
+      selectedEntry,
+      isNewSelection: false,
+    }
+  }
+
+  if (requestedImageId === STORYBOARD_NEW_SELECTION_ID || !fallbackEntry) {
+    return {
+      selectedImageId: STORYBOARD_NEW_SELECTION_ID,
+      selectedEntry: null,
+      isNewSelection: true,
+    }
+  }
+
+  return {
+    selectedImageId: fallbackEntry.storyboardImageId,
+    selectedEntry: fallbackEntry,
+    isNewSelection: false,
+  }
+}
+
+function getStoryboardImageIndex(
+  storyboard: { images: StoryboardImageEntry[] } | null,
+  storyboardImageId: string,
+) {
+  return (
+    storyboard?.images.findIndex((entry) => entry.storyboardImageId === storyboardImageId) ?? -1
+  )
+}
+
+function getStoryboardPairedEnd(
+  storyboard: { images: StoryboardImageEntry[] } | null,
+  storyboardImageId: string,
+) {
+  const index = getStoryboardImageIndex(storyboard, storyboardImageId)
+
+  if (index < 0) {
+    return null
+  }
+
+  const current = storyboard?.images[index] ?? null
+  const next = storyboard?.images[index + 1] ?? null
+
+  if (
+    current?.frameType === 'start' &&
+    next?.frameType === 'end' &&
+    next.shotId === current.shotId
+  ) {
+    return next
+  }
+
+  return null
+}
+
+function canInsertStoryboardEnd(
+  storyboard: { images: StoryboardImageEntry[] } | null,
+  storyboardImageId: string,
+) {
+  const current = findStoryboardImage(storyboard, storyboardImageId)
+
+  if (!current || current.frameType !== 'start') {
+    return false
+  }
+
+  return getStoryboardPairedEnd(storyboard, storyboardImageId) === null
 }
 
 async function loadCameraVocabularyOrNull(cwd: string) {
@@ -1286,6 +1430,113 @@ function renderPage(
         grid-template-columns: minmax(0, 1.25fr) minmax(300px, 0.9fr);
       }
 
+      .storyboard-editor-layout {
+        display: grid;
+        grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+        gap: 18px;
+        align-items: start;
+      }
+
+      .storyboard-editor-pane {
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+      }
+
+      .storyboard-grid-panel {
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        min-width: 0;
+      }
+
+      .storyboard-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+        align-items: start;
+      }
+
+      .storyboard-slot {
+        display: grid;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .storyboard-slot-single {
+        grid-column: span 1;
+        grid-template-columns: minmax(0, 1fr);
+      }
+
+      .storyboard-slot-paired {
+        grid-column: span 2;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        padding: 8px;
+        border: 1px solid rgba(255,255,255,0.06);
+        border-radius: 18px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015)),
+          rgba(255,255,255,0.02);
+      }
+
+      .storyboard-thumb {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        min-width: 0;
+        padding: 8px;
+        border-radius: 16px;
+        border: 1px solid rgba(255,255,255,0.06);
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
+          rgba(255,255,255,0.02);
+        text-decoration: none;
+      }
+
+      .storyboard-thumb:hover {
+        border-color: rgba(125,211,252,0.34);
+      }
+
+      .storyboard-thumb-active {
+        border-color: rgba(159,232,112,0.42);
+        box-shadow:
+          inset 0 0 0 1px rgba(159,232,112,0.14),
+          0 8px 18px rgba(10, 15, 10, 0.28);
+      }
+
+      .storyboard-thumb-empty {
+        border-style: dashed;
+      }
+
+      .storyboard-thumb-media {
+        position: relative;
+        aspect-ratio: 16 / 9;
+        border-radius: 14px;
+        background: var(--panel-strong);
+        overflow: hidden;
+      }
+
+      .storyboard-thumb-add {
+        display: grid;
+        place-items: center;
+        padding: 18px;
+        border: 1px dashed rgba(255,255,255,0.12);
+      }
+
+      .storyboard-thumb-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        min-width: 0;
+      }
+
+      .storyboard-thumb-purpose {
+        color: var(--soft);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
       .storyboard-visual,
       .storyboard-copy {
         padding: 18px;
@@ -1570,7 +1821,8 @@ function renderPage(
       @media (max-width: 980px) {
         .detail-layout,
         .storyboard-panel,
-        .shot-review-layout {
+        .shot-review-layout,
+        .storyboard-editor-layout {
           grid-template-columns: 1fr;
         }
 
@@ -1580,6 +1832,9 @@ function renderPage(
         }
 
         .artifact-meta-bar { padding: 14px; }
+        .storyboard-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
       }
 
       @media (max-width: 720px) {
@@ -1589,6 +1844,8 @@ function renderPage(
         .shot-id { text-align: left; }
         .character-grid { grid-template-columns: 1fr 1fr; }
         .version-tile { flex-basis: 170px; }
+        .storyboard-grid { grid-template-columns: 1fr; }
+        .storyboard-slot-paired { grid-column: span 1; }
       }
     </style>
   </head>
@@ -1892,6 +2149,20 @@ function renderEditComposer(context: ArtifactDetailContext, options: { embedded?
     return ''
   }
 
+  if (context.primaryAction.kind === 'generate') {
+    return `
+      <section class="panel">
+        <p class="section-title">Render</p>
+        <p class="form-note">Render the currently planned storyboard image with the configured fast storyboard model.</p>
+        <form method="post" action="${getEmbeddedActionHref(context.primaryAction.actionUrl, options.embedded)}">
+          <div class="form-actions">
+            <button class="button-primary" type="submit" ${context.primaryAction.enabled ? '' : 'disabled'}>Render image</button>
+          </div>
+        </form>
+      </section>
+    `
+  }
+
   if (context.primaryAction.kind === 'create-keyframe') {
     return `
       <section class="panel">
@@ -1995,6 +2266,7 @@ function renderDetailPage(
           ${renderHistoricalVersionActions(context, options)}
           ${renderEditComposer(context, options)}
           ${renderAnchorPlanningAction(context, options)}
+          ${context.extraSideHtml ?? ''}
           ${renderReferenceEditor(
             getEmbeddedActionHref(
               getArtifactReferencesActionPath(context.descriptor),
@@ -2062,6 +2334,177 @@ function renderCharactersSummary(cards: CharacterReviewCard[]) {
   )
 }
 
+function renderStoryboardGridTile(tile: StoryboardGridTile) {
+  return `
+    <a
+      class="${['storyboard-thumb', tile.isSelected ? 'storyboard-thumb-active' : ''].filter(Boolean).join(' ')}"
+      href="${appendSearchParams('/storyboard', { image: tile.storyboardImageId })}"
+    >
+      <div class="storyboard-thumb-media">
+        <div class="version-badges">
+          <span class="pill pill-info">${escapeHtml(tile.shotId)}</span>
+          <span class="pill">${escapeHtml(frameTypeLabel(tile.frameType))}</span>
+          ${tile.imageExists ? '' : '<span class="pill pill-warn">Missing</span>'}
+        </div>
+        ${renderMediaBlock({
+          mediaType: 'image',
+          mediaUrl: tile.imageUrl,
+          mediaExists: tile.imageExists,
+          alt: tile.storyboardImageId,
+          placeholder: 'No thumbnail yet',
+          className: 'version-media',
+        })}
+      </div>
+      <div class="storyboard-thumb-copy">
+        <p class="title">${escapeHtml(tile.title)}</p>
+        <p class="storyboard-thumb-purpose">${escapeHtml(tile.purpose)}</p>
+      </div>
+    </a>
+  `
+}
+
+function renderStoryboardGridSlot(slot: StoryboardGridSlot) {
+  return `
+    <div class="${['storyboard-slot', slot.isPaired ? 'storyboard-slot-paired' : 'storyboard-slot-single'].join(' ')}">
+      ${slot.tiles.map(renderStoryboardGridTile).join('')}
+    </div>
+  `
+}
+
+function renderStoryboardAddTile(isSelected: boolean) {
+  return `
+    <a
+      class="${['storyboard-thumb', 'storyboard-thumb-empty', isSelected ? 'storyboard-thumb-active' : ''].filter(Boolean).join(' ')}"
+      href="${appendSearchParams('/storyboard', { image: STORYBOARD_NEW_SELECTION_ID })}"
+    >
+      <div class="storyboard-thumb-media storyboard-thumb-add">
+        <div class="meta-stack">
+          <p class="title">Add Thumbnail</p>
+          <p class="muted">Append a new storyboard start frame to the board.</p>
+        </div>
+      </div>
+    </a>
+  `
+}
+
+function renderStoryboardSummary(options: {
+  storyboard: { sequenceSummary: string; images: StoryboardImageEntry[] } | null
+  config: { fastImageModel: string } | null
+  slots: StoryboardGridSlot[]
+  selected: StoryboardSelectionState
+  selectedCard: StoryboardReviewCard | null
+  job: ArtifactJobState | null
+}) {
+  const selectedEntry = options.selected.selectedEntry
+  const references = selectedEntry?.references ?? []
+  const sequenceSummary = options.storyboard?.sequenceSummary ?? ''
+  const pairedEnd = selectedEntry
+    ? getStoryboardPairedEnd(options.storyboard, selectedEntry.storyboardImageId)
+    : null
+  const canInsertEnd = selectedEntry
+    ? canInsertStoryboardEnd(options.storyboard, selectedEntry.storyboardImageId)
+    : false
+  const primaryButtonLabel = options.selected.isNewSelection
+    ? 'Add thumbnail'
+    : options.selectedCard?.imageExists
+      ? 'Regenerate thumbnail'
+      : 'Generate thumbnail'
+  const saveButtonLabel = options.selected.isNewSelection ? 'Add draft' : 'Save details'
+  const selectionLabel = selectedEntry
+    ? `${selectedEntry.shotId} • ${frameTypeLabel(selectedEntry.frameType)} Frame`
+    : 'New storyboard start frame'
+  const selectionHelp = selectedEntry
+    ? selectedEntry.frameType === 'end'
+      ? 'This is the optional closing frame for the previous storyboard thumbnail.'
+      : pairedEnd
+        ? `This start frame is paired with ${pairedEnd.storyboardImageId}.`
+        : 'This start frame currently stands on its own.'
+    : 'The extra tile stays at the end of the board so you can append a new planned frame.'
+
+  return new Response(
+    renderPage(
+      'storyboard',
+      `<section class="storyboard-editor-layout">
+        <div class="storyboard-editor-pane">
+          ${renderJobBanner(options.job)}
+          <section class="panel">
+            <p class="section-title">Storyboard Editor</p>
+            <div class="meta-stack">
+              <p class="muted">${escapeHtml(selectionLabel)}</p>
+              <p class="form-note">${escapeHtml(selectionHelp)}</p>
+              <p class="small">Storyboard renders use ${escapeHtml(options.config?.fastImageModel ?? 'the configured fast image model')}.</p>
+            </div>
+          </section>
+          <section class="panel">
+            <form method="post" action="/storyboard/save">
+              <input type="hidden" name="selectedImageId" value="${escapeHtml(options.selected.selectedImageId)}">
+              <label class="field-label" for="storyboard-sequence-summary">Sequence Summary</label>
+              <textarea id="storyboard-sequence-summary" name="sequenceSummary" required>${escapeHtml(sequenceSummary)}</textarea>
+              <label class="field-label" for="storyboard-title">Title</label>
+              <input id="storyboard-title" name="title" type="text" value="${escapeHtml(selectedEntry?.title ?? '')}" placeholder="Name the moment" required>
+              <label class="field-label" for="storyboard-purpose">Purpose</label>
+              <textarea id="storyboard-purpose" name="purpose" required>${escapeHtml(selectedEntry?.purpose ?? '')}</textarea>
+              <label class="field-label" for="storyboard-visual">Visual</label>
+              <textarea id="storyboard-visual" name="visual" required>${escapeHtml(selectedEntry?.visual ?? '')}</textarea>
+              <label class="field-label" for="storyboard-transition">Transition</label>
+              <textarea id="storyboard-transition" name="transition" required>${escapeHtml(selectedEntry?.transition ?? '')}</textarea>
+              <label class="field-label" for="storyboard-references">Source References</label>
+              <textarea id="storyboard-references" name="referencesJson" spellcheck="false">${escapeHtml(buildReferenceEditorValue(references))}</textarea>
+              <label class="field-label" for="storyboard-regenerate-request">Generation Note</label>
+              <textarea id="storyboard-regenerate-request" name="regenerateRequest" placeholder="Optional. Describe the change or direction you want."></textarea>
+              <div class="form-actions">
+                <button class="button-secondary" type="submit" formaction="/storyboard/save">${escapeHtml(saveButtonLabel)}</button>
+                <button class="button-primary" type="submit" formaction="/storyboard/render">${escapeHtml(primaryButtonLabel)}</button>
+                <button class="button-secondary" type="submit" formaction="/storyboard/insert-end" ${canInsertEnd ? '' : 'disabled'}>Insert end frame</button>
+              </div>
+            </form>
+          </section>
+          ${
+            selectedEntry
+              ? `
+                <section class="panel">
+                  <p class="section-title">Delete</p>
+                  <p class="form-note">${escapeHtml(
+                    selectedEntry.frameType === 'start' && pairedEnd
+                      ? 'Deleting this start frame also removes its paired end frame.'
+                      : 'Delete the selected storyboard thumbnail from the plan.',
+                  )}</p>
+                  <form method="post" action="/storyboard/delete" onsubmit="return window.confirm(${escapeHtml(
+                    JSON.stringify(
+                      selectedEntry.frameType === 'start' && pairedEnd
+                        ? `Delete ${selectedEntry.storyboardImageId} and ${pairedEnd.storyboardImageId}?`
+                        : `Delete ${selectedEntry.storyboardImageId}?`,
+                    ),
+                  )})">
+                    <input type="hidden" name="selectedImageId" value="${escapeHtml(selectedEntry.storyboardImageId)}">
+                    <button class="button-danger" type="submit">Delete thumbnail</button>
+                  </form>
+                </section>
+              `
+              : ''
+          }
+        </div>
+        <div class="panel storyboard-grid-panel">
+          <div class="meta-stack">
+            <p class="section-title">Board</p>
+            <p class="muted">Three columns, with start/end pairs grouped into one wider storyboard slot.</p>
+          </div>
+          <div class="storyboard-grid">
+            ${options.slots.map(renderStoryboardGridSlot).join('')}
+            ${renderStoryboardAddTile(options.selected.isNewSelection)}
+          </div>
+        </div>
+      </section>`,
+      {
+        autoRefresh: options.job?.status === 'running',
+      },
+    ),
+    {
+      headers: HTML_HEADERS,
+    },
+  )
+}
+
 async function loadWorkspaceMarkdownDocument(fileName: string, cwd: string) {
   try {
     return await readFile(resolveWorkflowPath(fileName, cwd), 'utf8')
@@ -2107,7 +2550,7 @@ function renderWorkspaceMarkdownDocumentPage(options: {
 function getArtifactDetailPath(descriptor: ArtifactDescriptor) {
   switch (descriptor.artifactType) {
     case 'storyboard':
-      return '/storyboard'
+      return `/storyboard/images/${encodeURIComponent(descriptor.artifactId)}`
     case 'character':
       return `/characters/${encodeURIComponent(descriptor.artifactId)}`
     case 'keyframe':
@@ -2125,6 +2568,10 @@ function getArtifactRegenerateActionPath(descriptor: ArtifactDescriptor) {
   return `${getArtifactDetailPath(descriptor)}/regenerate`
 }
 
+function getArtifactGenerateActionPath(descriptor: ArtifactDescriptor) {
+  return `${getArtifactDetailPath(descriptor)}/generate`
+}
+
 function getArtifactCreateActionPath(descriptor: ArtifactDescriptor) {
   return `${getArtifactDetailPath(descriptor)}/create`
 }
@@ -2135,6 +2582,14 @@ function getArtifactSelectActionPath(descriptor: ArtifactDescriptor) {
 
 function getArtifactDeleteActionPath(descriptor: ArtifactDescriptor) {
   return `${getArtifactDetailPath(descriptor)}/delete`
+}
+
+function getArtifactAssignmentActionPath(descriptor: ArtifactDescriptor) {
+  return `${getArtifactDetailPath(descriptor)}/assignment`
+}
+
+function getStoryboardImageRemoveActionPath(descriptor: ArtifactDescriptor) {
+  return `${getArtifactDetailPath(descriptor)}/remove-image`
 }
 
 function getArtifactRemoveActionPath(descriptor: ArtifactDescriptor) {
@@ -2419,11 +2874,35 @@ async function writeArtifactSidecarReferences(
 
   const sidecarAbsolutePath = resolveRepoPath(descriptor.sidecarPath, cwd)
   const raw = await readFile(sidecarAbsolutePath, 'utf8').catch(() => null)
-  const existing = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
 
   if (descriptor.artifactType !== 'storyboard' && raw === null) {
     throw new Error(`${descriptor.displayName} is missing its source sidecar.`)
   }
+
+  if (descriptor.artifactType === 'storyboard') {
+    const storyboard = await loadStoryboardOrEmpty(cwd)
+
+    if (!storyboard) {
+      throw new Error('workspace/STORYBOARD.json is missing.')
+    }
+
+    const nextStoryboard = {
+      ...storyboard,
+      images: storyboard.images.map((entry) =>
+        entry.storyboardImageId === descriptor.artifactId
+          ? {
+              ...entry,
+              references: references.length === 0 ? undefined : references,
+            }
+          : entry,
+      ),
+    }
+
+    await writeFile(sidecarAbsolutePath, `${JSON.stringify(nextStoryboard, null, 2)}\n`, 'utf8')
+    return
+  }
+
+  const existing = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
 
   if (references.length === 0) {
     delete existing.references
@@ -2484,6 +2963,122 @@ async function buildCharacterCards(cwd: string) {
       } satisfies CharacterReviewCard
     }),
   )
+}
+
+async function buildStoryboardCards(cwd: string) {
+  const storyboard = await loadStoryboardOrEmpty(cwd)
+
+  if (!storyboard) {
+    return []
+  }
+
+  return Promise.all(
+    storyboard.images.map(async (entry) => ({
+      storyboardImageId: entry.storyboardImageId,
+      shotId: entry.shotId,
+      frameType: entry.frameType,
+      title: entry.title,
+      purpose: entry.purpose,
+      imageUrl: `/${encodeAssetUrl(entry.imagePath)}`,
+      imageExists: await fileExists(resolveRepoPath(entry.imagePath, cwd)),
+    })),
+  ) satisfies Promise<StoryboardReviewCard[]>
+}
+
+async function buildStoryboardGridSlots(
+  storyboard: { images: StoryboardImageEntry[] } | null,
+  selectedImageId: string,
+  cwd: string,
+) {
+  if (!storyboard) {
+    return [] satisfies StoryboardGridSlot[]
+  }
+
+  const cards = await buildStoryboardCards(cwd)
+  const cardById = new Map(cards.map((card) => [card.storyboardImageId, card]))
+
+  return buildStoryboardShotSlots(storyboard.images).map((slot) => ({
+    shotId: slot.shotId,
+    isPaired: slot.items.length > 1,
+    tiles: slot.items.map((item) => {
+      const card = cardById.get(item.storyboardImageId)
+
+      return {
+        storyboardImageId: item.storyboardImageId,
+        shotId: item.shotId,
+        frameType: item.frameType,
+        title: item.title,
+        purpose: item.purpose,
+        imageUrl: card?.imageUrl ?? `/${encodeAssetUrl(item.imagePath)}`,
+        imageExists: card?.imageExists ?? false,
+        isSelected: item.storyboardImageId === selectedImageId,
+      } satisfies StoryboardGridTile
+    }),
+  }))
+}
+
+async function findStoryboardImageDependents(storyboardImagePath: string, cwd: string) {
+  const [keyframeArtifacts, shotArtifacts] = await Promise.all([
+    loadKeyframeArtifactsOrEmpty(cwd),
+    loadShotArtifactsOrEmpty(cwd),
+  ])
+  const dependents: string[] = []
+
+  for (const artifact of keyframeArtifacts) {
+    if ((artifact.references ?? []).some((reference) => reference.path === storyboardImagePath)) {
+      dependents.push(artifact.keyframeId)
+    }
+  }
+
+  for (const artifact of shotArtifacts) {
+    if ((artifact.references ?? []).some((reference) => reference.path === storyboardImagePath)) {
+      dependents.push(artifact.shotId)
+    }
+  }
+
+  return dependents.sort()
+}
+
+function renderStoryboardPlanningControls(options: {
+  descriptor: ArtifactDescriptor
+  storyboardImage: StoryboardImageEntry
+  dependentRefs: string[]
+}) {
+  const assignmentDisabled = options.dependentRefs.length > 0
+  const helpText = assignmentDisabled
+    ? `This image is already referenced by ${options.dependentRefs.join(', ')}, so reassigning or removing it would break downstream sidecars.`
+    : 'Reassign the shot or frame type before downstream keyframe references depend on this storyboard image.'
+  const deleteMessage = `Remove storyboard image ${options.storyboardImage.storyboardImageId}? This deletes the planned item plus its current image and retained history.`
+
+  return `
+    <section class="panel">
+      <p class="section-title">Assignment</p>
+      <p class="form-note">${escapeHtml(helpText)}</p>
+      <form method="post" action="${getArtifactAssignmentActionPath(options.descriptor)}">
+        <label class="field-label" for="shotId">Shot ID</label>
+        <input id="shotId" name="shotId" type="text" value="${escapeHtml(options.storyboardImage.shotId)}" ${assignmentDisabled ? 'disabled' : ''}>
+        <label class="field-label" for="frameType">Frame type</label>
+        <select id="frameType" name="frameType" ${assignmentDisabled ? 'disabled' : ''}>
+          ${(['start', 'end'] as const)
+            .map(
+              (frameType) =>
+                `<option value="${frameType}" ${frameType === options.storyboardImage.frameType ? 'selected' : ''}>${escapeHtml(frameTypeLabel(frameType))}</option>`,
+            )
+            .join('')}
+        </select>
+        <div class="form-actions">
+          <button class="button-primary" type="submit" ${assignmentDisabled ? 'disabled' : ''}>Save assignment</button>
+        </div>
+      </form>
+    </section>
+    <section class="panel">
+      <p class="section-title">Remove Image</p>
+      <p class="form-note">Delete this storyboard image item when the plan should no longer include it.</p>
+      <form method="post" action="${getStoryboardImageRemoveActionPath(options.descriptor)}" onsubmit="return window.confirm(${escapeHtml(JSON.stringify(deleteMessage))})">
+        <button class="button-danger" type="submit" ${assignmentDisabled ? 'disabled' : ''}>Remove image</button>
+      </form>
+    </section>
+  `
 }
 
 async function loadCharacterDetail(
@@ -2803,26 +3398,36 @@ async function loadShotDetail(shotId: string, cwd: string, requestedVersionId?: 
   } satisfies ArtifactDetailContext
 }
 
-async function loadStoryboardDetail(cwd: string, requestedVersionId?: string | null) {
-  const [config, markdown, storyboardSidecar] = await Promise.all([
+async function loadStoryboardDetail(
+  storyboardImageId: string,
+  cwd: string,
+  requestedVersionId?: string | null,
+) {
+  const [config, storyboard] = await Promise.all([
     loadConfig(cwd).catch(() => null),
-    readFile(resolveWorkflowPath(WORKFLOW_FILES.storyboard, cwd), 'utf8').catch(() => null),
-    loadStoryboardSidecar(cwd),
+    loadStoryboardOrEmpty(cwd),
   ])
-  const descriptor = getStoryboardArtifactDescriptor()
+  const storyboardImage = findStoryboardImage(storyboard, storyboardImageId)
+
+  if (!storyboard || !storyboardImage) {
+    return null
+  }
+
+  const descriptor = getStoryboardArtifactDescriptor(storyboardImage)
   const historyState = await loadArtifactHistoryState(descriptor, cwd, {
     activeVersionId: requestedVersionId,
   })
   const activeVersionId = historyState.activeVersionId
+  const dependentRefs = await findStoryboardImageDependents(storyboardImage.imagePath, cwd)
 
   return {
     descriptor,
     activeTab: 'storyboard' as const,
-    title: 'Storyboard',
+    title: storyboardImage.storyboardImageId,
     subtitle:
-      'The storyboard board acts as a retained visual artifact with explicit references and simple filesystem-based history.',
+      'Review one storyboard image at a time, keep lightweight retained versions, and feed the chosen image into downstream keyframe work.',
     summaryHref: '/storyboard',
-    summaryLabel: 'Storyboard overview',
+    summaryLabel: 'Back to storyboard',
     mediaType: 'image' as const,
     mediaUrl: activeVersionId
       ? getArtifactVersionMediaUrl(descriptor, activeVersionId)
@@ -2830,27 +3435,44 @@ async function loadStoryboardDetail(cwd: string, requestedVersionId?: string | n
     mediaExists: activeVersionId !== null ? true : historyState.currentExists,
     mediaPlaceholder: 'No storyboard image yet',
     mediaPlaceholderVariant: 'missing',
-    sourceReferences: storyboardSidecar?.references ?? [],
-    sourcePrompt: markdown,
-    sourceModel: config?.imageModel ?? null,
-    sourceStatus: historyState.currentExists ? 'ready' : 'missing',
+    sourceReferences: storyboardImage.references ?? [],
+    sourcePrompt: buildStoryboardPrompt(storyboard, storyboardImage.storyboardImageId),
+    sourceModel: config?.fastImageModel ?? null,
+    sourceStatus: storyboardImage.status,
     historyState,
-    notesHtml: `<section class="panel"><p class="section-title">Source Storyboard</p>${markdown ? `<pre class="storyboard-markdown">${escapeHtml(markdown.trim())}</pre>` : '<div class="empty-state">No storyboard markdown yet.</div>'}</section>`,
+    notesHtml: [
+      `<section class="panel"><p class="section-title">Storyboard Plan</p><p class="muted">${escapeHtml(storyboardImage.title)}</p><p class="small">Shot: ${escapeHtml(storyboardImage.shotId)} • Frame: ${escapeHtml(storyboardImage.frameType)}</p><p class="small">${escapeHtml(storyboardImage.purpose)}</p><p class="small">${escapeHtml(storyboardImage.visual)}</p><p class="small">${escapeHtml(storyboardImage.transition)}</p></section>`,
+      `<section class="panel"><p class="section-title">Sequence Context</p><p class="muted">${escapeHtml(storyboard.sequenceSummary)}</p></section>`,
+    ].join(''),
     canEdit: historyState.currentExists || historyState.activeVersionId !== null,
     canEditReferences: true,
-    primaryAction: {
-      kind: 'regenerate',
-      actionUrl: getArtifactRegenerateActionPath(descriptor),
-      enabled: historyState.currentExists || historyState.activeVersionId !== null,
-    },
+    primaryAction:
+      historyState.currentExists || historyState.activeVersionId !== null
+        ? {
+            kind: 'regenerate',
+            actionUrl: getArtifactRegenerateActionPath(descriptor),
+            enabled: true,
+          }
+        : {
+            kind: 'generate',
+            actionUrl: getArtifactGenerateActionPath(descriptor),
+            enabled: true,
+          },
     cameraControl: null,
     anchorPlanningAction: null,
+    extraSideHtml: renderStoryboardPlanningControls({
+      descriptor,
+      storyboardImage,
+      dependentRefs,
+    }),
   } satisfies ArtifactDetailContext
 }
 
 async function getDetailContext(pathname: string, cwd: string, requestedVersionId?: string | null) {
-  if (pathname === '/storyboard') {
-    return loadStoryboardDetail(cwd, requestedVersionId)
+  const storyboardMatch = /^\/storyboard\/images\/([^/]+)$/.exec(pathname)
+
+  if (storyboardMatch) {
+    return loadStoryboardDetail(decodeURIComponent(storyboardMatch[1]!), cwd, requestedVersionId)
   }
 
   const characterMatch = /^\/characters\/([^/]+)$/.exec(pathname)
@@ -2920,6 +3542,8 @@ async function buildKeyframePendingGeneration(
   keyframes: KeyframeEntry[]
   shots: ShotEntry[]
 } | null> {
+  await syncKeyframeStoryboardReference(keyframeId, cwd)
+
   const [config, keyframes, artifacts, shots] = await Promise.all([
     loadConfig(cwd),
     loadKeyframesOrEmpty(cwd),
@@ -2943,6 +3567,23 @@ async function buildKeyframePendingGeneration(
         shots,
       }
     : null
+}
+
+async function buildStoryboardPendingGeneration(
+  storyboardImageId: string,
+  cwd: string,
+): Promise<PendingStoryboardGeneration | null> {
+  const [config, storyboard] = await Promise.all([loadConfig(cwd), loadStoryboardOrEmpty(cwd)])
+
+  if (!storyboard) {
+    return null
+  }
+
+  const generations = selectPendingStoryboardGenerations(storyboard, config.fastImageModel, {
+    storyboardImageId,
+  })
+
+  return generations[0] ?? null
 }
 
 async function buildShotPendingGeneration(
@@ -2978,16 +3619,22 @@ export async function runApprovedRegenerateAction(
   regenerateRequest: string,
   options: RegenerateActionOptions = {},
 ) {
-  if (pathname === '/storyboard') {
-    const config = await loadConfig(cwd)
-    const storyboardSidecar = await loadStoryboardSidecar(cwd)
-    const descriptor = getStoryboardArtifactDescriptor()
+  const storyboardMatch = /^\/storyboard\/images\/([^/]+)$/.exec(pathname)
 
-    return regenerateStoryboardArtifactVersion({
-      model: config.imageModel,
+  if (storyboardMatch) {
+    const storyboardImageId = decodeURIComponent(storyboardMatch[1]!)
+    const generation = await buildStoryboardPendingGeneration(storyboardImageId, cwd)
+
+    if (!generation) {
+      throw new Error(`Storyboard image "${storyboardImageId}" is missing valid planning data.`)
+    }
+
+    const descriptor = getStoryboardArtifactDescriptor(generation)
+
+    return regenerateStoryboardArtifactVersion(generation, {
       regenerateRequest,
       selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
-      userReferences: storyboardSidecar?.references ?? [],
+      userReferences: generation.userReferences ?? [],
       cwd,
       generator: options.imageGenerator,
     })
@@ -3105,12 +3752,15 @@ async function serveCanonicalCharacterImage(requestPath: string, cwd: string) {
 
 async function serveCanonicalStoryboardImage(requestPath: string, cwd: string) {
   const decodedPath = decodeURIComponent(requestPath.slice(1))
+  const storyboard = await loadStoryboardOrEmpty(cwd)
+  const matchingEntry = storyboard?.images.find((entry) => entry.imagePath === decodedPath) ?? null
+  const legacyPath = getLegacyStoryboardImagePath()
 
-  if (decodedPath !== getStoryboardImagePath()) {
+  if (!matchingEntry && decodedPath !== legacyPath) {
     return new Response('Not Found', { status: 404 })
   }
 
-  const absolutePath = resolveRepoPath(getStoryboardImagePath(), cwd)
+  const absolutePath = resolveRepoPath(matchingEntry?.imagePath ?? legacyPath, cwd)
 
   if (!(await fileExists(absolutePath))) {
     return new Response('Not Found', { status: 404 })
@@ -3229,6 +3879,57 @@ async function handleReferenceSave(pathname: string, request: Request, cwd: stri
   const references = parseReferenceEditorInput(referencesJson)
 
   await writeArtifactSidecarReferences(detail.descriptor, references, cwd)
+  return redirectTo(
+    buildPostActionRedirectLocation(getArtifactDetailPath(detail.descriptor), request, {
+      updated: true,
+    }),
+  )
+}
+
+async function handleGenerate(
+  pathname: string,
+  request: Request,
+  cwd: string,
+  jobs: Map<string, ArtifactJobState>,
+  options: RegenerateActionOptions,
+) {
+  const detail = await getDetailContext(pathname, cwd)
+
+  if (!detail || detail.descriptor.artifactType !== 'storyboard') {
+    return renderErrorPage(
+      'storyboard',
+      'Missing Storyboard Image',
+      'Storyboard image not found.',
+      '/storyboard',
+    )
+  }
+
+  const currentJob = getJobState(jobs, detail.descriptor)
+
+  if (currentJob?.status === 'running') {
+    throw new Error(`${detail.descriptor.displayName} already has an active generation job.`)
+  }
+
+  startArtifactJob(jobs, detail.descriptor, async () => {
+    const generation = await buildStoryboardPendingGeneration(detail.descriptor.artifactId, cwd)
+
+    if (!generation) {
+      throw new Error(
+        `Storyboard image "${detail.descriptor.artifactId}" is missing valid planning data.`,
+      )
+    }
+
+    const result = await generateStoryboardArtifactVersion(generation, {
+      userReferences: generation.userReferences ?? [],
+      cwd,
+      generator: options.imageGenerator,
+    })
+
+    return {
+      versionId: result.versionId,
+    }
+  })
+
   return redirectTo(
     buildPostActionRedirectLocation(getArtifactDetailPath(detail.descriptor), request, {
       updated: true,
@@ -3362,6 +4063,581 @@ async function handleCreate(
 
   return redirectTo(
     buildPostActionRedirectLocation(getArtifactDetailPath(descriptor), request, {
+      updated: true,
+    }),
+  )
+}
+
+async function writeStoryboardManifest(
+  storyboard: { sequenceSummary: string; images: StoryboardImageEntry[] },
+  cwd: string,
+) {
+  await writeFile(
+    resolveWorkflowPath(WORKFLOW_FILES.storyboardSidecar, cwd),
+    `${JSON.stringify(storyboard, null, 2)}\n`,
+    'utf8',
+  )
+}
+
+interface StoryboardEditorFormInput {
+  selectedImageId: string
+  sequenceSummary: string
+  title: string
+  purpose: string
+  visual: string
+  transition: string
+  references: ArtifactReferenceEntry[]
+  regenerateRequest: string
+}
+
+async function parseStoryboardEditorForm(request: Request): Promise<StoryboardEditorFormInput> {
+  const formData = await request.formData()
+  const selectedImageId = String(formData.get('selectedImageId') ?? '').trim()
+  const sequenceSummary = String(formData.get('sequenceSummary') ?? '').trim()
+  const title = String(formData.get('title') ?? '').trim()
+  const purpose = String(formData.get('purpose') ?? '').trim()
+  const visual = String(formData.get('visual') ?? '').trim()
+  const transition = String(formData.get('transition') ?? '').trim()
+  const regenerateRequest = String(formData.get('regenerateRequest') ?? '').trim()
+  const references = parseReferenceEditorInput(String(formData.get('referencesJson') ?? '[]'))
+
+  if (sequenceSummary.length === 0) {
+    throw new Error('Sequence summary is required.')
+  }
+
+  if (
+    title.length === 0 ||
+    purpose.length === 0 ||
+    visual.length === 0 ||
+    transition.length === 0
+  ) {
+    throw new Error('Title, purpose, visual, and transition are all required.')
+  }
+
+  return {
+    selectedImageId: selectedImageId.length > 0 ? selectedImageId : STORYBOARD_NEW_SELECTION_ID,
+    sequenceSummary,
+    title,
+    purpose,
+    visual,
+    transition,
+    references,
+    regenerateRequest,
+  }
+}
+
+function createStoryboardDraftFromForm(
+  input: StoryboardEditorFormInput,
+  shotId: string,
+  frameType: FrameType,
+) {
+  return createStoryboardImageEntry({
+    shotId,
+    frameType,
+    title: input.title,
+    purpose: input.purpose,
+    visual: input.visual,
+    transition: input.transition,
+    status: 'draft',
+    references: input.references,
+  })
+}
+
+async function syncKeyframeStoryboardReference(keyframeId: string, cwd: string) {
+  const [storyboard, keyframes, shots, artifacts] = await Promise.all([
+    loadStoryboardOrEmpty(cwd),
+    loadKeyframesOrEmpty(cwd),
+    loadShotPromptsOrEmpty(cwd),
+    loadKeyframeArtifactsOrEmpty(cwd),
+  ])
+  const keyframe = keyframes.find((entry) => entry.keyframeId === keyframeId)
+  const artifact = artifacts.find((entry) => entry.keyframeId === keyframeId)
+
+  if (!keyframe || !artifact) {
+    return
+  }
+
+  const shotIndex = shots.findIndex((entry) => entry.shotId === keyframe.shotId)
+
+  if (shotIndex < 0) {
+    return
+  }
+
+  const storyboardImage = storyboard
+    ? findStoryboardImageForShotIndex(storyboard.images, shotIndex, keyframe.frameType)
+    : null
+  const storyboardPath =
+    storyboardImage && (await fileExists(resolveRepoPath(storyboardImage.imagePath, cwd)))
+      ? storyboardImage.imagePath
+      : null
+  const currentReferences = artifact.references ?? []
+  const nextReferences = currentReferences.filter((reference) => reference.kind !== 'storyboard')
+
+  if (storyboardPath) {
+    const insertAt = nextReferences.findIndex(
+      (reference) =>
+        reference.kind !== 'previous-shot-end-frame' && reference.kind !== 'start-frame',
+    )
+    const storyboardReference = {
+      kind: 'storyboard',
+      path: storyboardPath,
+    } satisfies ArtifactReferenceEntry
+
+    if (insertAt === -1) {
+      nextReferences.push(storyboardReference)
+    } else {
+      nextReferences.splice(insertAt, 0, storyboardReference)
+    }
+  }
+
+  if (JSON.stringify(currentReferences) === JSON.stringify(nextReferences)) {
+    return
+  }
+
+  const sidecarPath = resolveRepoPath(getKeyframeArtifactJsonPath(artifact), cwd)
+  const raw = await readFile(sidecarPath, 'utf8')
+  const existing = JSON.parse(raw) as Record<string, unknown>
+  const ordered = orderSidecarFields(existing, KEYFRAME_SIDECAR_FIELD_ORDER, {})
+
+  if (nextReferences.length === 0) {
+    delete ordered.references
+  } else {
+    ordered.references = nextReferences
+  }
+
+  await writeFile(sidecarPath, `${JSON.stringify(ordered, null, 2)}\n`, 'utf8')
+}
+
+async function upsertStoryboardSelection(
+  input: StoryboardEditorFormInput,
+  cwd: string,
+): Promise<StoryboardImageEntry> {
+  const existingStoryboard = (await loadStoryboardOrEmpty(cwd)) ?? {
+    sequenceSummary: input.sequenceSummary,
+    images: [],
+  }
+
+  if (input.selectedImageId === STORYBOARD_NEW_SELECTION_ID) {
+    const nextEntry = createStoryboardDraftFromForm(
+      input,
+      getNextStoryboardShotId(existingStoryboard.images),
+      'start',
+    )
+
+    await writeStoryboardManifest(
+      {
+        ...existingStoryboard,
+        sequenceSummary: input.sequenceSummary,
+        images: [...existingStoryboard.images, nextEntry],
+      },
+      cwd,
+    )
+
+    return nextEntry
+  }
+
+  const current = findStoryboardImage(existingStoryboard, input.selectedImageId)
+
+  if (!current) {
+    throw new Error(
+      `Storyboard image "${input.selectedImageId}" is missing from workspace/STORYBOARD.json.`,
+    )
+  }
+
+  const nextEntry = {
+    ...current,
+    title: input.title,
+    purpose: input.purpose,
+    visual: input.visual,
+    transition: input.transition,
+    references: input.references.length > 0 ? input.references : undefined,
+  } satisfies StoryboardImageEntry
+
+  await writeStoryboardManifest(
+    {
+      ...existingStoryboard,
+      sequenceSummary: input.sequenceSummary,
+      images: existingStoryboard.images.map((entry) =>
+        entry.storyboardImageId === current.storyboardImageId ? nextEntry : entry,
+      ),
+    },
+    cwd,
+  )
+
+  return nextEntry
+}
+
+async function handleStoryboardSave(request: Request, cwd: string) {
+  const input = await parseStoryboardEditorForm(request)
+  const entry = await upsertStoryboardSelection(input, cwd)
+
+  return redirectTo(
+    appendSearchParams(buildPostActionRedirectLocation('/storyboard', request, { updated: true }), {
+      image: entry.storyboardImageId,
+    }),
+  )
+}
+
+async function handleStoryboardRender(
+  request: Request,
+  cwd: string,
+  jobs: Map<string, ArtifactJobState>,
+  options: RegenerateActionOptions,
+) {
+  const input = await parseStoryboardEditorForm(request)
+  const entry = await upsertStoryboardSelection(input, cwd)
+  const descriptor = getStoryboardArtifactDescriptor(entry)
+  const currentJob = getJobState(jobs, descriptor)
+
+  if (currentJob?.status === 'running') {
+    throw new Error(`${descriptor.displayName} already has an active generation job.`)
+  }
+
+  startArtifactJob(jobs, descriptor, async () => {
+    const generation = await buildStoryboardPendingGeneration(entry.storyboardImageId, cwd)
+
+    if (!generation) {
+      throw new Error(
+        `Storyboard image "${entry.storyboardImageId}" is missing valid planning data.`,
+      )
+    }
+
+    if (await fileExists(resolveRepoPath(entry.imagePath, cwd))) {
+      const result = await regenerateStoryboardArtifactVersion(generation, {
+        regenerateRequest:
+          input.regenerateRequest.length > 0
+            ? input.regenerateRequest
+            : 'Create a fresh variation while preserving the planned staging and intent.',
+        selectedVersionPath: getBaseVersionMediaPath(descriptor, CURRENT_BASE_VERSION_ID),
+        userReferences: generation.userReferences ?? [],
+        cwd,
+        generator: options.imageGenerator,
+      })
+
+      return {
+        versionId: result.versionId,
+      }
+    }
+
+    const result = await generateStoryboardArtifactVersion(generation, {
+      userReferences: generation.userReferences ?? [],
+      cwd,
+      generator: options.imageGenerator,
+    })
+
+    return {
+      versionId: result.versionId,
+    }
+  })
+
+  return redirectTo(
+    appendSearchParams(buildPostActionRedirectLocation('/storyboard', request, { updated: true }), {
+      image: entry.storyboardImageId,
+    }),
+  )
+}
+
+async function handleStoryboardInsertEnd(
+  request: Request,
+  cwd: string,
+  jobs: Map<string, ArtifactJobState>,
+  options: RegenerateActionOptions,
+) {
+  const input = await parseStoryboardEditorForm(request)
+  const storyboard = await loadStoryboardOrEmpty(cwd)
+
+  if (!storyboard) {
+    throw new Error('workspace/STORYBOARD.json is required before inserting an end frame.')
+  }
+
+  if (input.selectedImageId === STORYBOARD_NEW_SELECTION_ID) {
+    throw new Error('Select a storyboard start frame before inserting an end frame.')
+  }
+
+  const current = findStoryboardImage(storyboard, input.selectedImageId)
+
+  if (!current) {
+    throw new Error(
+      `Storyboard image "${input.selectedImageId}" is missing from workspace/STORYBOARD.json.`,
+    )
+  }
+
+  if (current.frameType !== 'start') {
+    throw new Error('Only a selected start frame can receive a new end frame.')
+  }
+
+  if (getStoryboardPairedEnd(storyboard, current.storyboardImageId)) {
+    throw new Error(`Storyboard image "${current.storyboardImageId}" already has an end frame.`)
+  }
+
+  const insertIndex = getStoryboardImageIndex(storyboard, current.storyboardImageId)
+  const nextEntry = createStoryboardDraftFromForm(input, current.shotId, 'end')
+  const nextStoryboard = {
+    ...storyboard,
+    sequenceSummary: input.sequenceSummary,
+    images: [
+      ...storyboard.images.slice(0, insertIndex + 1),
+      nextEntry,
+      ...storyboard.images.slice(insertIndex + 1),
+    ],
+  }
+
+  await writeStoryboardManifest(nextStoryboard, cwd)
+
+  const descriptor = getStoryboardArtifactDescriptor(nextEntry)
+  const currentJob = getJobState(jobs, descriptor)
+
+  if (currentJob?.status === 'running') {
+    throw new Error(`${descriptor.displayName} already has an active generation job.`)
+  }
+
+  startArtifactJob(jobs, descriptor, async () => {
+    const generation = await buildStoryboardPendingGeneration(nextEntry.storyboardImageId, cwd)
+
+    if (!generation) {
+      throw new Error(
+        `Storyboard image "${nextEntry.storyboardImageId}" is missing valid planning data.`,
+      )
+    }
+
+    const result = await generateStoryboardArtifactVersion(generation, {
+      userReferences: generation.userReferences ?? [],
+      cwd,
+      generator: options.imageGenerator,
+    })
+
+    return {
+      versionId: result.versionId,
+    }
+  })
+
+  return redirectTo(
+    appendSearchParams(buildPostActionRedirectLocation('/storyboard', request, { updated: true }), {
+      image: nextEntry.storyboardImageId,
+    }),
+  )
+}
+
+async function handleStoryboardDelete(request: Request, cwd: string) {
+  const formData = await request.formData()
+  const selectedImageId = String(formData.get('selectedImageId') ?? '').trim()
+  const storyboard = await loadStoryboardOrEmpty(cwd)
+
+  if (!storyboard || selectedImageId.length === 0) {
+    throw new Error('Select a storyboard thumbnail before deleting it.')
+  }
+
+  const currentIndex = getStoryboardImageIndex(storyboard, selectedImageId)
+  const current = findStoryboardImage(storyboard, selectedImageId)
+
+  if (!current || currentIndex < 0) {
+    throw new Error(
+      `Storyboard image "${selectedImageId}" is missing from workspace/STORYBOARD.json.`,
+    )
+  }
+
+  const pairedEnd =
+    current.frameType === 'start'
+      ? getStoryboardPairedEnd(storyboard, current.storyboardImageId)
+      : null
+  const removedEntries = pairedEnd ? [current, pairedEnd] : [current]
+
+  for (const entry of removedEntries) {
+    const dependents = await findStoryboardImageDependents(entry.imagePath, cwd)
+
+    if (dependents.length > 0) {
+      throw new Error(
+        `Storyboard image "${entry.storyboardImageId}" is already referenced by ${dependents.join(', ')} and cannot be removed safely.`,
+      )
+    }
+  }
+
+  const removedIds = new Set(removedEntries.map((entry) => entry.storyboardImageId))
+  const nextImages = storyboard.images.filter((entry) => !removedIds.has(entry.storyboardImageId))
+
+  await writeStoryboardManifest(
+    {
+      ...storyboard,
+      images: nextImages,
+    },
+    cwd,
+  )
+
+  for (const entry of removedEntries) {
+    await rm(resolveRepoPath(entry.imagePath, cwd), { force: true }).catch(() => undefined)
+    await rm(resolveRepoPath(getStoryboardArtifactDescriptor(entry).historyDir, cwd), {
+      recursive: true,
+      force: true,
+    }).catch(() => undefined)
+  }
+
+  const nextSelection =
+    nextImages[currentIndex]?.storyboardImageId ??
+    nextImages[currentIndex - 1]?.storyboardImageId ??
+    STORYBOARD_NEW_SELECTION_ID
+
+  return redirectTo(
+    appendSearchParams(buildPostActionRedirectLocation('/storyboard', request, { updated: true }), {
+      image: nextSelection,
+    }),
+  )
+}
+
+async function handleStoryboardAssignment(pathname: string, request: Request, cwd: string) {
+  const detail = await getDetailContext(pathname, cwd)
+
+  if (!detail || detail.descriptor.artifactType !== 'storyboard') {
+    return renderErrorPage(
+      'storyboard',
+      'Missing Storyboard Image',
+      'Storyboard image not found.',
+      '/storyboard',
+    )
+  }
+
+  const storyboard = await loadStoryboardOrEmpty(cwd)
+  const current = findStoryboardImage(storyboard, detail.descriptor.artifactId)
+
+  if (!storyboard || !current) {
+    throw new Error(
+      `Storyboard image "${detail.descriptor.artifactId}" is missing from workspace/STORYBOARD.json.`,
+    )
+  }
+
+  const dependents = await findStoryboardImageDependents(current.imagePath, cwd)
+
+  if (dependents.length > 0) {
+    throw new Error(
+      `Storyboard image "${current.storyboardImageId}" is already referenced by ${dependents.join(', ')} and cannot be reassigned safely.`,
+    )
+  }
+
+  const formData = await request.formData()
+  const shotId = String(formData.get('shotId') ?? '').trim()
+  const frameType = String(formData.get('frameType') ?? '').trim()
+
+  if (shotId.length === 0) {
+    throw new Error('Storyboard assignment requires a non-empty shotId.')
+  }
+
+  if (frameType !== 'start' && frameType !== 'end') {
+    throw new Error('Storyboard assignment frameType must be "start" or "end".')
+  }
+
+  const nextStoryboardImageId = `${shotId}-${frameType.toUpperCase()}`
+  const nextImagePath = getStoryboardImagePath(nextStoryboardImageId)
+
+  if (
+    nextStoryboardImageId !== current.storyboardImageId &&
+    storyboard.images.some((entry) => entry.storyboardImageId === nextStoryboardImageId)
+  ) {
+    throw new Error(
+      `Storyboard image "${nextStoryboardImageId}" already exists in workspace/STORYBOARD.json.`,
+    )
+  }
+
+  if (nextStoryboardImageId !== current.storyboardImageId) {
+    const currentAbsolutePath = resolveRepoPath(current.imagePath, cwd)
+    const nextAbsolutePath = resolveRepoPath(nextImagePath, cwd)
+
+    if (await fileExists(currentAbsolutePath)) {
+      await mkdir(path.dirname(nextAbsolutePath), { recursive: true })
+      await rename(currentAbsolutePath, nextAbsolutePath)
+    }
+
+    const currentHistoryDir = resolveRepoPath(
+      getStoryboardArtifactDescriptor(current).historyDir,
+      cwd,
+    )
+    const nextHistoryDir = resolveRepoPath(
+      getStoryboardArtifactDescriptor({
+        storyboardImageId: nextStoryboardImageId,
+        shotId,
+      }).historyDir,
+      cwd,
+    )
+
+    if (await fileExists(currentHistoryDir)) {
+      await mkdir(path.dirname(nextHistoryDir), { recursive: true })
+      await rename(currentHistoryDir, nextHistoryDir)
+    }
+  }
+
+  await writeStoryboardManifest(
+    {
+      ...storyboard,
+      images: storyboard.images.map((entry) =>
+        entry.storyboardImageId === current.storyboardImageId
+          ? {
+              ...entry,
+              shotId,
+              frameType,
+              storyboardImageId: nextStoryboardImageId,
+              imagePath: nextImagePath,
+            }
+          : entry,
+      ),
+    },
+    cwd,
+  )
+
+  return redirectTo(
+    buildPostActionRedirectLocation(
+      `/storyboard/images/${encodeURIComponent(nextStoryboardImageId)}`,
+      request,
+      {
+        updated: true,
+      },
+    ),
+  )
+}
+
+async function handleStoryboardRemoveImage(pathname: string, request: Request, cwd: string) {
+  const detail = await getDetailContext(pathname, cwd)
+
+  if (!detail || detail.descriptor.artifactType !== 'storyboard') {
+    return renderErrorPage(
+      'storyboard',
+      'Missing Storyboard Image',
+      'Storyboard image not found.',
+      '/storyboard',
+    )
+  }
+
+  const storyboard = await loadStoryboardOrEmpty(cwd)
+  const current = findStoryboardImage(storyboard, detail.descriptor.artifactId)
+
+  if (!storyboard || !current) {
+    throw new Error(
+      `Storyboard image "${detail.descriptor.artifactId}" is missing from workspace/STORYBOARD.json.`,
+    )
+  }
+
+  const dependents = await findStoryboardImageDependents(current.imagePath, cwd)
+
+  if (dependents.length > 0) {
+    throw new Error(
+      `Storyboard image "${current.storyboardImageId}" is already referenced by ${dependents.join(', ')} and cannot be removed safely.`,
+    )
+  }
+
+  await writeStoryboardManifest(
+    {
+      ...storyboard,
+      images: storyboard.images.filter(
+        (entry) => entry.storyboardImageId !== current.storyboardImageId,
+      ),
+    },
+    cwd,
+  )
+  await rm(resolveRepoPath(current.imagePath, cwd), { force: true }).catch(() => undefined)
+  await rm(resolveRepoPath(getStoryboardArtifactDescriptor(current).historyDir, cwd), {
+    recursive: true,
+    force: true,
+  }).catch(() => undefined)
+
+  return redirectTo(
+    buildPostActionRedirectLocation('/storyboard', request, {
       updated: true,
     }),
   )
@@ -3612,12 +4888,38 @@ export function startArtifactReviewServer(
             (request.method === 'GET' || request.method === 'HEAD') &&
             url.pathname === '/storyboard'
           ) {
-            const detail = await loadStoryboardDetail(cwd, url.searchParams.get('version'))
+            const storyboard = await loadStoryboardOrEmpty(cwd)
+            const selected = getStoryboardSelectionState(storyboard, url.searchParams.get('image'))
+            const slots = await buildStoryboardGridSlots(storyboard, selected.selectedImageId, cwd)
+            const selectedCard = selected.selectedEntry
+              ? ((await buildStoryboardCards(cwd)).find(
+                  (card) => card.storyboardImageId === selected.selectedEntry?.storyboardImageId,
+                ) ?? null)
+              : null
+            const selectedJob = selected.selectedEntry
+              ? getJobState(activeJobs, getStoryboardArtifactDescriptor(selected.selectedEntry))
+              : null
 
-            return renderDetailPage(detail, getJobState(activeJobs, detail.descriptor), {
-              embedded: isEmbedded,
-              refreshParentDetailUrl: getEmbeddedRefreshDetailUrl(url),
+            return renderStoryboardSummary({
+              storyboard,
+              config: await loadConfig(cwd).catch(() => null),
+              slots,
+              selected,
+              selectedCard,
+              job: selectedJob,
             })
+          }
+
+          if (
+            (request.method === 'GET' || request.method === 'HEAD') &&
+            /^\/storyboard\/images\/[^/]+$/.test(url.pathname)
+          ) {
+            return redirectTo(
+              appendSearchParams('/storyboard', {
+                image: decodeURIComponent(url.pathname.split('/')[3]!),
+              }),
+              302,
+            )
           }
 
           if (
@@ -3704,11 +5006,19 @@ export function startArtifactReviewServer(
 
           if (
             (request.method === 'GET' || request.method === 'HEAD') &&
-            /^\/storyboard\/versions\/[^/]+\/media$/.test(url.pathname)
+            /^\/storyboard\/images\/[^/]+\/versions\/[^/]+\/media$/.test(url.pathname)
           ) {
+            const storyboard = await loadStoryboardOrEmpty(cwd)
+            const storyboardImageId = decodeURIComponent(url.pathname.split('/')[3]!)
+            const storyboardImage = findStoryboardImage(storyboard, storyboardImageId)
+
+            if (!storyboardImage) {
+              return new Response('Not Found', { status: 404 })
+            }
+
             return serveArtifactVersionMedia(
-              getStoryboardArtifactDescriptor(),
-              decodeURIComponent(url.pathname.split('/')[3]!),
+              getStoryboardArtifactDescriptor(storyboardImage),
+              decodeURIComponent(url.pathname.split('/')[5]!),
               cwd,
             )
           }
@@ -3768,6 +5078,22 @@ export function startArtifactReviewServer(
             }
           }
 
+          if (request.method === 'POST' && url.pathname === '/storyboard/save') {
+            return await handleStoryboardSave(request, cwd)
+          }
+
+          if (request.method === 'POST' && url.pathname === '/storyboard/render') {
+            return await handleStoryboardRender(request, cwd, activeJobs, generatorOverrides)
+          }
+
+          if (request.method === 'POST' && url.pathname === '/storyboard/insert-end') {
+            return await handleStoryboardInsertEnd(request, cwd, activeJobs, generatorOverrides)
+          }
+
+          if (request.method === 'POST' && url.pathname === '/storyboard/delete') {
+            return await handleStoryboardDelete(request, cwd)
+          }
+
           if (request.method === 'POST' && /\/references$/.test(url.pathname)) {
             return await handleReferenceSave(
               url.pathname.replace(/\/references$/, ''),
@@ -3779,6 +5105,16 @@ export function startArtifactReviewServer(
           if (request.method === 'POST' && /\/create$/.test(url.pathname)) {
             return await handleCreate(
               url.pathname.replace(/\/create$/, ''),
+              request,
+              cwd,
+              activeJobs,
+              generatorOverrides,
+            )
+          }
+
+          if (request.method === 'POST' && /\/generate$/.test(url.pathname)) {
+            return await handleGenerate(
+              url.pathname.replace(/\/generate$/, ''),
               request,
               cwd,
               activeJobs,
@@ -3812,6 +5148,22 @@ export function startArtifactReviewServer(
             return await handleDelete(url.pathname.replace(/\/delete$/, ''), request, cwd)
           }
 
+          if (request.method === 'POST' && /\/assignment$/.test(url.pathname)) {
+            return await handleStoryboardAssignment(
+              url.pathname.replace(/\/assignment$/, ''),
+              request,
+              cwd,
+            )
+          }
+
+          if (request.method === 'POST' && /\/remove-image$/.test(url.pathname)) {
+            return await handleStoryboardRemoveImage(
+              url.pathname.replace(/\/remove-image$/, ''),
+              request,
+              cwd,
+            )
+          }
+
           if (request.method === 'POST' && /\/remove$/.test(url.pathname)) {
             return await handleRemove(url.pathname.replace(/\/remove$/, ''), request, cwd)
           }
@@ -3825,7 +5177,8 @@ export function startArtifactReviewServer(
 
           if (
             (request.method === 'GET' || request.method === 'HEAD') &&
-            url.pathname === `/${getStoryboardImagePath()}`
+            (url.pathname.startsWith('/workspace/STORYBOARD/') ||
+              url.pathname === `/${getLegacyStoryboardImagePath()}`)
           ) {
             return serveCanonicalStoryboardImage(url.pathname, cwd)
           }

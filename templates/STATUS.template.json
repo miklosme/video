@@ -31,15 +31,15 @@
   },
   {
     "title": "Build storyboard",
-    "instruction": "Create a shot-by-shot plan with stable shot IDs and clear visual intent so the sequence can guide keyframes and prompts.",
+    "instruction": "Create a structured storyboard plan in STORYBOARD.json with an ordered image list, stable shot IDs, and clear visual intent for each planned storyboard image.",
     "checked": false,
-    "relatedFiles": ["STORYBOARD.md"]
+    "relatedFiles": ["STORYBOARD.json"]
   },
   {
     "title": "Review storyboard",
-    "instruction": "Generate and review one full-project storyboard board from STORYBOARD.md before committing to keyframes.",
+    "instruction": "Render and review the planned storyboard images one by one under STORYBOARD/ before committing to keyframes.",
     "checked": false,
-    "relatedFiles": ["STORYBOARD.md", "STORYBOARD.json", "STORYBOARD.png"]
+    "relatedFiles": ["STORYBOARD.json", "STORYBOARD/"]
   },
   {
     "title": "Plan keyframes",

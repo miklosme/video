@@ -18,10 +18,10 @@ import {
   type KeyframeEntry,
   type ResolvedArtifactReference,
   type ShotEntry,
+  type StoryboardImageEntry,
 } from './workflow-data'
 
 const HISTORY_FOLDER_NAME = 'HISTORY'
-const STORYBOARD_ARTIFACT_ID = 'STORYBOARD'
 
 export interface ArtifactDescriptor {
   artifactType: ArtifactType
@@ -234,18 +234,25 @@ export async function assertResolvedReferencesExist(
   }
 }
 
-export function getStoryboardArtifactDescriptor(): ArtifactDescriptor {
-  const historyDir = path.posix.join('workspace', HISTORY_FOLDER_NAME, STORYBOARD_ARTIFACT_ID)
+export function getStoryboardArtifactDescriptor(
+  storyboardImage: Pick<StoryboardImageEntry, 'storyboardImageId' | 'shotId'>,
+): ArtifactDescriptor {
+  const historyDir = path.posix.join(
+    'workspace',
+    'STORYBOARD',
+    HISTORY_FOLDER_NAME,
+    storyboardImage.storyboardImageId,
+  )
 
   return {
     artifactType: 'storyboard',
-    artifactId: STORYBOARD_ARTIFACT_ID,
-    displayName: 'Storyboard',
-    publicPath: getStoryboardImagePath(),
+    artifactId: storyboardImage.storyboardImageId,
+    displayName: `Storyboard ${storyboardImage.storyboardImageId}`,
+    publicPath: getStoryboardImagePath(storyboardImage.storyboardImageId),
     sidecarPath: getStoryboardSidecarPath(),
     historyDir,
     mediaExtension: '.png',
-    shotId: null,
+    shotId: storyboardImage.shotId,
   }
 }
 

@@ -1,5 +1,7 @@
-import { access, readFile, rm } from 'node:fs/promises'
+import { access, rm } from 'node:fs/promises'
 import path from 'node:path'
+
+import arg from 'arg'
 
 import {
   assertResolvedReferencesExist,
@@ -18,19 +20,28 @@ import {
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import { ensureActiveWorkspace } from './project-workspace'
 import {
-  getStoryboardImagePath,
   loadConfig,
   loadStoryboardSidecar,
-  resolveWorkflowPath,
-  WORKFLOW_FILES,
-  workspacePathExists,
+  type StoryboardImageEntry,
+  type StoryboardSidecar,
 } from './workflow-data'
 
+interface GenerateStoryboardArgs {
+  storyboardImageId?: string
+  shotId?: string
+}
+
+const DEFAULT_STORYBOARD_IMAGE_SIZE = '896x512' as const
+
 export interface PendingStoryboardGeneration {
+  storyboardImageId: string
+  shotId: string
+  frameType: StoryboardImageEntry['frameType']
+  title: string
   model: string
   prompt: string
   outputPath: string
-  references: ReturnType<typeof resolveStoryboardGenerationReferences>['references']
+  userReferences?: StoryboardImageEntry['references']
 }
 
 export interface StoryboardGenerationSummary {
@@ -39,6 +50,18 @@ export interface StoryboardGenerationSummary {
 }
 
 type ImageGenerator = (input: GenerateImagenOptionsInput) => Promise<GenerateImagenOptionsResult>
+
+function parseArgs(): GenerateStoryboardArgs {
+  const args = arg({
+    '--storyboard-image-id': String,
+    '--shot-id': String,
+  })
+
+  return {
+    storyboardImageId: args['--storyboard-image-id'],
+    shotId: args['--shot-id'],
+  }
+}
 
 async function fileExists(filePath: string) {
   try {
@@ -49,53 +72,68 @@ async function fileExists(filePath: string) {
   }
 }
 
-export function buildStoryboardPrompt(storyboardMarkdown: string) {
-  const trimmedStoryboard = storyboardMarkdown.trim()
+function getStoryboardImageContext(
+  storyboard: StoryboardSidecar,
+  storyboardImageId: string,
+): {
+  index: number
+  current: StoryboardImageEntry
+  previous: StoryboardImageEntry | null
+  next: StoryboardImageEntry | null
+} {
+  const index = storyboard.images.findIndex(
+    (entry) => entry.storyboardImageId === storyboardImageId,
+  )
 
-  if (trimmedStoryboard.length === 0) {
-    throw new Error('workspace/STORYBOARD.md is empty.')
+  if (index < 0) {
+    throw new Error(
+      `Storyboard image "${storyboardImageId}" is missing from workspace/STORYBOARD.json.`,
+    )
   }
 
+  return {
+    index,
+    current: storyboard.images[index]!,
+    previous: index > 0 ? (storyboard.images[index - 1] ?? null) : null,
+    next: storyboard.images[index + 1] ?? null,
+  }
+}
+
+export function buildStoryboardPrompt(storyboard: StoryboardSidecar, storyboardImageId: string) {
+  const { current, previous, next } = getStoryboardImageContext(storyboard, storyboardImageId)
+  const frameInstruction =
+    current.frameType === 'end'
+      ? 'Render the closing anchor of this shot, not the opening beat.'
+      : 'Render the opening anchor of this shot, not the ending beat.'
+
   return [
-    'Create a single storyboard sheet for the full project.',
-    'Use the raw storyboard markdown below as the source of truth.',
-    'Use the attached storyboard template image as the structural and stylistic reference for the board.',
-    'Mirror the template’s clean panel grid, borders, and review-board presentation, but keep the board more visual and less text-heavy than the template.',
-    'Render the story beats in order using storyboard panels.',
-    'A single editorial shot may use multiple storyboard panels when needed to show beats within the same continuous camera setup.',
-    'If one shot uses multiple storyboard panels, keep the same parent shot number and use suffixes such as SHOT-02A and SHOT-02B.',
-    'Do not create a new shot number for a small action beat that stays in the same camera setup.',
-    'Show visible shot labels that exactly match the SHOT-XX IDs from the markdown.',
-    'This is a normal storyboard board for review, not start/end keyframe pairs.',
-    'Keep the board easy to review at a glance, with clear composition, readable panel separation, and minimal per-panel text.',
-    'Only include the text that is genuinely useful on a professional storyboard board: shot labels, and optionally a very short dialogue line or beat caption when needed.',
-    'Do not include long descriptions, purpose text, transition text, duration text, or dense header blocks on the board.',
-    'Do not invent extra shots or duplicate any beat. Extra storyboard panels are allowed only when they clarify a beat within the same shot.',
-    'Do not copy the example puppy-specific wording from the template image; use the markdown as the only source for shot content.',
+    'Create a single storyboard image for one planned shot anchor.',
+    'Do not create a multi-panel sheet, page layout, border frame, shot label, or any text inside the image.',
+    'This is a fast previs image for planning and downstream keyframe generation.',
+    'Keep the image visually clear, composition-first, and easy to read at a glance.',
+    'Preserve enough specificity to lock staging and intent, while leaving cinematic texture and micro-detail open for later keyframe generation.',
+    frameInstruction,
     '',
-    'Storyboard markdown:',
-    '```md',
-    trimmedStoryboard,
-    '```',
+    `Sequence summary: ${storyboard.sequenceSummary.trim()}`,
+    `Shot ID: ${current.shotId}`,
+    `Frame type: ${current.frameType}`,
+    `Shot title: ${current.title}`,
+    `Purpose: ${current.purpose}`,
+    `Visual: ${current.visual}`,
+    `Transition: ${current.transition}`,
+    previous
+      ? `Previous planned image: ${previous.storyboardImageId} - ${previous.visual}`
+      : 'Previous planned image: none',
+    next
+      ? `Next planned image: ${next.storyboardImageId} - ${next.visual}`
+      : 'Next planned image: none',
   ].join('\n')
 }
 
-export function selectPendingStoryboardGeneration(
-  storyboardMarkdown: string,
-  model: string,
-  userReferences: Parameters<typeof resolveStoryboardGenerationReferences>[0] = [],
-): PendingStoryboardGeneration {
-  const { references } = resolveStoryboardGenerationReferences(userReferences)
-
-  return {
-    model,
-    prompt: buildStoryboardPrompt(storyboardMarkdown),
-    outputPath: getStoryboardImagePath(),
-    references,
-  }
-}
-
-export function buildStoryboardRegeneratePrompt(regenerateRequest: string) {
+export function buildStoryboardRegeneratePrompt(
+  generation: Pick<PendingStoryboardGeneration, 'storyboardImageId' | 'shotId' | 'frameType'>,
+  regenerateRequest: string,
+) {
   const trimmedRequest = regenerateRequest.trim()
 
   if (trimmedRequest.length === 0) {
@@ -103,70 +141,100 @@ export function buildStoryboardRegeneratePrompt(regenerateRequest: string) {
   }
 
   return [
-    'Regenerate the current storyboard board from the attached base image.',
-    'Keep the existing board structure and content unless the approved change below explicitly asks for broader updates.',
+    `Regenerate the current storyboard image for ${generation.storyboardImageId}.`,
+    `Use the attached ${generation.frameType} frame from ${generation.shotId} as the direct visual baseline.`,
+    'Keep the overall staging and intent unless the approved change below explicitly asks for a broader update.',
     '',
     'Approved change:',
     trimmedRequest,
   ].join('\n')
 }
 
-export async function runStoryboardGeneration(options: {
-  storyboardMarkdown: string
-  model: string
-  outputPath: string
-  userReferences?: Parameters<typeof resolveStoryboardGenerationReferences>[0]
-  logFile?: string
-  cwd?: string
-  seed?: number
-  generator?: ImageGenerator
-}) {
+export function selectPendingStoryboardGenerations(
+  storyboard: StoryboardSidecar,
+  model: string,
+  filters: GenerateStoryboardArgs = {},
+): PendingStoryboardGeneration[] {
+  return storyboard.images
+    .filter((entry) => {
+      if (filters.storyboardImageId && entry.storyboardImageId !== filters.storyboardImageId) {
+        return false
+      }
+
+      if (filters.shotId && entry.shotId !== filters.shotId) {
+        return false
+      }
+
+      return true
+    })
+    .map((entry) => ({
+      storyboardImageId: entry.storyboardImageId,
+      shotId: entry.shotId,
+      frameType: entry.frameType,
+      title: entry.title,
+      model,
+      prompt: buildStoryboardPrompt(storyboard, entry.storyboardImageId),
+      outputPath: entry.imagePath,
+      userReferences: entry.references,
+    }))
+}
+
+export async function runStoryboardGeneration(
+  generation: PendingStoryboardGeneration,
+  options: {
+    outputPath?: string
+    userReferences?: StoryboardImageEntry['references']
+    logFile?: string
+    cwd?: string
+    seed?: number
+    generator?: ImageGenerator
+  } = {},
+) {
   const { resolvedReferences, references } = resolveStoryboardGenerationReferences(
-    options.userReferences,
+    options.userReferences ?? generation.userReferences ?? [],
   )
   await assertResolvedReferencesExist(resolvedReferences, options.cwd)
 
-  const prompt = buildStoryboardPrompt(options.storyboardMarkdown)
   const generator = options.generator ?? generateImagenOptions
   const result = await generator({
-    prompt,
-    model: options.model,
-    outputPath: options.outputPath,
+    prompt: generation.prompt,
+    model: generation.model,
+    outputPath: options.outputPath ?? generation.outputPath,
+    size: DEFAULT_STORYBOARD_IMAGE_SIZE,
     references,
     logFile: options.logFile,
     cwd: options.cwd,
     seed: options.seed,
     artifactType: 'storyboard',
-    artifactId: 'STORYBOARD',
+    artifactId: generation.storyboardImageId,
   })
 
   return {
     ...result,
-    prompt,
+    prompt: generation.prompt,
     resolvedReferences,
     references,
   }
 }
 
-export async function generateStoryboardArtifactVersion(options: {
-  storyboardMarkdown: string
-  model: string
-  userReferences?: Parameters<typeof resolveStoryboardGenerationReferences>[0]
-  logFile?: string
-  cwd?: string
-  seed?: number
-  autoSelect?: boolean
-  generator?: ImageGenerator
-}) {
-  const descriptor = getStoryboardArtifactDescriptor()
+export async function generateStoryboardArtifactVersion(
+  generation: PendingStoryboardGeneration,
+  options: {
+    userReferences?: StoryboardImageEntry['references']
+    logFile?: string
+    cwd?: string
+    seed?: number
+    autoSelect?: boolean
+    generator?: ImageGenerator
+  } = {},
+) {
+  const descriptor = getStoryboardArtifactDescriptor(generation)
   const cwd = options.cwd ?? process.cwd()
   const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
   const seed = options.seed ?? getVersionSeed(stagedVersion.versionId)
 
   try {
-    const result = await runStoryboardGeneration({
-      storyboardMarkdown: options.storyboardMarkdown,
-      model: options.model,
+    const result = await runStoryboardGeneration(generation, {
       outputPath: stagedVersion.stagedPath,
       userReferences: options.userReferences,
       logFile: options.logFile,
@@ -193,35 +261,38 @@ export async function generateStoryboardArtifactVersion(options: {
   }
 }
 
-export async function runStoryboardRegeneration(options: {
-  model: string
-  outputPath: string
-  regenerateRequest: string
-  selectedVersionPath: string
-  userReferences?: Parameters<typeof resolveStoryboardGenerationReferences>[0]
-  logFile?: string
-  cwd?: string
-  seed?: number
-  generator?: ImageGenerator
-}) {
+export async function runStoryboardRegeneration(
+  generation: PendingStoryboardGeneration,
+  options: {
+    outputPath?: string
+    regenerateRequest: string
+    selectedVersionPath: string
+    userReferences?: StoryboardImageEntry['references']
+    logFile?: string
+    cwd?: string
+    seed?: number
+    generator?: ImageGenerator
+  },
+) {
   const { resolvedReferences, references } = resolveStoryboardRegenerationReferences(
     options.selectedVersionPath,
-    options.userReferences,
+    options.userReferences ?? generation.userReferences ?? [],
   )
   await assertResolvedReferencesExist(resolvedReferences, options.cwd)
 
-  const prompt = buildStoryboardRegeneratePrompt(options.regenerateRequest)
+  const prompt = buildStoryboardRegeneratePrompt(generation, options.regenerateRequest)
   const generator = options.generator ?? generateImagenOptions
   const result = await generator({
     prompt,
-    model: options.model,
-    outputPath: options.outputPath,
+    model: generation.model,
+    outputPath: options.outputPath ?? generation.outputPath,
+    size: DEFAULT_STORYBOARD_IMAGE_SIZE,
     references,
     logFile: options.logFile,
     cwd: options.cwd,
     seed: options.seed,
     artifactType: 'storyboard',
-    artifactId: 'STORYBOARD',
+    artifactId: generation.storyboardImageId,
   })
 
   return {
@@ -232,25 +303,26 @@ export async function runStoryboardRegeneration(options: {
   }
 }
 
-export async function regenerateStoryboardArtifactVersion(options: {
-  model: string
-  regenerateRequest: string
-  selectedVersionPath: string
-  userReferences?: Parameters<typeof resolveStoryboardGenerationReferences>[0]
-  logFile?: string
-  cwd?: string
-  seed?: number
-  autoSelect?: boolean
-  generator?: ImageGenerator
-}) {
-  const descriptor = getStoryboardArtifactDescriptor()
+export async function regenerateStoryboardArtifactVersion(
+  generation: PendingStoryboardGeneration,
+  options: {
+    regenerateRequest: string
+    selectedVersionPath: string
+    userReferences?: StoryboardImageEntry['references']
+    logFile?: string
+    cwd?: string
+    seed?: number
+    autoSelect?: boolean
+    generator?: ImageGenerator
+  },
+) {
+  const descriptor = getStoryboardArtifactDescriptor(generation)
   const cwd = options.cwd ?? process.cwd()
   const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
   const seed = options.seed ?? getVersionSeed(stagedVersion.versionId)
 
   try {
-    const result = await runStoryboardRegeneration({
-      model: options.model,
+    const result = await runStoryboardRegeneration(generation, {
       outputPath: stagedVersion.stagedPath,
       regenerateRequest: options.regenerateRequest,
       selectedVersionPath: options.selectedVersionPath,
@@ -280,93 +352,102 @@ export async function regenerateStoryboardArtifactVersion(options: {
 }
 
 export async function syncStoryboardGeneration(options: {
-  storyboardMarkdown: string
+  storyboard: StoryboardSidecar
   model: string
-  userReferences?: Parameters<typeof resolveStoryboardGenerationReferences>[0]
+  filters?: GenerateStoryboardArgs
   variantCount?: number
   logFile?: string
   cwd?: string
   generator?: ImageGenerator
 }): Promise<StoryboardGenerationSummary> {
   const cwd = options.cwd ?? process.cwd()
-  const generation = selectPendingStoryboardGeneration(
-    options.storyboardMarkdown,
+  const generations = selectPendingStoryboardGenerations(
+    options.storyboard,
     options.model,
-    options.userReferences ?? [],
+    options.filters,
   )
-  const absoluteOutputPath = path.resolve(cwd, generation.outputPath)
+  const variantCount = options.variantCount ?? 1
+  let generatedCount = 0
+  let skippedCount = 0
 
-  if (await fileExists(absoluteOutputPath)) {
-    console.log(`Skipping storyboard; image already exists at ${generation.outputPath}`)
-    console.log('Storyboard sync complete. Generated 0; skipped 1 existing image.')
-    return { generatedCount: 0, skippedCount: 1 }
+  if (generations.length === 0) {
+    throw new Error(
+      'workspace/STORYBOARD.json has no storyboard images that match the requested filters.',
+    )
   }
 
-  const variantCount = options.variantCount ?? 1
+  for (const generation of generations) {
+    const absoluteOutputPath = path.resolve(cwd, generation.outputPath)
 
-  for (let variantIndex = 0; variantIndex < variantCount; variantIndex += 1) {
-    if (variantCount === 1) {
+    if (await fileExists(absoluteOutputPath)) {
       console.log(
-        `Generating storyboard with model ${generation.model} -> ${generation.outputPath}`,
+        `Skipping ${generation.storyboardImageId}; image already exists at ${generation.outputPath}`,
       )
-    } else {
-      console.log(
-        `Generating storyboard variant ${variantIndex + 1}/${variantCount} with model ${generation.model} -> ${generation.outputPath}`,
-      )
+      skippedCount += 1
+      continue
     }
 
-    await generateStoryboardArtifactVersion({
-      storyboardMarkdown: options.storyboardMarkdown,
-      model: generation.model,
-      userReferences: options.userReferences ?? [],
-      logFile: options.logFile,
-      cwd,
-      autoSelect: variantIndex === variantCount - 1,
-      generator: options.generator,
-    })
+    for (let variantIndex = 0; variantIndex < variantCount; variantIndex += 1) {
+      if (variantCount === 1) {
+        console.log(
+          `Generating ${generation.storyboardImageId} with model ${generation.model} -> ${generation.outputPath}`,
+        )
+      } else {
+        console.log(
+          `Generating ${generation.storyboardImageId} variant ${variantIndex + 1}/${variantCount} with model ${generation.model} -> ${generation.outputPath}`,
+        )
+      }
 
-    captureWorkflowEvent('storyboard_generated', { model: generation.model })
+      await generateStoryboardArtifactVersion(generation, {
+        userReferences: generation.userReferences ?? [],
+        logFile: options.logFile,
+        cwd,
+        autoSelect: variantIndex === variantCount - 1,
+        generator: options.generator,
+      })
+    }
+
+    generatedCount += 1
+    captureWorkflowEvent('storyboard_generated', {
+      model: generation.model,
+      storyboardImageId: generation.storyboardImageId,
+    })
   }
 
-  console.log('Storyboard sync complete. Generated 1; skipped 0 existing images.')
+  console.log(
+    `Storyboard sync complete. Generated ${generatedCount}; skipped ${skippedCount} existing image${skippedCount === 1 ? '' : 's'}.`,
+  )
 
   return {
-    generatedCount: 1,
-    skippedCount: 0,
+    generatedCount,
+    skippedCount,
   }
 }
 
 async function main() {
   await ensureActiveWorkspace()
-  if (!(await workspacePathExists(WORKFLOW_FILES.storyboard))) {
-    throw new Error(
-      'workspace/STORYBOARD.md is required before running bun run generate:storyboard.',
-    )
-  }
 
-  const storyboardSidecar = await loadStoryboardSidecar()
+  const storyboard = await loadStoryboardSidecar()
 
-  if (!storyboardSidecar) {
+  if (!storyboard) {
     throw new Error(
       'workspace/STORYBOARD.json is required before running bun run generate:storyboard.',
     )
   }
 
-  if ((storyboardSidecar.references?.length ?? 0) === 0) {
+  if (storyboard.images.length === 0) {
     throw new Error(
-      'workspace/STORYBOARD.json must declare explicit storyboard generation references before running bun run generate:storyboard.',
+      'workspace/STORYBOARD.json must declare at least one storyboard image before running bun run generate:storyboard.',
     )
   }
 
-  const [config, storyboardMarkdown] = await Promise.all([
-    loadConfig(),
-    readFile(resolveWorkflowPath(WORKFLOW_FILES.storyboard), 'utf8'),
-  ])
+  const config = await loadConfig()
+  const filters = parseArgs()
 
   await syncStoryboardGeneration({
-    storyboardMarkdown,
-    model: config.imageModel,
-    userReferences: storyboardSidecar.references ?? [],
+    storyboard,
+    model: config.fastImageModel,
+    filters,
     variantCount: config.variantCount,
   })
 }

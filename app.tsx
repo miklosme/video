@@ -77,6 +77,7 @@ interface DisplayTranscriptEntry {
 interface ConfigDraft {
   agentModel: string
   imageModel: string
+  fastImageModel: string
   videoModel: string
 }
 
@@ -85,12 +86,14 @@ type ConfigField = keyof ConfigDraft
 const CONFIG_FIELD_LABELS: Record<ConfigField, string> = {
   agentModel: 'Agent model',
   imageModel: 'Image model',
+  fastImageModel: 'Fast image model',
   videoModel: 'Video model',
 }
 
 const CONFIG_FIELD_DESCRIPTIONS: Record<ConfigField, string> = {
   agentModel: 'Used for the creative chat agent in this app.',
   imageModel: 'Used for still-image sidecars and image generation.',
+  fastImageModel: 'Used for fast single-image storyboard rendering.',
   videoModel: 'Used for shot motion prompt generation.',
 }
 
@@ -198,6 +201,7 @@ function createConfigDraft(config: ConfigData): ConfigDraft {
   return {
     agentModel: config.agentModel,
     imageModel: config.imageModel,
+    fastImageModel: config.fastImageModel,
     videoModel: config.videoModel,
   }
 }
@@ -215,6 +219,10 @@ function updateConfigDraftField(
     return { ...config, imageModel: value }
   }
 
+  if (field === 'fastImageModel') {
+    return { ...config, fastImageModel: value }
+  }
+
   return { ...config, videoModel: value }
 }
 
@@ -227,6 +235,10 @@ function getConfigFieldValue(config: ConfigDraft | ConfigData, field: ConfigFiel
     return config.imageModel
   }
 
+  if (field === 'fastImageModel') {
+    return config.fastImageModel
+  }
+
   return config.videoModel
 }
 
@@ -236,6 +248,10 @@ function getModelOptionsForField(modelOptions: ModelOptionsData, field: ConfigFi
   }
 
   if (field === 'imageModel') {
+    return modelOptions.imageModels
+  }
+
+  if (field === 'fastImageModel') {
     return modelOptions.imageModels
   }
 
@@ -744,6 +760,7 @@ function App({
     const nextConfig = buildConfigSavePayload(workflow.config, {
       agentModel: nextConfigDraft.agentModel,
       imageModel: nextConfigDraft.imageModel,
+      fastImageModel: nextConfigDraft.fastImageModel,
       videoModel: nextConfigDraft.videoModel,
     })
 
@@ -1108,6 +1125,15 @@ function App({
             'image-model',
             () => {
               openConfigDialog('imageModel')
+            },
+            isBusy || isResettingMilestone || pendingResetIndex !== null || isSavingConfig,
+          )}
+          {renderConfigCard(
+            'Fast image model',
+            workflow.config.fastImageModel,
+            'fast-image-model',
+            () => {
+              openConfigDialog('fastImageModel')
             },
             isBusy || isResettingMilestone || pendingResetIndex !== null || isSavingConfig,
           )}

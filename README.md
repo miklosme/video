@@ -26,9 +26,8 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `workspace/STORY.md`
 - `workspace/CHARACTERS.md`
 - `workspace/CHARACTERS/`
-- `workspace/STORYBOARD.md`
 - `workspace/STORYBOARD.json`
-- `workspace/STORYBOARD.png`
+- `workspace/STORYBOARD/`
 - `workspace/KEYFRAMES/`
 - `workspace/SHOTS.json`
 - `workspace/SHOTS/`
@@ -39,14 +38,13 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - Treat `workspace/` as the active project surface. The actual files may live under `projects/<project-name>/` through the active symlink.
 - Start from `workspace/IDEA.md`.
 - When a canonical workspace file is missing, copy the matching template first.
-- `workspace/CONFIG.json` stores the active agent, image, and video model cards plus the default visual `variantCount` for the current project.
+- `workspace/CONFIG.json` stores the active agent, image, fast-image, and video model cards plus the default visual `variantCount` for the current project.
 - `workspace/STATUS.json` is a flat array of visible creative milestones, ordered from first step to last step.
 - Keep harness setup and other bookkeeping out of `workspace/STATUS.json`.
 - `workspace/CHARACTERS.md` stores textual character definitions, and each character section should include a stable `Character ID:`.
 - `workspace/CHARACTERS/` stores character-sheet sidecar JSON files plus the generated `.png` sheets beside them.
-- `workspace/STORYBOARD.md` is the single canonical storyboard file and should use stable shot IDs such as `SHOT-01`.
-- `workspace/STORYBOARD.json` is the storyboard-reference sidecar and is required before generating `workspace/STORYBOARD.png`. Its `references` array is the source of truth for storyboard generation inputs and uses repo-relative `path`, required typed `kind`, and optional `label`/`notes`.
-- `workspace/STORYBOARD.png` is the single storyboard review artifact for the whole project, generated from `workspace/STORYBOARD.md` before keyframe review.
+- `workspace/STORYBOARD.json` is the canonical storyboard plan. It stores `sequenceSummary` plus an ordered `images` array, where each image owns `storyboardImageId`, `shotId`, `frameType`, `imagePath`, and the structured planning fields used for rendering.
+- `workspace/STORYBOARD/` stores one generated `.png` per planned storyboard image, such as `workspace/STORYBOARD/SHOT-01-START.png`.
 - `workspace/KEYFRAMES/` stores one sidecar JSON and one generated `.png` per keyframe, grouped under each `shotId`. Keyframe sidecars may include a `camera` block before `prompt` using `CAMERA_VOCABULARY.json` ids; their `references` remain the source of truth for still-image generation inputs and must be authored in the exact intended priority order.
 - By default, plan one `start` keyframe per storyboard shot. Add an `end` keyframe only when the closing anchor needs to differ materially from the opening anchor; one-anchor `start` or `end` shots remain valid.
 - `workspace/SHOTS.json` is the planning manifest for shots and keyframe anchors and should use the shape `{ shotId, status, videoPath, durationSeconds, endFrameMode?, keyframes: [{ keyframeId, frameType, imagePath }] }`.
@@ -63,7 +61,7 @@ This repo is a mixed-format workspace for developing AI-generated films with a s
 - `bun run new <project-name>` creates `projects/<project-name>/` and makes it the active `workspace/`.
 - `bun validate-workflow-data.ts` validates required workflow files, explicit sidecar `references`, and the simplified JSON schemas.
 - `bun generate-character-sheets.ts` syncs missing `workspace/CHARACTERS/*.png` files from their sidecar JSON files, renders `workspace/CONFIG.json.variantCount` variants in sequence when the stable public PNG is missing, stores earlier variants in `HISTORY/`, and keeps the last new variant at the public PNG path.
-- `bun generate-storyboard.ts` syncs the missing `workspace/STORYBOARD.png` review board from `workspace/STORYBOARD.md`, uses the explicit typed `references` declared in `workspace/STORYBOARD.json`, renders `workspace/CONFIG.json.variantCount` variants in sequence when the stable public board is missing, stores earlier variants in `HISTORY/`, and keeps the last new variant at the public PNG path.
+- `bun generate-storyboard.ts` syncs missing `workspace/STORYBOARD/*.png` files from `workspace/STORYBOARD.json`, renders one storyboard image at a time with `workspace/CONFIG.json.fastImageModel`, keeps image-local retained versions under `workspace/STORYBOARD/HISTORY/`, and preserves idempotent skip behavior when the public PNG already exists.
 - `bun generate-keyframes.ts` syncs missing `workspace/KEYFRAMES/**/*.png` files from their sidecar JSON files and the planned anchors in `workspace/SHOTS.json`, uses the explicit typed `references` declared in each keyframe sidecar without silently appending storyboard, character, or continuity refs at runtime, renders `workspace/CONFIG.json.variantCount` variants in sequence when a stable public keyframe is missing, and keeps the last new variant at the public PNG path.
 - `bun generate-shots.ts` syncs missing `workspace/SHOTS/*.mp4` files from `workspace/SHOTS.json` and `workspace/SHOTS/*.json`, uses the lone anchor or the start frame as the image-to-video input, the end frame as the last-frame control only when present, and when `endFrameMode` is `bridge` it reuses the next shot's planned start frame as the current shot's last-frame control, renders `workspace/CONFIG.json.variantCount` variants in sequence when a stable public shot is missing, stores earlier variants in `HISTORY/`, and keeps the last new variant at the public MP4 path.
 - `bun run remotion:studio` bootstraps `workspace/FINAL-CUT.json` when needed, serves repo media to Remotion Studio, and opens the stock Studio against the saved final-cut manifest.

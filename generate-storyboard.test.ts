@@ -8,9 +8,11 @@ import { getStoryboardArtifactDescriptor } from './artifact-control'
 import {
   buildStoryboardPrompt,
   runStoryboardRegeneration,
-  selectPendingStoryboardGeneration,
+  selectPendingStoryboardGenerations,
   syncStoryboardGeneration,
+  type PendingStoryboardGeneration,
 } from './generate-storyboard'
+import { type StoryboardSidecar } from './workflow-data'
 
 async function writeRepoFile(rootDir: string, relativePath: string, content: string) {
   const filePath = path.resolve(rootDir, relativePath)
@@ -18,90 +20,128 @@ async function writeRepoFile(rootDir: string, relativePath: string, content: str
   await writeFile(filePath, content, 'utf8')
 }
 
-test('buildStoryboardPrompt keeps storyboard generation visual-first while preserving shot labels', () => {
-  const markdown = `# STORYBOARD
-
-## SHOT-01
-
-- Purpose: Establish the dog.
-
-## SHOT-02
-
-- Purpose: Reveal the transformation.
-`
-
-  const prompt = buildStoryboardPrompt(markdown)
-
-  expect(prompt).toContain('single storyboard sheet')
-  expect(prompt).toContain('attached storyboard template image')
-  expect(prompt).toContain('visible shot labels that exactly match the SHOT-XX IDs')
-  expect(prompt).toContain('multiple storyboard panels')
-  expect(prompt).toContain('minimal per-panel text')
-  expect(prompt).toContain(
-    'Do not include long descriptions, purpose text, transition text, duration text, or dense header blocks on the board.',
-  )
-  expect(prompt).not.toContain('template-style text labels and descriptive headers')
-  expect(prompt).toContain(markdown.trim())
-})
-
-test('selectPendingStoryboardGeneration preserves explicit storyboard sidecar references', () => {
-  const generation = selectPendingStoryboardGeneration(
-    '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
-    'google/gemini-3.1-flash-image-preview',
-    [
+function createStoryboard(): StoryboardSidecar {
+  return {
+    sequenceSummary:
+      'A dog discovers a strange reflection and slowly realizes the transformation has already started.',
+    images: [
       {
-        kind: 'storyboard-template',
-        path: 'templates/STORYBOARD.template.png',
+        storyboardImageId: 'SHOT-01-START',
+        shotId: 'SHOT-01',
+        frameType: 'start',
+        title: 'Discovery',
+        purpose: 'Establish the dog and trigger curiosity.',
+        visual: 'The dog notices something off in the window reflection.',
+        transition: 'Open quietly before the reveal escalates.',
+        status: 'planned',
+        imagePath: 'workspace/STORYBOARD/SHOT-01-START.png',
+        references: [
+          {
+            kind: 'user-reference',
+            path: 'workspace/references/window.png',
+          },
+        ],
+      },
+      {
+        storyboardImageId: 'SHOT-02-END',
+        shotId: 'SHOT-02',
+        frameType: 'end',
+        title: 'Transformation Lands',
+        purpose: 'Show the closing beat of the change.',
+        visual: 'The transformed dog stares directly at us.',
+        transition: 'End on an uncanny still beat.',
+        status: 'planned',
+        imagePath: 'workspace/STORYBOARD/SHOT-02-END.png',
+        references: [],
       },
     ],
-  )
+  }
+}
 
-  expect(generation.references).toEqual([
-    { kind: 'storyboard-template', path: 'templates/STORYBOARD.template.png' },
+test('buildStoryboardPrompt targets a single storyboard image rather than a board sheet', () => {
+  const storyboard = createStoryboard()
+  const prompt = buildStoryboardPrompt(storyboard, 'SHOT-01-START')
+
+  expect(prompt).toContain('single storyboard image')
+  expect(prompt).toContain('Do not create a multi-panel sheet')
+  expect(prompt).toContain('Shot ID: SHOT-01')
+  expect(prompt).toContain('Frame type: start')
+  expect(prompt).toContain('Previous planned image: none')
+  expect(prompt).toContain('Next planned image: SHOT-02-END')
+  expect(prompt).not.toContain('storyboard template image')
+})
+
+test('selectPendingStoryboardGenerations preserves per-image references', () => {
+  const generations = selectPendingStoryboardGenerations(createStoryboard(), 'image-test', {
+    storyboardImageId: 'SHOT-01-START',
+  })
+
+  expect(generations).toHaveLength(1)
+  expect(generations[0]?.userReferences).toEqual([
+    {
+      kind: 'user-reference',
+      path: 'workspace/references/window.png',
+    },
   ])
 })
 
-test('runStoryboardRegeneration keeps the selected storyboard image and retained sidecar references', async () => {
+test('runStoryboardRegeneration keeps the selected storyboard image and retained references', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-regenerate-'))
 
   try {
-    await writeRepoFile(rootDir, 'workspace/HISTORY/STORYBOARD/v2.png', 'selected-storyboard')
-    await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'template-image')
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/HISTORY/SHOT-01-START/v2.png',
+      'selected-storyboard',
+    )
+    await writeRepoFile(rootDir, 'workspace/references/window.png', 'reference-image')
 
-    const result = await runStoryboardRegeneration({
+    const generation: PendingStoryboardGeneration = {
+      storyboardImageId: 'SHOT-01-START',
+      shotId: 'SHOT-01',
+      frameType: 'start',
+      title: 'Discovery',
       model: 'image-test',
-      outputPath: 'workspace/HISTORY/STORYBOARD/.staged-v3.png',
-      regenerateRequest: 'Remove the extra character from the last panel.',
-      selectedVersionPath: 'workspace/HISTORY/STORYBOARD/v2.png',
+      prompt: 'Prompt',
+      outputPath: 'workspace/STORYBOARD/SHOT-01-START.png',
       userReferences: [
         {
-          kind: 'storyboard-template',
-          path: 'templates/STORYBOARD.template.png',
+          kind: 'user-reference',
+          path: 'workspace/references/window.png',
         },
       ],
+    }
+
+    let seenSize: string | undefined
+    const result = await runStoryboardRegeneration(generation, {
+      outputPath: 'workspace/STORYBOARD/HISTORY/SHOT-01-START/.staged-v3.png',
+      regenerateRequest: 'Remove the extra background character.',
+      selectedVersionPath: 'workspace/STORYBOARD/HISTORY/SHOT-01-START/v2.png',
       cwd: rootDir,
-      generator: async (input) => ({
-        generationId: 'gen-1',
-        model: input.model ?? 'image-test',
-        outputPaths: [path.resolve(rootDir, input.outputPath ?? 'out.png')],
-      }),
+      generator: async (input) => {
+        seenSize = input.size
+
+        return {
+          generationId: 'gen-1',
+          model: input.model ?? 'image-test',
+          outputPaths: [path.resolve(rootDir, input.outputPath ?? 'out.png')],
+        }
+      },
     })
 
-    expect(result.prompt).toContain('Regenerate the current storyboard board')
-    expect(result.prompt).toContain('Approved change:')
-    expect(result.prompt).toContain('Remove the extra character from the last panel.')
-    expect(result.prompt).not.toContain('Storyboard markdown:')
-    expect(result.prompt).not.toContain('storyboard template image')
+    expect(result.prompt).toContain('Regenerate the current storyboard image for SHOT-01-START')
+    expect(result.prompt).toContain('Remove the extra background character.')
+    expect(seenSize).toBe('896x512')
     expect(result.references).toEqual([
-      { kind: 'selected-image', path: 'workspace/HISTORY/STORYBOARD/v2.png' },
-      { kind: 'storyboard-template', path: 'templates/STORYBOARD.template.png' },
+      { kind: 'selected-image', path: 'workspace/STORYBOARD/HISTORY/SHOT-01-START/v2.png' },
+      { kind: 'user-reference', path: 'workspace/references/window.png' },
     ])
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }
 })
 
-test('generate-storyboard skips when the canonical storyboard image already exists', async () => {
+test('generate-storyboard skips when the selected storyboard image already exists', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-gen-'))
   const scriptPath = fileURLToPath(new URL('./generate-storyboard.ts', import.meta.url))
 
@@ -113,6 +153,7 @@ test('generate-storyboard skips when the canonical storyboard image already exis
         {
           agentModel: 'agent-test',
           imageModel: 'image-test',
+          fastImageModel: 'image-fast-test',
           videoModel: 'video-test',
           variantCount: 1,
         },
@@ -122,30 +163,13 @@ test('generate-storyboard skips when the canonical storyboard image already exis
     )
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.md',
-      '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
-    )
-    await writeRepoFile(
-      rootDir,
       'workspace/STORYBOARD.json',
-      `${JSON.stringify(
-        {
-          references: [
-            {
-              kind: 'storyboard-template',
-              path: 'templates/STORYBOARD.template.png',
-            },
-          ],
-        },
-        null,
-        2,
-      )}\n`,
+      `${JSON.stringify(createStoryboard(), null, 2)}\n`,
     )
-    await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'template')
-    await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'existing-png')
+    await writeRepoFile(rootDir, 'workspace/STORYBOARD/SHOT-01-START.png', 'existing-png')
 
     const result = Bun.spawnSync({
-      cmd: [process.execPath, scriptPath],
+      cmd: [process.execPath, scriptPath, '--storyboard-image-id', 'SHOT-01-START'],
       cwd: rootDir,
       stdout: 'pipe',
       stderr: 'pipe',
@@ -153,7 +177,7 @@ test('generate-storyboard skips when the canonical storyboard image already exis
 
     expect(result.exitCode).toBe(0)
     expect(new TextDecoder().decode(result.stdout)).toContain(
-      'Skipping storyboard; image already exists at workspace/STORYBOARD.png',
+      'Skipping SHOT-01-START; image already exists at workspace/STORYBOARD/SHOT-01-START.png',
     )
   } finally {
     await rm(rootDir, { recursive: true, force: true })
@@ -172,17 +196,13 @@ test('generate-storyboard explains when the storyboard sidecar is missing', asyn
         {
           agentModel: 'agent-test',
           imageModel: 'image-test',
+          fastImageModel: 'image-fast-test',
           videoModel: 'video-test',
           variantCount: 1,
         },
         null,
         2,
       )}\n`,
-    )
-    await writeRepoFile(
-      rootDir,
-      'workspace/STORYBOARD.md',
-      '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
     )
 
     const result = Bun.spawnSync({
@@ -203,25 +223,24 @@ test('generate-storyboard explains when the storyboard sidecar is missing', asyn
 
 test('syncStoryboardGeneration renders variantCount retained versions and selects the last one', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-variants-'))
-  const descriptor = getStoryboardArtifactDescriptor()
+  const storyboard = createStoryboard()
+  const descriptor = getStoryboardArtifactDescriptor(storyboard.images[0]!)
 
   try {
-    await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'template')
-    const storyboardReferences = [
-      {
-        kind: 'storyboard-template' as const,
-        path: 'templates/STORYBOARD.template.png',
-      },
-    ]
+    await writeRepoFile(rootDir, 'workspace/references/window.png', 'window-reference')
 
+    const sizes: Array<string | undefined> = []
     const seeds: number[] = []
     const summary = await syncStoryboardGeneration({
-      storyboardMarkdown: '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
+      storyboard: {
+        ...storyboard,
+        images: [storyboard.images[0]!],
+      },
       model: 'image-test',
-      userReferences: storyboardReferences,
       variantCount: 3,
       cwd: rootDir,
       generator: async (input) => {
+        sizes.push(input.size)
         seeds.push(input.seed ?? -1)
 
         if (!input.outputPath) {
@@ -239,26 +258,17 @@ test('syncStoryboardGeneration renders variantCount retained versions and select
     })
 
     expect(summary).toEqual({ generatedCount: 1, skippedCount: 0 })
+    expect(sizes).toEqual(['896x512', '896x512', '896x512'])
     expect(seeds).toEqual([1, 2, 3])
-    expect(await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.png'), 'utf8')).toBe(
-      'storyboard:3',
-    )
+    expect(
+      await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/SHOT-01-START.png'), 'utf8'),
+    ).toBe('storyboard:3')
     expect(await readFile(path.resolve(rootDir, descriptor.historyDir, 'v1.png'), 'utf8')).toBe(
       'storyboard:1',
     )
     expect(await readFile(path.resolve(rootDir, descriptor.historyDir, 'v2.png'), 'utf8')).toBe(
       'storyboard:2',
     )
-    expect(
-      await readFile(path.resolve(rootDir, descriptor.historyDir, 'v3.png'), 'utf8').catch(
-        () => null,
-      ),
-    ).toBeNull()
-    expect(
-      await readFile(path.resolve(rootDir, descriptor.historyDir, 'artifact.json'), 'utf8').catch(
-        () => null,
-      ),
-    ).toBeNull()
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

@@ -61,10 +61,9 @@ Your job as an LLM is to be a senior creative development partner helping the us
 - Shot sidecar JSON files should place `camera` before `prompt` and use the shape: `shotId`, `camera`, `prompt`, `status`, `references?`.
 - Shot `camera` should use `CAMERA_VOCABULARY.json` ids with the shape `shotSize`, `cameraPosition`, `cameraAngle`, `cameraMovement`.
 - If the storyboard does not imply a stronger motion choice, default shot `camera` to `medium-shot`, `eye-level`, `level-angle`, `static-shot`.
-- `STORYBOARD.md` is the canonical storyboard and must use stable shot IDs such as `SHOT-01`.
-- `STORYBOARD.json` is required before generating `STORYBOARD.png` and must use the exact shape `{ "references": [...] }`.
-- The first `STORYBOARD.json.references` entry must be the storyboard template reference at `templates/STORYBOARD.template.png`; add any extra source images after that as `user-reference` entries.
-- `STORYBOARD.png` is the cheap full-project storyboard review artifact generated from `STORYBOARD.md` and should be reviewed before locking keyframes.
+- `STORYBOARD.json` is the canonical storyboard plan and must use the exact shape `{ "sequenceSummary": string, "images": [...] }`.
+- Each `STORYBOARD.json.images[]` entry should keep one storyboard image scoped to one shot anchor, using `storyboardImageId`, `shotId`, `frameType`, `title`, `purpose`, `visual`, `transition`, `status`, `imagePath`, and optional `references`.
+- `workspace/STORYBOARD/` stores the rendered storyboard images, one PNG per storyboard image item.
 - Keep storyboard shots and keyframes as different concepts. `SHOTS.json.keyframes` must use distinct keyframe IDs such as `SHOT-01-START` or `SHOT-01-END`, with each keyframe linked back to its parent shot entry.
 - By default, plan one `start` keyframe per storyboard shot. Add an `end` keyframe only when the shot needs a materially different closing anchor. One-anchor `start` or `end` shots remain valid. Do not use `single`.
 - Use optional `endFrameMode: "bridge"` only when a shot omits its own `end` anchor and intentionally reuses the next shot's planned `start` keyframe as a single shared bridge frame.
@@ -72,7 +71,7 @@ Your job as an LLM is to be a senior creative development partner helping the us
 - Each planned keyframe should have a matching sidecar JSON file in `workspace/KEYFRAMES/<shot-id>/<keyframe-id>.json`.
 - `SHOTS.json` should carry the planned keyframe anchors for each shot plus the canonical `videoPath` for its MP4 output, while prompts and references stay in sidecars.
 - Each planned shot should have a matching sidecar JSON file in `workspace/SHOTS/<shot-id>.json`.
-- When keyframes are rendered, the storyboard board should be treated as an upstream visual reference, with the current `shotId` identifying the intended panel.
+- When keyframes are rendered, the referenced storyboard image should be treated as the upstream visual reference for staging and intent.
 - Do not tell the user to run generation scripts unless the relevant sidecar JSON files are ready and the next step truly depends on reviewing the generated images.
 
 ## Conversation Style

@@ -8,18 +8,21 @@ test('buildConfigSavePayload preserves variantCount while updating model selecti
       {
         agentModel: 'agent-a',
         imageModel: 'image-a',
+        fastImageModel: 'fast-image-a',
         videoModel: 'video-a',
         variantCount: 3,
       },
       {
         agentModel: 'agent-b',
         imageModel: 'image-b',
+        fastImageModel: 'fast-image-b',
         videoModel: 'video-b',
       },
     ),
   ).toEqual({
     agentModel: 'agent-b',
     imageModel: 'image-b',
+    fastImageModel: 'fast-image-b',
     videoModel: 'video-b',
     variantCount: 3,
   })

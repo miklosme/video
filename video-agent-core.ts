@@ -14,6 +14,7 @@ import {
 import { posthogTelemetry, type PostHogTelemetry } from './posthog'
 import {
   CAMERA_VOCABULARY_FILE,
+  DEFAULT_FAST_IMAGE_MODEL,
   DEFAULT_VARIANT_COUNT,
   DEFAULT_VIDEO_DURATION_SECONDS,
   loadCameraVocabulary,
@@ -61,7 +62,6 @@ const ALLOWED_WORKSPACE_FILES = new Set([
   'CONFIG.json',
   'STORY.md',
   'CHARACTERS.md',
-  'STORYBOARD.md',
   'STORYBOARD.json',
   'SHOTS.json',
   'FINAL-CUT.json',
@@ -304,9 +304,13 @@ function createDefaultConfigFromModelOptions(modelOptions: ModelOptionsData): Co
     throw new Error('MODEL_OPTIONS.json must provide at least one option for each model type.')
   }
 
+  const fastImageModel =
+    modelOptions.imageModels.find((entry) => entry === DEFAULT_FAST_IMAGE_MODEL) ?? imageModel
+
   return {
     agentModel,
     imageModel,
+    fastImageModel,
     videoModel,
     variantCount: DEFAULT_VARIANT_COUNT,
   }
@@ -347,6 +351,11 @@ function normalizeConfigData(value: unknown, modelOptions: ModelOptionsData): Co
       object.imageModel,
       modelOptions.imageModels,
       defaultConfig.imageModel,
+    ),
+    fastImageModel: normalizeConfigValue(
+      object.fastImageModel,
+      modelOptions.imageModels,
+      defaultConfig.fastImageModel,
     ),
     videoModel: normalizeConfigValue(
       object.videoModel,
@@ -400,7 +409,7 @@ function getEffectiveMilestoneRelatedFiles(
   item: Pick<WorkflowStatusItem, 'title' | 'relatedFiles'>,
 ) {
   if (normalizeMilestoneTitle(item.title) === 'review storyboard') {
-    return ['STORYBOARD.md', 'STORYBOARD.json', 'STORYBOARD.png']
+    return ['STORYBOARD.json', 'STORYBOARD/']
   }
 
   return [...item.relatedFiles]
@@ -488,13 +497,16 @@ function buildRuntimeDirective(
     '- Before writing or revising keyframe sidecars, character-sheet sidecars, shot sidecars, or SHOTS.json, read workspace/CONFIG.json, MODEL_PROMPTING_GUIDE.md, and CAMERA_VOCABULARY.json.',
   )
   lines.push(
-    '- STORYBOARD.png is the cheap full-project storyboard review artifact generated from workspace/STORYBOARD.md before keyframes are locked.',
+    '- workspace/STORYBOARD.json is the canonical storyboard plan. It stores sequenceSummary plus an ordered images array, where each storyboard image item owns storyboardImageId, shotId, frameType, imagePath, and its planning fields.',
   )
   lines.push(
-    '- workspace/STORYBOARD.json is required before storyboard generation. It must declare explicit storyboard references, starting with the storyboard template reference to templates/STORYBOARD.template.png.',
+    '- Storyboard review now happens per image under workspace/STORYBOARD/*.png, generated one image at a time from workspace/STORYBOARD.json.',
   )
   lines.push(
     '- Use workspace/CONFIG.json.imageModel for still-image prompting style and generation. Do not store model fields in workspace/KEYFRAMES/*.json or workspace/CHARACTERS/*.json sidecars.',
+  )
+  lines.push(
+    '- Use workspace/CONFIG.json.fastImageModel for storyboard-image generation. Keep workspace/CONFIG.json.imageModel for character sheets and keyframes.',
   )
   lines.push(
     '- Character-sheet prompts are for downstream Veo reference assets, not hero shots: prefer one clean single-subject reference image with readable face, clear silhouette, stable wardrobe/markings, plain background, and soft even lighting.',
@@ -518,7 +530,7 @@ function buildRuntimeDirective(
     '- Keyframe sidecar schema is { keyframeId, shotId, frameType, camera, prompt, status, references }. Place camera before prompt. camera uses { shotSize, cameraPosition, cameraAngle } with ids from CAMERA_VOCABULARY.json. If the storyboard does not imply a stronger choice, default to { shotSize: "medium-shot", cameraPosition: "eye-level", cameraAngle: "level-angle" }. references must be a non-empty ordered array.',
   )
   lines.push(
-    '- Keyframe sidecars must always include explicit references. For fresh start frames, begin with the storyboard reference for the intended panel, then add the needed character-sheet references. For same-shot end frames, begin with the same-shot start-frame reference, then storyboard, then the needed character-sheet references. For start frames that should inherit from the prior shot, begin with the previous-shot-end-frame reference, then storyboard, then the needed character-sheet references.',
+    '- Keyframe sidecars must always include explicit references. For fresh start frames, begin with the storyboard reference for the intended storyboard image, then add the needed character-sheet references. For same-shot end frames, begin with the same-shot start-frame reference, then storyboard, then the needed character-sheet references. For start frames that should inherit from the prior shot, begin with the previous-shot-end-frame reference, then storyboard, then the needed character-sheet references.',
   )
   lines.push(
     '- Treat the keyframe camera block as a planning constraint and write the prompt to accommodate it explicitly rather than contradicting it.',
@@ -548,7 +560,7 @@ function buildRuntimeDirective(
     '- Use workspace/CONFIG.json.videoModel for shot-motion prompting style and generation. Do not store model fields in workspace/SHOTS/*.json sidecars.',
   )
   lines.push(
-    '- Shot sidecar schema is { shotId, camera, prompt, status, references? }. Place camera before prompt. shot camera uses { shotSize, cameraPosition, cameraAngle, cameraMovement } with ids from CAMERA_VOCABULARY.json. If the storyboard does not imply a stronger choice, default to { shotSize: "medium-shot", cameraPosition: "eye-level", cameraAngle: "level-angle", cameraMovement: "static-shot" }. workspace/STORYBOARD.json uses the shape { references }.',
+    '- Shot sidecar schema is { shotId, camera, prompt, status, references? }. Place camera before prompt. shot camera uses { shotSize, cameraPosition, cameraAngle, cameraMovement } with ids from CAMERA_VOCABULARY.json. If the storyboard does not imply a stronger choice, default to { shotSize: "medium-shot", cameraPosition: "eye-level", cameraAngle: "level-angle", cameraMovement: "static-shot" }.',
   )
   lines.push(
     '- Treat the shot camera block as a planning constraint and write the motion prompt so it reinforces that framing and movement.',
@@ -1023,6 +1035,10 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
               return 'missing'
             }
 
+            if (entry.images.length === 0) {
+              return 'incomplete'
+            }
+
             return containsPlaceholderValue(entry) ? 'incomplete' : 'ready'
           }
           case 'SHOTS.json': {
@@ -1064,8 +1080,6 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
         return hasSubstantiveText(content, 20) ? 'ready' : 'incomplete'
       case 'CHARACTERS.md':
         return /^## /m.test(content) && hasSubstantiveText(content, 40) ? 'ready' : 'incomplete'
-      case 'STORYBOARD.md':
-        return /SHOT-\d+/i.test(content) && hasSubstantiveText(content, 60) ? 'ready' : 'incomplete'
       default:
         return hasSubstantiveText(content, 40) ? 'ready' : 'incomplete'
     }
@@ -1105,6 +1119,58 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
       )
 
       return imageStates.length > 0 && imageStates.every(Boolean) ? 'ready' : 'incomplete'
+    } catch {
+      return 'incomplete'
+    }
+  }
+
+  const inspectStoryboardPlanning = async (): Promise<ArtifactReadiness> => {
+    if (!(await workspacePathExists(WORKFLOW_FILES.storyboardSidecar, rootDir))) {
+      return 'missing'
+    }
+
+    try {
+      const storyboard = await loadStoryboardSidecar(rootDir)
+
+      if (!storyboard || storyboard.images.length === 0) {
+        return 'incomplete'
+      }
+
+      return containsPlaceholderValue(storyboard) ? 'incomplete' : 'ready'
+    } catch {
+      return 'incomplete'
+    }
+  }
+
+  const inspectStoryboardReview = async (): Promise<ArtifactReadiness> => {
+    const planningState = await inspectStoryboardPlanning()
+
+    if (planningState === 'missing') {
+      return 'missing'
+    }
+
+    try {
+      const storyboard = await loadStoryboardSidecar(rootDir)
+
+      if (!storyboard || storyboard.images.length === 0) {
+        return 'incomplete'
+      }
+
+      const imageStates = await Promise.all(
+        storyboard.images.map((entry) =>
+          workspacePathExists(entry.imagePath.replace(/^workspace\//, ''), rootDir),
+        ),
+      )
+
+      if (imageStates.length > 0 && imageStates.every(Boolean)) {
+        return 'ready'
+      }
+
+      // Migration fallback: preserve readiness while older projects still retain
+      // the legacy single-board artifact before per-image renders are regenerated.
+      return (await workspacePathExists(WORKFLOW_FILES.storyboardImage, rootDir))
+        ? 'ready'
+        : 'incomplete'
     } catch {
       return 'incomplete'
     }
@@ -1239,6 +1305,14 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
     item: StatusData[number],
   ): Promise<ArtifactReadiness> => {
     const normalizedTitle = normalizeMilestoneTitle(item.title)
+
+    if (normalizedTitle === 'build storyboard') {
+      return inspectStoryboardPlanning()
+    }
+
+    if (normalizedTitle === 'review storyboard') {
+      return inspectStoryboardReview()
+    }
 
     if (normalizedTitle === 'prepare character sheets') {
       return inspectCharacterSheetsPreparation()
@@ -1725,7 +1799,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             fileName: z
               .string()
               .describe(
-                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, STORYBOARD.md, STORYBOARD.json, SHOTS.json, or FINAL-CUT.json',
+                'Canonical workspace filename such as IDEA.md, CONFIG.json, STATUS.json, STORY.md, STORYBOARD.json, SHOTS.json, or FINAL-CUT.json',
               ),
           }),
           execute: async ({ fileName }) => {
@@ -1791,7 +1865,7 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
             fileName: z
               .string()
               .describe(
-                'Canonical workspace filename such as CONFIG.json, STORY.md, STORYBOARD.md, STORYBOARD.json, SHOTS.json, or FINAL-CUT.json',
+                'Canonical workspace filename such as CONFIG.json, STORY.md, STORYBOARD.json, SHOTS.json, or FINAL-CUT.json',
               ),
             content: z.string().describe('The complete new file contents.'),
           }),

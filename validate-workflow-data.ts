@@ -333,34 +333,50 @@ export async function validateStoryboardSidecar(sidecar: StoryboardSidecar | nul
   }
 
   const context = 'workspace/STORYBOARD.json'
-  const references = sidecar.references ?? []
+  const seenImageIds = new Set<string>()
+  const seenImagePaths = new Set<string>()
+  const seenShotAnchors = new Set<string>()
 
-  await validateArtifactReferencesExist(references, context)
-
-  if (references.length === 0) {
-    throw new Error(`${context} must declare a storyboard-template reference.`)
+  if (sidecar.images.length === 0) {
+    throw new Error(`${context} must declare at least one storyboard image.`)
   }
 
-  assertReferenceAtIndex(
-    references,
-    0,
-    {
-      kind: 'storyboard-template',
-      path: 'templates/STORYBOARD.template.png',
-    },
-    context,
-  )
+  for (const [index, image] of sidecar.images.entries()) {
+    const imageContext = `${context}.images[${index}]`
+    const previousImage = index > 0 ? (sidecar.images[index - 1] ?? null) : null
 
-  for (const [index, reference] of references.entries()) {
-    if (index === 0) {
-      continue
+    if (seenImageIds.has(image.storyboardImageId)) {
+      throw new Error(`${context} has duplicate storyboardImageId "${image.storyboardImageId}".`)
     }
 
-    if (reference.kind !== 'user-reference') {
+    if (seenImagePaths.has(image.imagePath)) {
+      throw new Error(`${context} has duplicate imagePath "${image.imagePath}".`)
+    }
+
+    const shotAnchorKey = `${image.shotId}:${image.frameType}`
+
+    if (seenShotAnchors.has(shotAnchorKey)) {
       throw new Error(
-        `${context} reference ${index + 1} must use kind "user-reference" after the storyboard template reference.`,
+        `${context} has duplicate storyboard image planning for ${image.shotId} ${image.frameType}.`,
       )
     }
+
+    seenImageIds.add(image.storyboardImageId)
+    seenImagePaths.add(image.imagePath)
+    seenShotAnchors.add(shotAnchorKey)
+
+    if (
+      image.frameType === 'end' &&
+      (!previousImage ||
+        previousImage.frameType !== 'start' ||
+        previousImage.shotId !== image.shotId)
+    ) {
+      throw new Error(
+        `${imageContext} must directly follow its matching start frame in workspace/STORYBOARD.json.`,
+      )
+    }
+
+    await validateArtifactReferencesExist(image.references, imageContext)
   }
 }
 
@@ -492,19 +508,24 @@ async function main() {
   const storyboardReviewChecked = status.some(
     (item) => item.title.trim().toLowerCase() === 'review storyboard' && item.checked,
   )
-  const keyframeImagesMissing =
-    keyframeArtifacts.length > 0 &&
-    (
-      await Promise.all(
-        keyframes.map((entry) =>
-          workspacePathExists(entry.imagePath.replace(/^workspace\//, ''), process.cwd()),
-        ),
-      )
-    ).some((imageExists) => !imageExists)
 
-  if (storyboardReviewChecked || keyframeImagesMissing) {
-    await requireWorkspacePath(WORKFLOW_FILES.storyboard, 'workspace/STORYBOARD.md')
-    await requireWorkspacePath(WORKFLOW_FILES.storyboardImage, 'workspace/STORYBOARD.png')
+  if (storyboardReviewChecked) {
+    const plannedStoryboardImages = storyboardSidecar?.images ?? []
+    const storyboardImageStates = await Promise.all(
+      plannedStoryboardImages.map((entry) =>
+        workspacePathExists(entry.imagePath.replace(/^workspace\//, ''), process.cwd()),
+      ),
+    )
+
+    if (
+      plannedStoryboardImages.length > 0 &&
+      !storyboardImageStates.every(Boolean) &&
+      !(await workspacePathExists(WORKFLOW_FILES.storyboardImage, process.cwd()))
+    ) {
+      throw new Error(
+        'Review storyboard is checked, so every planned workspace/STORYBOARD/*.png image must exist, or the legacy workspace/STORYBOARD.png fallback must still be present during migration.',
+      )
+    }
   }
 
   await validateCharacterSheets(characterSheets)

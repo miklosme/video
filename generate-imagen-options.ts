@@ -15,6 +15,7 @@ import {
 const DEFAULT_IMAGE_MODEL = 'google/gemini-3.1-flash-image-preview'
 
 export const REFERENCE_CAPABLE_IMAGE_MODELS = [
+  'bfl/flux-2-klein-4b',
   'google/gemini-3.1-flash-image-preview',
   'google/gemini-3-pro-image',
   'bfl/flux-kontext-pro',
@@ -22,7 +23,11 @@ export const REFERENCE_CAPABLE_IMAGE_MODELS = [
 ] as const
 
 const REFERENCE_CAPABLE_IMAGE_MODEL_SET = new Set<string>(REFERENCE_CAPABLE_IMAGE_MODELS)
-const IMAGE_ONLY_MODELS = new Set<string>(['bfl/flux-kontext-pro', 'bfl/flux-kontext-max'])
+const IMAGE_ONLY_MODELS = new Set<string>([
+  'bfl/flux-2-klein-4b',
+  'bfl/flux-kontext-pro',
+  'bfl/flux-kontext-max',
+])
 const LANGUAGE_IMAGE_MODELS = new Set<string>([
   'google/gemini-3.1-flash-image-preview',
   'google/gemini-3-pro-image',
@@ -129,7 +134,7 @@ export function buildPromptText(
           break
         case 'storyboard':
           promptLines.push(
-            `Reference ${referenceNumber} is the full-project storyboard board. Follow the panel labeled "${shotId ?? 'current shot'}" for shot composition and visual intent.`,
+            `Reference ${referenceNumber} is the storyboard image for ${shotId ?? 'the current shot'}. Follow it for shot composition, staging, and visual intent.`,
           )
           break
         case 'storyboard-template':

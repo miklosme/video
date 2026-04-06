@@ -1,10 +1,17 @@
 {
-  "references": [
+  "sequenceSummary": "TBD",
+  "images": [
     {
-      "path": "templates/STORYBOARD.template.png",
-      "kind": "storyboard-template",
-      "label": "Storyboard template",
-      "notes": "Board layout and review presentation reference."
+      "storyboardImageId": "SHOT-01-START",
+      "shotId": "SHOT-01",
+      "frameType": "start",
+      "title": "TBD",
+      "purpose": "TBD",
+      "visual": "TBD",
+      "transition": "TBD",
+      "status": "planned",
+      "imagePath": "workspace/STORYBOARD/SHOT-01-START.png",
+      "references": []
     }
   ]
 }
