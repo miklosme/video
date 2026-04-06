@@ -62,12 +62,11 @@ test('buildStoryboardPrompt targets a single storyboard image rather than a boar
   const storyboard = createStoryboard()
   const prompt = buildStoryboardPrompt(storyboard, 'SHOT-01-START')
 
-  expect(prompt).toContain('single storyboard image')
-  expect(prompt).toContain('Do not create a multi-panel sheet')
-  expect(prompt).toContain('Shot ID: SHOT-01')
-  expect(prompt).toContain('Frame type: start')
-  expect(prompt).toContain('Previous planned image: none')
-  expect(prompt).toContain('Next planned image: SHOT-02-END')
+  expect(prompt).toContain('A minimal storyboard sketch')
+  expect(prompt).toContain('Single frame only')
+  expect(prompt).toContain('Shot: SHOT-01 (start)')
+  expect(prompt).toContain('Previous context: none.')
+  expect(prompt).toContain('Next context: The transformed dog stares directly at us.')
   expect(prompt).not.toContain('storyboard template image')
 })
 
@@ -130,6 +129,7 @@ test('runStoryboardRegeneration keeps the selected storyboard image and retained
     })
 
     expect(result.prompt).toContain('Regenerate the current storyboard image for SHOT-01-START')
+    expect(result.prompt).toContain('Keep the same minimal storyboard sketch style')
     expect(result.prompt).toContain('Remove the extra background character.')
     expect(seenSize).toBe('896x512')
     expect(result.references).toEqual([

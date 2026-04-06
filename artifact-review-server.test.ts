@@ -130,7 +130,7 @@ test('artifact review server renders idea and story document pages and puts them
   }
 })
 
-test('artifact review server renders the storyboard tab with a placeholder and raw markdown', async () => {
+test('artifact review server renders an empty storyboard editor when no storyboard sidecar exists', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
@@ -147,9 +147,65 @@ test('artifact review server renders the storyboard tab with a placeholder and r
       const html = await response.text()
 
       expect(response.status).toBe(200)
-      expect(html).toContain('No storyboard image yet')
-      expect(html).toContain('# STORYBOARD')
-      expect(html).toContain('Source Storyboard')
+      expect(html).toContain('storyboard-thumb-add-icon')
+      expect(html).toContain('New storyboard start frame')
+      expect(html).not.toContain('Storyboard Editor')
+      expect(html).not.toContain('Source Storyboard')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server renders the storyboard board before the editor and keeps tiles image-only', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          sequenceSummary: 'A dog locks onto an uncanny reflection in a storefront window.',
+          images: [
+            {
+              storyboardImageId: 'SHOT-01-START',
+              shotId: 'SHOT-01',
+              frameType: 'start',
+              title: 'Discovery',
+              purpose: 'Establish the first strange beat.',
+              visual: 'The dog notices something wrong in the glass.',
+              transition: 'Begin calm before the reveal grows.',
+              status: 'planned',
+              imagePath: 'workspace/STORYBOARD/SHOT-01-START.png',
+              references: [],
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(rootDir, 'workspace/STORYBOARD/SHOT-01-START.png', 'storyboard-image')
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).not.toContain('Storyboard Editor')
+      expect(html).not.toContain('class="version-badges"')
+      expect(html).not.toContain('storyboard-thumb-copy')
+      expect(html).toContain('storyboard-thumb-add-icon')
+      expect(html).toContain('aria-label="SHOT-01-START (Start frame)"')
+      expect(html.indexOf('class="panel storyboard-grid-panel"')).toBeLessThan(
+        html.indexOf('class="storyboard-editor-pane"'),
+      )
+      expect(html).toContain('grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);')
     } finally {
       await server.stop()
     }
@@ -1731,6 +1787,7 @@ test('runApprovedRegenerateAction stays single-variant even when CONFIG.json.var
         {
           agentModel: 'agent-test',
           imageModel: 'image-test',
+          fastImageModel: 'image-fast-test',
           videoModel: 'video-test',
           variantCount: 3,
         },
@@ -1740,15 +1797,34 @@ test('runApprovedRegenerateAction stays single-variant even when CONFIG.json.var
     )
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.md',
-      '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n',
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          sequenceSummary: 'A dog notices an uncanny reflection in a storefront window.',
+          images: [
+            {
+              storyboardImageId: 'SHOT-01-START',
+              shotId: 'SHOT-01',
+              frameType: 'start',
+              title: 'Discovery',
+              purpose: 'Establish the first strange beat.',
+              visual: 'The dog notices something wrong in the glass.',
+              transition: 'Begin calm before the reveal grows.',
+              status: 'planned',
+              imagePath: 'workspace/STORYBOARD/SHOT-01-START.png',
+              references: [],
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
     )
-    await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'template')
-    await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard-image')
+    await writeRepoFile(rootDir, 'workspace/STORYBOARD/SHOT-01-START.png', 'storyboard-image')
 
     const seeds: number[] = []
     await runApprovedRegenerateAction(
-      '/storyboard',
+      '/storyboard/images/SHOT-01-START',
       rootDir,
       'current',
       'Tighten the panel spacing.',
@@ -1772,11 +1848,14 @@ test('runApprovedRegenerateAction stays single-variant even when CONFIG.json.var
     )
 
     expect(seeds).toEqual([1])
-    expect(await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.png'), 'utf8')).toBe(
-      'storyboard:1',
-    )
     expect(
-      await readFile(path.resolve(rootDir, 'workspace/HISTORY/STORYBOARD/v1.png'), 'utf8'),
+      await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/SHOT-01-START.png'), 'utf8'),
+    ).toBe('storyboard:1')
+    expect(
+      await readFile(
+        path.resolve(rootDir, 'workspace/STORYBOARD/HISTORY/SHOT-01-START/v1.png'),
+        'utf8',
+      ),
     ).toBe('storyboard-image')
   } finally {
     await rm(rootDir, { recursive: true, force: true })
@@ -1794,6 +1873,7 @@ test('runApprovedRegenerateAction keeps storyboard sidecar references during reg
         {
           agentModel: 'agent-test',
           imageModel: 'image-test',
+          fastImageModel: 'image-fast-test',
           videoModel: 'video-test',
           variantCount: 1,
         },
@@ -1801,17 +1881,35 @@ test('runApprovedRegenerateAction keeps storyboard sidecar references during reg
         2,
       )}\n`,
     )
-    await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard-current')
-    await writeRepoFile(rootDir, 'workspace/HISTORY/STORYBOARD/v2.png', 'storyboard-v2')
+    await writeRepoFile(rootDir, 'workspace/STORYBOARD/SHOT-01-START.png', 'storyboard-current')
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/HISTORY/SHOT-01-START/v2.png',
+      'storyboard-v2',
+    )
     await writeRepoFile(
       rootDir,
       'workspace/STORYBOARD.json',
       `${JSON.stringify(
         {
-          references: [
+          sequenceSummary: 'A dog notices an uncanny reflection in a storefront window.',
+          images: [
             {
-              kind: 'storyboard-template',
-              path: 'templates/STORYBOARD.template.png',
+              storyboardImageId: 'SHOT-01-START',
+              shotId: 'SHOT-01',
+              frameType: 'start',
+              title: 'Discovery',
+              purpose: 'Establish the first strange beat.',
+              visual: 'The dog notices something wrong in the glass.',
+              transition: 'Begin calm before the reveal grows.',
+              status: 'planned',
+              imagePath: 'workspace/STORYBOARD/SHOT-01-START.png',
+              references: [
+                {
+                  kind: 'storyboard-template',
+                  path: 'templates/STORYBOARD.template.png',
+                },
+              ],
             },
           ],
         },
@@ -1824,29 +1922,38 @@ test('runApprovedRegenerateAction keeps storyboard sidecar references during reg
     let capturedPrompt = ''
     let capturedReferences: { kind: string; path: string }[] = []
 
-    await runApprovedRegenerateAction('/storyboard', rootDir, 'v2', 'Remove the extra character.', {
-      imageGenerator: async (input) => {
-        capturedPrompt = input.prompt
-        capturedReferences = input.references ?? []
+    await runApprovedRegenerateAction(
+      '/storyboard/images/SHOT-01-START',
+      rootDir,
+      'v2',
+      'Remove the extra character.',
+      {
+        imageGenerator: async (input) => {
+          capturedPrompt = input.prompt
+          capturedReferences = input.references ?? []
 
-        if (!input.outputPath) {
-          throw new Error('Expected outputPath for retained storyboard regeneration test.')
-        }
+          if (!input.outputPath) {
+            throw new Error('Expected outputPath for retained storyboard regeneration test.')
+          }
 
-        await writeRepoFile(rootDir, input.outputPath, 'storyboard:regenerated')
+          await writeRepoFile(rootDir, input.outputPath, 'storyboard:regenerated')
 
-        return {
-          generationId: 'gen-retained',
-          model: input.model ?? 'image-test',
-          outputPaths: [path.resolve(rootDir, input.outputPath)],
-        }
+          return {
+            generationId: 'gen-retained',
+            model: input.model ?? 'image-test',
+            outputPaths: [path.resolve(rootDir, input.outputPath)],
+          }
+        },
       },
-    })
+    )
 
+    expect(capturedPrompt).toContain('Regenerate the current storyboard image for SHOT-01-START')
     expect(capturedPrompt).toContain('Remove the extra character.')
-    expect(capturedPrompt).not.toContain('Storyboard markdown:')
     expect(capturedReferences).toEqual([
-      { kind: 'selected-image', path: 'workspace/HISTORY/STORYBOARD/v2.png' },
+      {
+        kind: 'selected-image',
+        path: 'workspace/STORYBOARD/HISTORY/SHOT-01-START/v2.png',
+      },
       { kind: 'storyboard-template', path: 'templates/STORYBOARD.template.png' },
     ])
   } finally {

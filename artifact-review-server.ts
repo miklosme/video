@@ -1432,7 +1432,7 @@ function renderPage(
 
       .storyboard-editor-layout {
         display: grid;
-        grid-template-columns: minmax(320px, 380px) minmax(0, 1fr);
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
         gap: 18px;
         align-items: start;
       }
@@ -1447,20 +1447,20 @@ function renderPage(
         padding: 18px;
         display: flex;
         flex-direction: column;
-        gap: 18px;
+        gap: 14px;
         min-width: 0;
       }
 
       .storyboard-grid {
         display: grid;
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        gap: 14px;
+        gap: 12px;
         align-items: start;
       }
 
       .storyboard-slot {
         display: grid;
-        gap: 10px;
+        gap: 8px;
         min-width: 0;
       }
 
@@ -1472,26 +1472,22 @@ function renderPage(
       .storyboard-slot-paired {
         grid-column: span 2;
         grid-template-columns: repeat(2, minmax(0, 1fr));
-        padding: 8px;
+        padding: 6px;
         border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 18px;
+        border-radius: 20px;
         background:
           linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015)),
           rgba(255,255,255,0.02);
       }
 
       .storyboard-thumb {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
+        display: block;
         min-width: 0;
-        padding: 8px;
-        border-radius: 16px;
+        border-radius: 18px;
         border: 1px solid rgba(255,255,255,0.06);
-        background:
-          linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.02)),
-          rgba(255,255,255,0.02);
+        background: rgba(255,255,255,0.02);
         text-decoration: none;
+        overflow: hidden;
       }
 
       .storyboard-thumb:hover {
@@ -1524,17 +1520,17 @@ function renderPage(
         border: 1px dashed rgba(255,255,255,0.12);
       }
 
-      .storyboard-thumb-copy {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        min-width: 0;
-      }
-
-      .storyboard-thumb-purpose {
+      .storyboard-thumb-add-icon {
+        display: grid;
+        place-items: center;
+        width: 44px;
+        height: 44px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.14);
+        background: rgba(255,255,255,0.03);
         color: var(--soft);
-        font-size: 12px;
-        line-height: 1.45;
+        font-size: 26px;
+        line-height: 1;
       }
 
       .storyboard-visual,
@@ -2335,29 +2331,24 @@ function renderCharactersSummary(cards: CharacterReviewCard[]) {
 }
 
 function renderStoryboardGridTile(tile: StoryboardGridTile) {
+  const label = `${tile.storyboardImageId} (${frameTypeLabel(tile.frameType)} frame)`
+
   return `
     <a
       class="${['storyboard-thumb', tile.isSelected ? 'storyboard-thumb-active' : ''].filter(Boolean).join(' ')}"
       href="${appendSearchParams('/storyboard', { image: tile.storyboardImageId })}"
+      aria-label="${escapeHtml(label)}"
+      title="${escapeHtml(label)}"
     >
       <div class="storyboard-thumb-media">
-        <div class="version-badges">
-          <span class="pill pill-info">${escapeHtml(tile.shotId)}</span>
-          <span class="pill">${escapeHtml(frameTypeLabel(tile.frameType))}</span>
-          ${tile.imageExists ? '' : '<span class="pill pill-warn">Missing</span>'}
-        </div>
         ${renderMediaBlock({
           mediaType: 'image',
           mediaUrl: tile.imageUrl,
           mediaExists: tile.imageExists,
           alt: tile.storyboardImageId,
-          placeholder: 'No thumbnail yet',
+          placeholder: '',
           className: 'version-media',
         })}
-      </div>
-      <div class="storyboard-thumb-copy">
-        <p class="title">${escapeHtml(tile.title)}</p>
-        <p class="storyboard-thumb-purpose">${escapeHtml(tile.purpose)}</p>
       </div>
     </a>
   `
@@ -2376,12 +2367,11 @@ function renderStoryboardAddTile(isSelected: boolean) {
     <a
       class="${['storyboard-thumb', 'storyboard-thumb-empty', isSelected ? 'storyboard-thumb-active' : ''].filter(Boolean).join(' ')}"
       href="${appendSearchParams('/storyboard', { image: STORYBOARD_NEW_SELECTION_ID })}"
+      aria-label="Add storyboard frame"
+      title="Add storyboard frame"
     >
       <div class="storyboard-thumb-media storyboard-thumb-add">
-        <div class="meta-stack">
-          <p class="title">Add Thumbnail</p>
-          <p class="muted">Append a new storyboard start frame to the board.</p>
-        </div>
+        <span class="storyboard-thumb-add-icon" aria-hidden="true">+</span>
       </div>
     </a>
   `
@@ -2425,17 +2415,21 @@ function renderStoryboardSummary(options: {
     renderPage(
       'storyboard',
       `<section class="storyboard-editor-layout">
+        <div class="panel storyboard-grid-panel">
+          <p class="section-title">Board</p>
+          <div class="storyboard-grid">
+            ${options.slots.map(renderStoryboardGridSlot).join('')}
+            ${renderStoryboardAddTile(options.selected.isNewSelection)}
+          </div>
+        </div>
         <div class="storyboard-editor-pane">
           ${renderJobBanner(options.job)}
           <section class="panel">
-            <p class="section-title">Storyboard Editor</p>
             <div class="meta-stack">
-              <p class="muted">${escapeHtml(selectionLabel)}</p>
+              <p class="section-title">${escapeHtml(selectionLabel)}</p>
               <p class="form-note">${escapeHtml(selectionHelp)}</p>
-              <p class="small">Storyboard renders use ${escapeHtml(options.config?.fastImageModel ?? 'the configured fast image model')}.</p>
+              <p class="small">Each render creates one minimal sketch-style storyboard frame with ${escapeHtml(options.config?.fastImageModel ?? 'the configured fast image model')}.</p>
             </div>
-          </section>
-          <section class="panel">
             <form method="post" action="/storyboard/save">
               <input type="hidden" name="selectedImageId" value="${escapeHtml(options.selected.selectedImageId)}">
               <label class="field-label" for="storyboard-sequence-summary">Sequence Summary</label>
@@ -2483,16 +2477,6 @@ function renderStoryboardSummary(options: {
               `
               : ''
           }
-        </div>
-        <div class="panel storyboard-grid-panel">
-          <div class="meta-stack">
-            <p class="section-title">Board</p>
-            <p class="muted">Three columns, with start/end pairs grouped into one wider storyboard slot.</p>
-          </div>
-          <div class="storyboard-grid">
-            ${options.slots.map(renderStoryboardGridSlot).join('')}
-            ${renderStoryboardAddTile(options.selected.isNewSelection)}
-          </div>
         </div>
       </section>`,
       {

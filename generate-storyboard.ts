@@ -103,30 +103,22 @@ export function buildStoryboardPrompt(storyboard: StoryboardSidecar, storyboardI
   const { current, previous, next } = getStoryboardImageContext(storyboard, storyboardImageId)
   const frameInstruction =
     current.frameType === 'end'
-      ? 'Render the closing anchor of this shot, not the opening beat.'
-      : 'Render the opening anchor of this shot, not the ending beat.'
+      ? 'Show the closing beat of the shot, not the opening beat.'
+      : 'Show the opening beat of the shot, not the ending beat.'
 
   return [
-    'Create a single storyboard image for one planned shot anchor.',
-    'Do not create a multi-panel sheet, page layout, border frame, shot label, or any text inside the image.',
-    'This is a fast previs image for planning and downstream keyframe generation.',
-    'Keep the image visually clear, composition-first, and easy to read at a glance.',
-    'Preserve enough specificity to lock staging and intent, while leaving cinematic texture and micro-detail open for later keyframe generation.',
+    `A minimal storyboard sketch of ${current.visual.trim()}.`,
+    'Single frame only. Loose graphite or pencil previs drawing, monochrome, simple tones, clear silhouette, no text, no labels, no multi-panel layout.',
+    'Keep it intentionally rough and easy to iterate from while locking composition and staging.',
     frameInstruction,
     '',
-    `Sequence summary: ${storyboard.sequenceSummary.trim()}`,
-    `Shot ID: ${current.shotId}`,
-    `Frame type: ${current.frameType}`,
-    `Shot title: ${current.title}`,
+    `Sequence: ${storyboard.sequenceSummary.trim()}`,
+    `Shot: ${current.shotId} (${current.frameType})`,
+    `Moment: ${current.title}`,
     `Purpose: ${current.purpose}`,
-    `Visual: ${current.visual}`,
     `Transition: ${current.transition}`,
-    previous
-      ? `Previous planned image: ${previous.storyboardImageId} - ${previous.visual}`
-      : 'Previous planned image: none',
-    next
-      ? `Next planned image: ${next.storyboardImageId} - ${next.visual}`
-      : 'Next planned image: none',
+    previous ? `Previous context: ${previous.visual}` : 'Previous context: none.',
+    next ? `Next context: ${next.visual}` : 'Next context: none.',
   ].join('\n')
 }
 
@@ -143,7 +135,7 @@ export function buildStoryboardRegeneratePrompt(
   return [
     `Regenerate the current storyboard image for ${generation.storyboardImageId}.`,
     `Use the attached ${generation.frameType} frame from ${generation.shotId} as the direct visual baseline.`,
-    'Keep the overall staging and intent unless the approved change below explicitly asks for a broader update.',
+    'Keep the same minimal storyboard sketch style, staging, and intent unless the approved change below explicitly asks for a broader update.',
     '',
     'Approved change:',
     trimmedRequest,
