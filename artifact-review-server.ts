@@ -75,6 +75,7 @@ import {
   getKeyframeImagePath,
   getLegacyStoryboardImagePath,
   getShotVideoPath,
+  getStoryboardImageId,
   loadCameraVocabulary,
   loadCharacterSheets,
   loadConfig,
@@ -118,6 +119,7 @@ const JSON_HEADERS = {
 }
 
 const CURRENT_BASE_VERSION_ID = 'current'
+const STORYBOARD_END_SELECTION_PREFIX = '__end__:'
 
 type Tab = 'idea' | 'story' | 'characters' | 'storyboard' | 'timeline'
 
@@ -173,14 +175,20 @@ interface StoryboardGridTile {
 
 interface StoryboardGridSlot {
   shotId: string
-  tiles: StoryboardGridTile[]
-  isPaired: boolean
+  startTile: StoryboardGridTile
+  endTile: StoryboardGridTile | null
+  missingEndSelectionId: string | null
+  missingEndStoryboardImageId: string | null
+  isMissingEndSelected: boolean
 }
+
+type StoryboardSelectionKind = 'existing' | 'missing-end' | 'new-start'
 
 interface StoryboardSelectionState {
   selectedImageId: string
+  kind: StoryboardSelectionKind
   selectedEntry: StoryboardDerivedImageEntry | null
-  isNewSelection: boolean
+  pendingEndFor: StoryboardDerivedImageEntry | null
 }
 
 interface VersionRailItem {
@@ -501,6 +509,21 @@ function findStoryboardImage(
   return findStoryboardDerivedImageBySelectionId(storyboard.images, selectionId)
 }
 
+function getStoryboardMissingEndSelectionId(startImageIndex: number) {
+  return `${STORYBOARD_END_SELECTION_PREFIX}${startImageIndex}`
+}
+
+function parseStoryboardMissingEndSelectionId(selectionId: string) {
+  const match = new RegExp(`^${STORYBOARD_END_SELECTION_PREFIX}(\\d+)$`).exec(selectionId)
+
+  if (!match) {
+    return null
+  }
+
+  const startImageIndex = Number(match[1])
+  return Number.isInteger(startImageIndex) && startImageIndex >= 0 ? startImageIndex : null
+}
+
 function findStoryboardImageByArtifactId(
   storyboard: { images: StoryboardImageEntry[] } | null,
   artifactId: string,
@@ -512,11 +535,39 @@ function findStoryboardImageByArtifactId(
   return findStoryboardDerivedImageByArtifactId(storyboard.images, artifactId)
 }
 
+function findStoryboardMissingEndTarget(
+  storyboard: { images: StoryboardImageEntry[] } | null,
+  selectionId: string,
+) {
+  if (!storyboard) {
+    return null
+  }
+
+  const startImageIndex = parseStoryboardMissingEndSelectionId(selectionId)
+
+  if (startImageIndex === null) {
+    return null
+  }
+
+  const target = buildStoryboardDerivedImages(storyboard.images)[startImageIndex] ?? null
+
+  if (!target || target.entry.frameType !== 'start') {
+    return null
+  }
+
+  return getStoryboardPairedEnd(storyboard, getStoryboardSelectionId(target.imageIndex)) === null
+    ? target
+    : null
+}
+
 function getStoryboardSelectionState(
   storyboard: { images: StoryboardImageEntry[] } | null,
   requestedImageId: string | null,
 ): StoryboardSelectionState {
   const selectedEntry = requestedImageId ? findStoryboardImage(storyboard, requestedImageId) : null
+  const pendingEndFor = requestedImageId
+    ? findStoryboardMissingEndTarget(storyboard, requestedImageId)
+    : null
   const fallbackEntry = storyboard
     ? (buildStoryboardDerivedImages(storyboard.images)[0] ?? null)
     : null
@@ -524,23 +575,35 @@ function getStoryboardSelectionState(
   if (selectedEntry) {
     return {
       selectedImageId: getStoryboardSelectionId(selectedEntry.imageIndex),
+      kind: 'existing',
       selectedEntry,
-      isNewSelection: false,
+      pendingEndFor: null,
+    }
+  }
+
+  if (pendingEndFor) {
+    return {
+      selectedImageId: getStoryboardMissingEndSelectionId(pendingEndFor.imageIndex),
+      kind: 'missing-end',
+      selectedEntry: null,
+      pendingEndFor,
     }
   }
 
   if (requestedImageId === STORYBOARD_NEW_SELECTION_ID || !fallbackEntry) {
     return {
       selectedImageId: STORYBOARD_NEW_SELECTION_ID,
+      kind: 'new-start',
       selectedEntry: null,
-      isNewSelection: true,
+      pendingEndFor: null,
     }
   }
 
   return {
     selectedImageId: getStoryboardSelectionId(fallbackEntry.imageIndex),
+    kind: 'existing',
     selectedEntry: fallbackEntry,
-    isNewSelection: false,
+    pendingEndFor: null,
   }
 }
 
@@ -572,19 +635,6 @@ function getStoryboardPairedEnd(
   const slot = slotIndex >= 0 ? buildStoryboardShotSlots(storyboard?.images ?? [])[slotIndex] : null
 
   return slot?.items.find((item) => item.entry.frameType === 'end') ?? null
-}
-
-function canInsertStoryboardEnd(
-  storyboard: { images: StoryboardImageEntry[] } | null,
-  selectionId: string,
-) {
-  const current = findStoryboardImage(storyboard, selectionId)
-
-  if (!current || current.entry.frameType !== 'start') {
-    return false
-  }
-
-  return getStoryboardPairedEnd(storyboard, selectionId) === null
 }
 
 async function loadCameraVocabularyOrNull(cwd: string) {
@@ -1492,7 +1542,7 @@ function renderPage(
 
       .storyboard-editor-layout {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 18px;
         align-items: start;
       }
@@ -1512,32 +1562,20 @@ function renderPage(
       }
 
       .storyboard-grid {
-        display: grid;
-        grid-template-columns: repeat(3, minmax(0, 1fr));
+        display: flex;
+        flex-direction: column;
         gap: 12px;
-        align-items: start;
       }
 
       .storyboard-slot {
         display: grid;
-        gap: 8px;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
         min-width: 0;
       }
 
-      .storyboard-slot-single {
-        grid-column: span 1;
-        grid-template-columns: minmax(0, 1fr);
-      }
-
-      .storyboard-slot-paired {
-        grid-column: span 2;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        padding: 6px;
-        border: 1px solid rgba(255,255,255,0.06);
-        border-radius: 20px;
-        background:
-          linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015)),
-          rgba(255,255,255,0.02);
+      .storyboard-slot-spacer {
+        min-width: 0;
       }
 
       .storyboard-thumb {
@@ -1899,9 +1937,6 @@ function renderPage(
         }
 
         .artifact-meta-bar { padding: 14px; }
-        .storyboard-grid {
-          grid-template-columns: repeat(2, minmax(0, 1fr));
-        }
       }
 
       @media (max-width: 720px) {
@@ -1919,8 +1954,8 @@ function renderPage(
         .shot-id { text-align: left; }
         .character-grid { grid-template-columns: 1fr 1fr; }
         .version-tile { flex-basis: 170px; }
-        .storyboard-grid { grid-template-columns: 1fr; }
-        .storyboard-slot-paired { grid-column: span 1; }
+        .storyboard-slot { grid-template-columns: 1fr; }
+        .storyboard-slot-spacer { display: none; }
       }
     </style>
   </head>
@@ -2433,10 +2468,32 @@ function renderStoryboardGridTile(tile: StoryboardGridTile) {
   `
 }
 
+function renderStoryboardMissingEndTile(slot: StoryboardGridSlot) {
+  if (!slot.missingEndSelectionId || !slot.missingEndStoryboardImageId) {
+    return ''
+  }
+
+  const label = `${slot.missingEndStoryboardImageId} (Optional end frame placeholder)`
+
+  return `
+    <a
+      class="${['storyboard-thumb', 'storyboard-thumb-empty', slot.isMissingEndSelected ? 'storyboard-thumb-active' : ''].filter(Boolean).join(' ')}"
+      href="${appendSearchParams('/storyboard', { image: slot.missingEndSelectionId })}"
+      aria-label="${escapeHtml(label)}"
+      title="${escapeHtml(label)}"
+    >
+      <div class="storyboard-thumb-media">
+        ${renderPlaceholder('Optional end frame', 'omitted')}
+      </div>
+    </a>
+  `
+}
+
 function renderStoryboardGridSlot(slot: StoryboardGridSlot) {
   return `
-    <div class="${['storyboard-slot', slot.isPaired ? 'storyboard-slot-paired' : 'storyboard-slot-single'].join(' ')}">
-      ${slot.tiles.map(renderStoryboardGridTile).join('')}
+    <div class="storyboard-slot">
+      ${renderStoryboardGridTile(slot.startTile)}
+      ${slot.endTile ? renderStoryboardGridTile(slot.endTile) : renderStoryboardMissingEndTile(slot)}
     </div>
   `
 }
@@ -2456,6 +2513,15 @@ function renderStoryboardAddTile(isSelected: boolean) {
   `
 }
 
+function renderStoryboardAddRow(isSelected: boolean) {
+  return `
+    <div class="storyboard-slot">
+      ${renderStoryboardAddTile(isSelected)}
+      <div class="storyboard-slot-spacer" aria-hidden="true"></div>
+    </div>
+  `
+}
+
 function renderStoryboardSummary(options: {
   storyboard: { images: StoryboardImageEntry[] } | null
   config: { fastImageModel: string } | null
@@ -2465,29 +2531,42 @@ function renderStoryboardSummary(options: {
   job: ArtifactJobState | null
 }) {
   const selectedEntry = options.selected.selectedEntry
-  const references = selectedEntry?.entry.references ?? []
+  const pendingEndFor = options.selected.pendingEndFor
+  const references =
+    options.selected.kind === 'existing' ? (selectedEntry?.entry.references ?? []) : []
   const pairedEnd = selectedEntry
     ? getStoryboardPairedEnd(options.storyboard, options.selected.selectedImageId)
     : null
-  const canInsertEnd = selectedEntry
-    ? canInsertStoryboardEnd(options.storyboard, options.selected.selectedImageId)
-    : false
-  const primaryButtonLabel = options.selected.isNewSelection
-    ? 'Add thumbnail'
-    : options.selectedCard?.imageExists
-      ? 'Regenerate thumbnail'
-      : 'Generate thumbnail'
-  const saveButtonLabel = options.selected.isNewSelection ? 'Add draft' : 'Save goal'
-  const selectionLabel = selectedEntry
-    ? `${selectedEntry.shotId} • ${frameTypeLabel(selectedEntry.entry.frameType)} Frame`
-    : 'New storyboard start frame'
-  const selectionHelp = selectedEntry
-    ? selectedEntry.entry.frameType === 'end'
-      ? 'This is the optional closing frame for the previous storyboard thumbnail.'
-      : pairedEnd
-        ? `This start frame is paired with ${pairedEnd.storyboardImageId}.`
-        : 'This start frame currently stands on its own.'
-    : 'The extra tile stays at the end of the board so you can append a new planned frame.'
+  const primaryButtonLabel =
+    options.selected.kind === 'new-start'
+      ? 'Add thumbnail'
+      : options.selected.kind === 'missing-end'
+        ? 'Generate end frame'
+        : options.selectedCard?.imageExists
+          ? 'Regenerate thumbnail'
+          : 'Generate thumbnail'
+  const saveButtonLabel =
+    options.selected.kind === 'new-start'
+      ? 'Add draft'
+      : options.selected.kind === 'missing-end'
+        ? 'Add end draft'
+        : 'Save goal'
+  const selectionLabel =
+    options.selected.kind === 'existing' && selectedEntry
+      ? `${selectedEntry.shotId} • ${frameTypeLabel(selectedEntry.entry.frameType)} Frame`
+      : options.selected.kind === 'missing-end' && pendingEndFor
+        ? `${pendingEndFor.shotId} • End Frame`
+        : 'New storyboard start frame'
+  const selectionHelp =
+    options.selected.kind === 'existing' && selectedEntry
+      ? selectedEntry.entry.frameType === 'end'
+        ? 'This is the optional closing frame for the previous storyboard thumbnail.'
+        : pairedEnd
+          ? `This start frame is paired with ${pairedEnd.storyboardImageId}.`
+          : 'This start frame currently stands on its own. Select the placeholder beside it to add a closing frame.'
+      : options.selected.kind === 'missing-end' && pendingEndFor
+        ? `This end frame is still virtual. Saving or generating it will insert ${getStoryboardImageId({ shotId: pendingEndFor.shotId, frameType: 'end' })} after ${pendingEndFor.storyboardImageId}.`
+        : 'The extra tile stays at the end of the board so you can append a new planned frame.'
 
   return new Response(
     renderPage(
@@ -2497,7 +2576,7 @@ function renderStoryboardSummary(options: {
           <p class="section-title">Board</p>
           <div class="storyboard-grid">
             ${options.slots.map(renderStoryboardGridSlot).join('')}
-            ${renderStoryboardAddTile(options.selected.isNewSelection)}
+            ${renderStoryboardAddRow(options.selected.kind === 'new-start')}
           </div>
         </div>
         <div class="storyboard-editor-pane">
@@ -2523,7 +2602,6 @@ function renderStoryboardSummary(options: {
               <div class="form-actions">
                 <button class="button-secondary" type="submit" formaction="/storyboard/save">${escapeHtml(saveButtonLabel)}</button>
                 <button class="button-primary" type="submit" formaction="/storyboard/render">${escapeHtml(primaryButtonLabel)}</button>
-                <button class="button-secondary" type="submit" formaction="/storyboard/insert-end" ${canInsertEnd ? '' : 'disabled'}>Insert end frame</button>
               </div>
             </form>
           </section>
@@ -3135,10 +3213,13 @@ async function buildStoryboardGridSlots(
   const cards = await buildStoryboardCards(cwd)
   const cardBySelectionId = new Map(cards.map((card) => [card.selectionId, card]))
 
-  return buildStoryboardShotSlots(storyboard.images).map((slot) => ({
-    shotId: slot.shotId,
-    isPaired: slot.items.length > 1,
-    tiles: slot.items.map((item) => {
+  return buildStoryboardShotSlots(storyboard.images).map((slot) => {
+    const startItem = slot.items.find((item) => item.entry.frameType === 'start') ?? slot.items[0]!
+    const endItem =
+      slot.items.find(
+        (item) => item.entry.frameType === 'end' && item.imageIndex !== startItem.imageIndex,
+      ) ?? null
+    const mapTile = (item: StoryboardDerivedImageEntry) => {
       const selectionId = getStoryboardSelectionId(item.imageIndex)
       const card = cardBySelectionId.get(selectionId)
 
@@ -3154,8 +3235,23 @@ async function buildStoryboardGridSlots(
         imageExists: card?.imageExists ?? false,
         isSelected: selectionId === selectedImageId,
       } satisfies StoryboardGridTile
-    }),
-  }))
+    }
+    const canAddMissingEnd = startItem.entry.frameType === 'start' && endItem === null
+    const missingEndSelectionId = canAddMissingEnd
+      ? getStoryboardMissingEndSelectionId(startItem.imageIndex)
+      : null
+
+    return {
+      shotId: slot.shotId,
+      startTile: mapTile(startItem),
+      endTile: endItem ? mapTile(endItem) : null,
+      missingEndSelectionId,
+      missingEndStoryboardImageId: canAddMissingEnd
+        ? getStoryboardImageId({ shotId: slot.shotId, frameType: 'end' })
+        : null,
+      isMissingEndSelected: missingEndSelectionId === selectedImageId,
+    } satisfies StoryboardGridSlot
+  })
 }
 
 async function findStoryboardImageDependents(storyboardImagePath: string, cwd: string) {
@@ -4358,9 +4454,34 @@ async function upsertStoryboardSelection(input: StoryboardEditorFormInput, cwd: 
     }
   }
 
+  const pendingEndFor = findStoryboardMissingEndTarget(existingStoryboard, input.selectedImageId)
+
+  if (pendingEndFor) {
+    const nextStoryboard = {
+      images: [
+        ...existingStoryboard.images.slice(0, pendingEndFor.imageIndex + 1),
+        createStoryboardDraftFromForm(input, 'end'),
+        ...existingStoryboard.images.slice(pendingEndFor.imageIndex + 1),
+      ],
+    } satisfies StoryboardSidecar
+
+    const savedStoryboard = await writeStoryboardManifest(nextStoryboard, cwd)
+
+    return {
+      storyboard: savedStoryboard,
+      entry: buildStoryboardDerivedImages(savedStoryboard.images)[pendingEndFor.imageIndex + 1]!,
+    }
+  }
+
   const current = findStoryboardImage(existingStoryboard, input.selectedImageId)
 
   if (!current) {
+    if (parseStoryboardMissingEndSelectionId(input.selectedImageId) !== null) {
+      throw new Error(
+        'Select a storyboard start frame without an end frame to add a closing thumbnail.',
+      )
+    }
+
     throw new Error(
       `Storyboard image "${input.selectedImageId}" is missing from workspace/STORYBOARD.json.`,
     )
@@ -4454,101 +4575,6 @@ async function handleStoryboardRender(
       return {
         versionId: result.versionId,
       }
-    }
-
-    const result = await generateStoryboardArtifactVersion(generation, {
-      userReferences: generation.userReferences ?? [],
-      cwd,
-      generator: options.imageGenerator,
-    })
-
-    return {
-      versionId: result.versionId,
-    }
-  })
-
-  return redirectTo(
-    appendSearchParams(buildPostActionRedirectLocation('/storyboard', request, { updated: true }), {
-      image: getStoryboardSelectionId(preparedEntry.imageIndex),
-    }),
-  )
-}
-
-async function handleStoryboardInsertEnd(
-  request: Request,
-  cwd: string,
-  jobs: Map<string, ArtifactJobState>,
-  options: RegenerateActionOptions,
-) {
-  const input = await parseStoryboardEditorForm(request)
-  const storyboard = await loadStoryboardOrEmpty(cwd)
-
-  if (!storyboard) {
-    throw new Error('workspace/STORYBOARD.json is required before inserting an end frame.')
-  }
-
-  if (input.selectedImageId === STORYBOARD_NEW_SELECTION_ID) {
-    throw new Error('Select a storyboard start frame before inserting an end frame.')
-  }
-
-  const current = findStoryboardImage(storyboard, input.selectedImageId)
-
-  if (!current) {
-    throw new Error(
-      `Storyboard image "${input.selectedImageId}" is missing from workspace/STORYBOARD.json.`,
-    )
-  }
-
-  if (current.entry.frameType !== 'start') {
-    throw new Error('Only a selected start frame can receive a new end frame.')
-  }
-
-  if (getStoryboardPairedEnd(storyboard, input.selectedImageId)) {
-    throw new Error(`Storyboard image "${current.storyboardImageId}" already has an end frame.`)
-  }
-
-  const insertIndex = getStoryboardImageIndex(storyboard, input.selectedImageId)
-  const nextEntry = createStoryboardDraftFromForm(input, 'end')
-  const nextStoryboard = {
-    images: [
-      ...storyboard.images.slice(0, insertIndex + 1),
-      nextEntry,
-      ...storyboard.images.slice(insertIndex + 1),
-    ],
-  }
-
-  const savedStoryboard = await writeStoryboardManifest(nextStoryboard, cwd)
-
-  const insertedEntry = buildStoryboardDerivedImages(savedStoryboard.images)[insertIndex + 1]!
-  const preparedStoryboard = await ensureStoryboardImagePaths(
-    savedStoryboard,
-    { storyboardImageId: insertedEntry.storyboardImageId },
-    cwd,
-  )
-  const preparedEntry = buildStoryboardDerivedImages(preparedStoryboard.images)[insertIndex + 1]!
-
-  if (preparedEntry.entry.imagePath === null) {
-    throw new Error(`Storyboard image "${preparedEntry.storyboardImageId}" is missing imagePath.`)
-  }
-
-  const descriptor = getStoryboardArtifactDescriptor({
-    imagePath: preparedEntry.entry.imagePath,
-    shotId: preparedEntry.shotId,
-    storyboardImageId: preparedEntry.storyboardImageId,
-  })
-  const currentJob = getJobState(jobs, descriptor)
-
-  if (currentJob?.status === 'running') {
-    throw new Error(`${descriptor.displayName} already has an active generation job.`)
-  }
-
-  startArtifactJob(jobs, descriptor, async () => {
-    const generation = await buildStoryboardPendingGeneration(descriptor.artifactId, cwd)
-
-    if (!generation) {
-      throw new Error(
-        `Storyboard image "${preparedEntry.storyboardImageId}" is missing valid planning data.`,
-      )
     }
 
     const result = await generateStoryboardArtifactVersion(generation, {
@@ -5105,10 +5131,6 @@ export function startArtifactReviewServer(
 
           if (request.method === 'POST' && url.pathname === '/storyboard/render') {
             return await handleStoryboardRender(request, cwd, activeJobs, generatorOverrides)
-          }
-
-          if (request.method === 'POST' && url.pathname === '/storyboard/insert-end') {
-            return await handleStoryboardInsertEnd(request, cwd, activeJobs, generatorOverrides)
           }
 
           if (request.method === 'POST' && url.pathname === '/storyboard/drop-image') {

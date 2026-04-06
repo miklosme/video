@@ -98,7 +98,7 @@ test('resolveStoryboardGenerationPrompt returns cached final prompts unchanged f
       frameType: 'start',
       goal: 'Establish the dog noticing something off in the window reflection.',
       artifactId: 'storyboard-image-alpha',
-      model: 'bfl/flux-2-klein-4b',
+      model: 'bfl/flux-2-klein-9b',
       rewriteModel: 'openai/gpt-5.4-mini',
       prompt: 'Cached final storyboard prompt.',
       promptIsFinal: true,
@@ -199,7 +199,7 @@ test('runStoryboardGeneration rewrites flux klein storyboard prompts before imag
         previousFrameSummary: null,
         nextFrameSummary: 'SHOT-01-END (end) — The merchant lunges into the crowd.',
         artifactId: 'storyboard-image-alpha',
-        model: 'bfl/flux-2-klein-4b',
+        model: 'bfl/flux-2-klein-9b',
         rewriteModel: 'openai/gpt-5.4-mini',
         prompt: 'Base storyboard prompt.',
         outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
@@ -222,14 +222,14 @@ test('runStoryboardGeneration rewrites flux klein storyboard prompts before imag
               prompt: input.prompt,
               references: input.references ?? [],
               aspectRatio: input.aspectRatio ?? '16:9',
-              model: input.model ?? 'bfl/flux-2-klein-4b',
+              model: input.model ?? 'bfl/flux-2-klein-9b',
               shotId: input.shotId,
               size: input.size,
             }) ?? ''
 
           return {
             generationId: 'gen-1',
-            model: input.model ?? 'bfl/flux-2-klein-4b',
+            model: input.model ?? 'bfl/flux-2-klein-9b',
             outputPaths: [path.resolve(rootDir, input.outputPath ?? 'out.png')],
           }
         },
@@ -259,7 +259,7 @@ test('runStoryboardGeneration rewrites flux klein storyboard prompts before imag
       outputText:
         'A frantic merchant freezes beside a market stall, clutching an empty satchel as the crowd swirls behind him. Style: rough graphite storyboard sketch.',
       settings: {
-        targetModel: 'bfl/flux-2-klein-4b',
+        targetModel: 'bfl/flux-2-klein-9b',
       },
     })
   } finally {
@@ -305,7 +305,7 @@ test('syncStoryboardGeneration upgrades legacy planning prompts to final cached 
           },
         ],
       },
-      model: 'bfl/flux-2-klein-4b',
+      model: 'bfl/flux-2-klein-9b',
       rewriteModel: 'openai/gpt-5.4-mini',
       cwd: rootDir,
       promptRewriter: async () => 'Final cached FLUX prompt.',
@@ -320,7 +320,7 @@ test('syncStoryboardGeneration upgrades legacy planning prompts to final cached 
 
         return {
           generationId: 'gen-1',
-          model: input.model ?? 'bfl/flux-2-klein-4b',
+          model: input.model ?? 'bfl/flux-2-klein-9b',
           outputPaths: [path.resolve(rootDir, input.outputPath)],
         }
       },

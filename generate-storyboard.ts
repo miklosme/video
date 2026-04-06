@@ -611,7 +611,6 @@ export async function syncStoryboardGeneration(options: {
         promptRewriter: options.promptRewriter,
       },
     )
-    console.log(`Generated prompt for ${generation.storyboardImageId}:\n${resolvedPrompt}\n`)
 
     for (let variantIndex = 0; variantIndex < variantCount; variantIndex += 1) {
       if (variantCount === 1) {

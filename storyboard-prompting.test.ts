@@ -94,7 +94,7 @@ test('buildStoryboardDirectPromptText keeps rewritten storyboard prompts untouch
       'A tense merchant clutches his satchel in a crowded market. Style: rough graphite storyboard sketch.',
     references: [{ kind: 'storyboard-template', path: 'templates/STORYBOARD.template.png' }],
     aspectRatio: '16:9',
-    model: 'bfl/flux-2-klein-4b',
+    model: 'bfl/flux-2-klein-9b',
     size: STORYBOARD_THUMBNAIL_IMAGE_SIZE,
     shotId: 'SHOT-01',
   })
@@ -119,7 +119,7 @@ test('buildStoryboardPromptRewritePrompt assembles the rewrite context from work
     const prompt = await buildStoryboardPromptRewritePrompt({
       prompt:
         'Create a single 16:9 storyboard thumbnail image for one planned shot anchor.\nShot: SHOT-01\nFrame: start\nGoal: Establish the merchant realizing the bag is gone.',
-      imageModel: 'bfl/flux-2-klein-4b',
+      imageModel: 'bfl/flux-2-klein-9b',
       rewriteModel: 'openai/gpt-5.4-mini',
       storyboardImageId: 'SHOT-01-START',
       shotId: 'SHOT-01',
@@ -150,7 +150,7 @@ test('rewriteStoryboardPrompt uses the configured rewrite step only for supporte
   const rewritten = await rewriteStoryboardPrompt(
     {
       prompt: 'Base storyboard prompt.',
-      imageModel: 'bfl/flux-2-klein-4b',
+      imageModel: 'bfl/flux-2-klein-9b',
       rewriteModel: 'openai/gpt-5.4-mini',
       storyboardImageId: 'SHOT-01-START',
       shotId: 'SHOT-01',
@@ -179,7 +179,7 @@ test('rewriteStoryboardPrompt uses the configured rewrite step only for supporte
     },
   )
 
-  expect(modelUsesStoryboardPromptRewrite('bfl/flux-2-klein-4b')).toBe(true)
+  expect(modelUsesStoryboardPromptRewrite('bfl/flux-2-klein-9b')).toBe(true)
   expect(modelUsesStoryboardPromptRewrite('google/gemini-3.1-flash-image-preview')).toBe(false)
   expect(rewritten).toBe('Base storyboard prompt. Rewritten.')
   expect(untouched).toBe('Base storyboard prompt.')

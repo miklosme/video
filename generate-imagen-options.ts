@@ -15,7 +15,7 @@ import {
 const DEFAULT_IMAGE_MODEL = 'google/gemini-3.1-flash-image-preview'
 
 export const REFERENCE_CAPABLE_IMAGE_MODELS = [
-  'bfl/flux-2-klein-4b',
+  'bfl/flux-2-klein-9b',
   'google/gemini-3.1-flash-image-preview',
   'google/gemini-3-pro-image',
   'bfl/flux-kontext-pro',
@@ -24,7 +24,7 @@ export const REFERENCE_CAPABLE_IMAGE_MODELS = [
 
 const REFERENCE_CAPABLE_IMAGE_MODEL_SET = new Set<string>(REFERENCE_CAPABLE_IMAGE_MODELS)
 const IMAGE_ONLY_MODELS = new Set<string>([
-  'bfl/flux-2-klein-4b',
+  'bfl/flux-2-klein-9b',
   'bfl/flux-kontext-pro',
   'bfl/flux-kontext-max',
 ])
