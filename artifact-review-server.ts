@@ -162,8 +162,11 @@ interface StoryboardReviewCard {
   imageExists: boolean
 }
 
-interface StoryboardGridTile {
+interface StoryboardBoardTile {
+  tileKey: string
+  kind: 'existing' | 'missing-end'
   selectionId: string
+  sourceSelectionId: string
   storyboardImageId: string
   shotId: string
   frameType: FrameType
@@ -173,14 +176,23 @@ interface StoryboardGridTile {
   isSelected: boolean
 }
 
-interface StoryboardGridSlot {
-  shotId: string
-  startTile: StoryboardGridTile
-  endTile: StoryboardGridTile | null
-  missingEndSelectionId: string | null
-  missingEndStoryboardImageId: string | null
-  isMissingEndSelected: boolean
+interface StoryboardReorderExistingTileSource {
+  kind: 'existing'
+  tileKey: string
+  sourceSelectionId: string
+  sourceImage: StoryboardDerivedImageEntry
 }
+
+interface StoryboardReorderMissingEndTileSource {
+  kind: 'missing-end'
+  tileKey: string
+  sourceSelectionId: string
+  sourceImage: StoryboardDerivedImageEntry
+}
+
+type StoryboardReorderTileSource =
+  | StoryboardReorderExistingTileSource
+  | StoryboardReorderMissingEndTileSource
 
 type StoryboardSelectionKind = 'existing' | 'missing-end' | 'new-start'
 
@@ -522,6 +534,14 @@ function parseStoryboardMissingEndSelectionId(selectionId: string) {
 
   const startImageIndex = Number(match[1])
   return Number.isInteger(startImageIndex) && startImageIndex >= 0 ? startImageIndex : null
+}
+
+function getStoryboardExistingTileKey(selectionId: string) {
+  return `existing:${selectionId}`
+}
+
+function getStoryboardMissingEndTileKey(selectionId: string) {
+  return `missing-end:${selectionId}`
 }
 
 function findStoryboardImageByArtifactId(
@@ -1110,6 +1130,7 @@ function renderPage(
     autoRefresh?: boolean
     embedded?: boolean
     refreshParentDetailUrl?: string | null
+    extraBodyHtml?: string
   } = {},
 ) {
   const refreshTag = options.autoRefresh ? '<meta http-equiv="refresh" content="2">' : ''
@@ -1542,7 +1563,7 @@ function renderPage(
 
       .storyboard-editor-layout {
         display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
+        grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
         gap: 18px;
         align-items: start;
       }
@@ -1561,35 +1582,78 @@ function renderPage(
         min-width: 0;
       }
 
-      .storyboard-grid {
+      .storyboard-grid-toolbar {
         display: flex;
-        flex-direction: column;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 14px;
+      }
+
+      .storyboard-grid-column-labels {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 12px;
       }
 
-      .storyboard-slot {
+      .storyboard-grid-column-label {
+        padding: 9px 12px;
+        border: 1px solid rgba(255,255,255,0.05);
+        border-radius: 999px;
+        background: rgba(255,255,255,0.02);
+        color: var(--soft);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        text-align: center;
+      }
+
+      .storyboard-reorder-status {
+        min-height: 18px;
+        color: var(--soft);
+        font-size: 12px;
+        line-height: 1.45;
+      }
+
+      .storyboard-reorder-status[data-tone="info"] { color: var(--accent-2); }
+      .storyboard-reorder-status[data-tone="error"] { color: var(--error); }
+
+      .storyboard-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 12px;
         min-width: 0;
       }
 
-      .storyboard-slot-spacer {
+      .storyboard-add-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .storyboard-add-spacer {
         min-width: 0;
       }
 
       .storyboard-thumb {
         display: block;
+        position: relative;
         min-width: 0;
         border-radius: 18px;
         border: 1px solid rgba(255,255,255,0.06);
         background: rgba(255,255,255,0.02);
         text-decoration: none;
         overflow: hidden;
+        transition:
+          transform 140ms ease,
+          border-color 140ms ease,
+          box-shadow 140ms ease,
+          background-color 140ms ease;
       }
 
       .storyboard-thumb:hover {
         border-color: rgba(125,211,252,0.34);
+        transform: translateY(-1px);
       }
 
       .storyboard-thumb-active {
@@ -1601,6 +1665,83 @@ function renderPage(
 
       .storyboard-thumb-empty {
         border-style: dashed;
+      }
+
+      .storyboard-thumb-slot-badge {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 2;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 24px;
+        padding: 0 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(255,255,255,0.08);
+        background: rgba(10, 14, 20, 0.82);
+        backdrop-filter: blur(8px);
+        color: var(--soft);
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        opacity: 0;
+        transform: translateY(-4px);
+        pointer-events: none;
+        transition:
+          opacity 140ms ease,
+          transform 140ms ease,
+          color 140ms ease,
+          border-color 140ms ease;
+      }
+
+      .storyboard-grid-panel-reordering {
+        border-color: rgba(125,211,252,0.2);
+        box-shadow:
+          inset 0 0 0 1px rgba(125,211,252,0.08),
+          0 20px 44px rgba(5, 9, 14, 0.3);
+      }
+
+      .storyboard-grid-panel-reordering .storyboard-thumb {
+        cursor: grab;
+      }
+
+      .storyboard-grid-panel-reordering .storyboard-thumb-slot-badge {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .storyboard-grid-panel-reordering .storyboard-thumb[data-storyboard-reorder-frame-type="start"] .storyboard-thumb-slot-badge {
+        color: var(--accent);
+        border-color: rgba(159,232,112,0.22);
+      }
+
+      .storyboard-grid-panel-reordering .storyboard-thumb[data-storyboard-reorder-frame-type="end"] .storyboard-thumb-slot-badge {
+        color: var(--accent-2);
+        border-color: rgba(125,211,252,0.24);
+      }
+
+      .storyboard-thumb-ghost {
+        opacity: 0.34;
+        border-style: dashed;
+        border-color: rgba(125,211,252,0.34);
+        background: rgba(125,211,252,0.05);
+        box-shadow: inset 0 0 0 1px rgba(125,211,252,0.12);
+      }
+
+      .storyboard-thumb-chosen {
+        border-color: rgba(125,211,252,0.34);
+        box-shadow:
+          inset 0 0 0 1px rgba(125,211,252,0.12),
+          0 12px 28px rgba(8, 15, 20, 0.34);
+      }
+
+      .storyboard-thumb-drag {
+        transform: rotate(-1.5deg) scale(1.02);
+        box-shadow:
+          0 22px 34px rgba(5, 10, 15, 0.4),
+          inset 0 0 0 1px rgba(255,255,255,0.06);
       }
 
       .storyboard-thumb-media {
@@ -1954,8 +2095,9 @@ function renderPage(
         .shot-id { text-align: left; }
         .character-grid { grid-template-columns: 1fr 1fr; }
         .version-tile { flex-basis: 170px; }
-        .storyboard-slot { grid-template-columns: 1fr; }
-        .storyboard-slot-spacer { display: none; }
+        .storyboard-grid-toolbar {
+          flex-direction: column;
+        }
       }
     </style>
   </head>
@@ -1964,6 +2106,7 @@ function renderPage(
       ${options.embedded ? '' : renderTopNav(activeTab)}
       ${content}
     </div>
+    ${options.extraBodyHtml ?? ''}
     ${refreshParentScript}
   </body>
 </html>`
@@ -2444,57 +2587,45 @@ function renderCharactersSummary(cards: CharacterReviewCard[]) {
   )
 }
 
-function renderStoryboardGridTile(tile: StoryboardGridTile) {
-  const label = `${tile.storyboardImageId} (${frameTypeLabel(tile.frameType)} frame)`
+function renderStoryboardBoardTile(tile: StoryboardBoardTile) {
+  const label =
+    tile.kind === 'missing-end'
+      ? `${tile.storyboardImageId} (Optional end frame placeholder)`
+      : `${tile.storyboardImageId} (${frameTypeLabel(tile.frameType)} frame)`
 
   return `
     <a
-      class="${['storyboard-thumb', tile.isSelected ? 'storyboard-thumb-active' : ''].filter(Boolean).join(' ')}"
+      class="${[
+        'storyboard-thumb',
+        tile.kind === 'missing-end' ? 'storyboard-thumb-empty' : '',
+        tile.isSelected ? 'storyboard-thumb-active' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}"
       href="${appendSearchParams('/storyboard', { image: tile.selectionId })}"
       aria-label="${escapeHtml(label)}"
       title="${escapeHtml(label)}"
+      data-storyboard-tile-key="${escapeHtml(tile.tileKey)}"
+      data-storyboard-selection-id="${escapeHtml(tile.selectionId)}"
+      data-storyboard-kind="${escapeHtml(tile.kind)}"
+      data-storyboard-source-selection-id="${escapeHtml(tile.sourceSelectionId)}"
     >
+      <span class="storyboard-thumb-slot-badge" data-storyboard-slot-badge aria-hidden="true"></span>
       <div class="storyboard-thumb-media">
-        ${renderMediaBlock({
-          mediaType: 'image',
-          mediaUrl: tile.imageUrl,
-          mediaExists: tile.imageExists,
-          alt: tile.storyboardImageId,
-          placeholder: '',
-          className: 'version-media',
-        })}
+        ${
+          tile.kind === 'missing-end'
+            ? renderPlaceholder('Optional end frame', 'omitted')
+            : renderMediaBlock({
+                mediaType: 'image',
+                mediaUrl: tile.imageUrl,
+                mediaExists: tile.imageExists,
+                alt: tile.storyboardImageId,
+                placeholder: '',
+                className: 'version-media',
+              })
+        }
       </div>
     </a>
-  `
-}
-
-function renderStoryboardMissingEndTile(slot: StoryboardGridSlot) {
-  if (!slot.missingEndSelectionId || !slot.missingEndStoryboardImageId) {
-    return ''
-  }
-
-  const label = `${slot.missingEndStoryboardImageId} (Optional end frame placeholder)`
-
-  return `
-    <a
-      class="${['storyboard-thumb', 'storyboard-thumb-empty', slot.isMissingEndSelected ? 'storyboard-thumb-active' : ''].filter(Boolean).join(' ')}"
-      href="${appendSearchParams('/storyboard', { image: slot.missingEndSelectionId })}"
-      aria-label="${escapeHtml(label)}"
-      title="${escapeHtml(label)}"
-    >
-      <div class="storyboard-thumb-media">
-        ${renderPlaceholder('Optional end frame', 'omitted')}
-      </div>
-    </a>
-  `
-}
-
-function renderStoryboardGridSlot(slot: StoryboardGridSlot) {
-  return `
-    <div class="storyboard-slot">
-      ${renderStoryboardGridTile(slot.startTile)}
-      ${slot.endTile ? renderStoryboardGridTile(slot.endTile) : renderStoryboardMissingEndTile(slot)}
-    </div>
   `
 }
 
@@ -2515,17 +2646,260 @@ function renderStoryboardAddTile(isSelected: boolean) {
 
 function renderStoryboardAddRow(isSelected: boolean) {
   return `
-    <div class="storyboard-slot">
+    <div class="storyboard-add-row">
       ${renderStoryboardAddTile(isSelected)}
-      <div class="storyboard-slot-spacer" aria-hidden="true"></div>
+      <div class="storyboard-add-spacer" aria-hidden="true"></div>
     </div>
+  `
+}
+
+function renderStoryboardReorderScript() {
+  return `
+    <script src="/vendor/sortablejs.min.js"></script>
+    <script>
+      window.addEventListener('load', function () {
+        var shell = document.querySelector('[data-storyboard-reorder-shell]');
+        var grid = document.querySelector('[data-storyboard-grid]');
+        var toggleButton = document.querySelector('[data-storyboard-reorder-toggle]');
+        var saveButton = document.querySelector('[data-storyboard-reorder-save]');
+        var cancelButton = document.querySelector('[data-storyboard-reorder-cancel]');
+        var status = document.querySelector('[data-storyboard-reorder-status]');
+
+        if (!shell || !grid || !toggleButton || !saveButton || !cancelButton || !status) {
+          return;
+        }
+
+        if (typeof window.Sortable === 'undefined') {
+          toggleButton.setAttribute('disabled', 'disabled');
+          status.textContent = 'SortableJS did not load, so reorder mode is unavailable.';
+          status.dataset.tone = 'error';
+          return;
+        }
+
+        var sortable = null;
+        var isReordering = false;
+        var originalOrder = [];
+
+        function getTileItems() {
+          return Array.from(grid.querySelectorAll('[data-storyboard-tile-key]'));
+        }
+
+        function getTileKeys() {
+          return getTileItems()
+            .map(function (item) {
+              return item.getAttribute('data-storyboard-tile-key');
+            })
+            .filter(function (value) {
+              return typeof value === 'string' && value.length > 0;
+            });
+        }
+
+        function arraysEqual(left, right) {
+          if (left.length !== right.length) {
+            return false;
+          }
+
+          return left.every(function (value, index) {
+            return value === right[index];
+          });
+        }
+
+        function setStatus(message, tone) {
+          status.textContent = message;
+          status.dataset.tone = tone || 'default';
+        }
+
+        function updateTileRoles() {
+          getTileItems().forEach(function (item, index) {
+            var frameType = index % 2 === 0 ? 'start' : 'end';
+            item.setAttribute('data-storyboard-reorder-frame-type', frameType);
+
+            var badge = item.querySelector('[data-storyboard-slot-badge]');
+            if (badge) {
+              badge.textContent = frameType === 'start' ? 'Start slot' : 'End slot';
+            }
+          });
+        }
+
+        function syncButtons() {
+          var hasChanges = !arraysEqual(getTileKeys(), originalOrder);
+          saveButton.disabled = !hasChanges;
+        }
+
+        function enterReorderMode() {
+          if (isReordering) {
+            return;
+          }
+
+          originalOrder = getTileKeys();
+          isReordering = true;
+          shell.classList.add('storyboard-grid-panel-reordering');
+          toggleButton.hidden = true;
+          saveButton.hidden = false;
+          cancelButton.hidden = false;
+          updateTileRoles();
+          syncButtons();
+          setStatus(
+            'Drag tiles into place. Left column saves as start, right column saves as end. A moved placeholder becomes a real draft.',
+            'info',
+          );
+
+          sortable = window.Sortable.create(grid, {
+            animation: 180,
+            invertSwap: true,
+            swapThreshold: 0.68,
+            ghostClass: 'storyboard-thumb-ghost',
+            chosenClass: 'storyboard-thumb-chosen',
+            dragClass: 'storyboard-thumb-drag',
+            onEnd: function () {
+              updateTileRoles();
+              syncButtons();
+            },
+          });
+        }
+
+        function exitReorderMode() {
+          if (sortable) {
+            sortable.destroy();
+            sortable = null;
+          }
+
+          isReordering = false;
+          shell.classList.remove('storyboard-grid-panel-reordering');
+          toggleButton.hidden = false;
+          saveButton.hidden = true;
+          cancelButton.hidden = true;
+          saveButton.disabled = false;
+          cancelButton.disabled = false;
+          toggleButton.disabled = false;
+          updateTileRoles();
+        }
+
+        function restoreOriginalOrder() {
+          var itemsByKey = new Map(
+            getTileItems().map(function (item) {
+              return [item.getAttribute('data-storyboard-tile-key'), item];
+            }),
+          );
+
+          originalOrder.forEach(function (tileKey) {
+            var item = itemsByKey.get(tileKey);
+
+            if (item) {
+              grid.appendChild(item);
+            }
+          });
+        }
+
+        async function saveReorder() {
+          var tileKeys = getTileKeys();
+
+          if (arraysEqual(tileKeys, originalOrder)) {
+            exitReorderMode();
+            setStatus('Board order unchanged.', 'default');
+            return;
+          }
+
+          saveButton.disabled = true;
+          cancelButton.disabled = true;
+          toggleButton.disabled = true;
+          setStatus('Saving storyboard order...', 'info');
+
+          var selectedTile = document.querySelector('.storyboard-thumb-active[data-storyboard-tile-key]');
+          var selectedTileKey =
+            selectedTile instanceof Element
+              ? selectedTile.getAttribute('data-storyboard-tile-key')
+              : null;
+
+          try {
+            var response = await fetch('/storyboard/reorder', {
+              method: 'POST',
+              headers: {
+                'content-type': 'application/json',
+              },
+              body: JSON.stringify({
+                tileKeys: tileKeys,
+                selectedTileKey: selectedTileKey,
+              }),
+            });
+
+            if (!response.ok) {
+              var errorMessage = 'Failed to save storyboard order.';
+
+              try {
+                var errorPayload = await response.json();
+
+                if (
+                  errorPayload &&
+                  typeof errorPayload === 'object' &&
+                  typeof errorPayload.error === 'string' &&
+                  errorPayload.error.trim().length > 0
+                ) {
+                  errorMessage = errorPayload.error.trim();
+                }
+              } catch (error) {}
+
+              throw new Error(errorMessage);
+            }
+
+            var payload = await response.json();
+            var redirectUrl =
+              payload &&
+              typeof payload === 'object' &&
+              typeof payload.redirectUrl === 'string' &&
+              payload.redirectUrl.trim().length > 0
+                ? payload.redirectUrl
+                : '/storyboard';
+
+            window.location.assign(redirectUrl);
+          } catch (error) {
+            saveButton.disabled = false;
+            cancelButton.disabled = false;
+            toggleButton.disabled = false;
+            setStatus(
+              error instanceof Error ? error.message : 'Failed to save storyboard order.',
+              'error',
+            );
+          }
+        }
+
+        toggleButton.addEventListener('click', enterReorderMode);
+        cancelButton.addEventListener('click', function () {
+          restoreOriginalOrder();
+          exitReorderMode();
+          setStatus('Reorder cancelled.', 'default');
+        });
+        saveButton.addEventListener('click', function () {
+          void saveReorder();
+        });
+        grid.addEventListener('click', function (event) {
+          if (!isReordering) {
+            return;
+          }
+
+          var tile = event.target instanceof Element
+            ? event.target.closest('[data-storyboard-tile-key]')
+            : null;
+
+          if (tile) {
+            event.preventDefault();
+          }
+        });
+
+        updateTileRoles();
+        setStatus(
+          'Rows save left-to-right as start then end. Reorder mode lets you drag frames and placeholders before committing.',
+          'default',
+        );
+      });
+    </script>
   `
 }
 
 function renderStoryboardSummary(options: {
   storyboard: { images: StoryboardImageEntry[] } | null
   config: { fastImageModel: string } | null
-  slots: StoryboardGridSlot[]
+  boardTiles: StoryboardBoardTile[]
   selected: StoryboardSelectionState
   selectedCard: StoryboardReviewCard | null
   job: ArtifactJobState | null
@@ -2572,12 +2946,31 @@ function renderStoryboardSummary(options: {
     renderPage(
       'storyboard',
       `<section class="storyboard-editor-layout">
-        <div class="panel storyboard-grid-panel">
-          <p class="section-title">Board</p>
-          <div class="storyboard-grid">
-            ${options.slots.map(renderStoryboardGridSlot).join('')}
-            ${renderStoryboardAddRow(options.selected.kind === 'new-start')}
+        <div class="panel storyboard-grid-panel" data-storyboard-reorder-shell>
+          <div class="storyboard-grid-toolbar">
+            <div class="meta-stack">
+              <p class="section-title">Board</p>
+              <p class="form-note">Reorder scenes directly on the board. Left column commits as start, right column commits as end.</p>
+            </div>
+            ${
+              options.boardTiles.length > 0
+                ? `<div class="summary-actions">
+                    <button class="button-secondary" type="button" data-storyboard-reorder-toggle>Reorder Board</button>
+                    <button class="button-primary" type="button" data-storyboard-reorder-save hidden>Commit Reorder</button>
+                    <button type="button" data-storyboard-reorder-cancel hidden>Cancel</button>
+                  </div>`
+                : ''
+            }
           </div>
+          <div class="storyboard-grid-column-labels" aria-hidden="true">
+            <span class="storyboard-grid-column-label">Start Slot</span>
+            <span class="storyboard-grid-column-label">End Slot</span>
+          </div>
+          <p class="storyboard-reorder-status" data-storyboard-reorder-status></p>
+          <div class="storyboard-grid" data-storyboard-grid>
+            ${options.boardTiles.map(renderStoryboardBoardTile).join('')}
+          </div>
+          ${renderStoryboardAddRow(options.selected.kind === 'new-start')}
         </div>
         <div class="storyboard-editor-pane">
           ${renderJobBanner(options.job)}
@@ -2629,6 +3022,7 @@ function renderStoryboardSummary(options: {
       </section>`,
       {
         autoRefresh: options.job?.status === 'running',
+        extraBodyHtml: options.boardTiles.length > 0 ? renderStoryboardReorderScript() : '',
       },
     ),
     {
@@ -3201,56 +3595,100 @@ async function buildStoryboardCards(cwd: string) {
   ) satisfies Promise<StoryboardReviewCard[]>
 }
 
-async function buildStoryboardGridSlots(
+function buildStoryboardReorderSourceTiles(storyboard: { images: StoryboardImageEntry[] } | null) {
+  if (!storyboard) {
+    return [] satisfies StoryboardReorderTileSource[]
+  }
+
+  return buildStoryboardShotSlots(storyboard.images).flatMap((slot) => {
+    const startItem = slot.items.find((item) => item.entry.frameType === 'start') ?? slot.items[0]!
+    const startSelectionId = getStoryboardSelectionId(startItem.imageIndex)
+    const endItem =
+      slot.items.find(
+        (item) => item.entry.frameType === 'end' && item.imageIndex !== startItem.imageIndex,
+      ) ?? null
+    const tiles: StoryboardReorderTileSource[] = [
+      {
+        kind: 'existing',
+        tileKey: getStoryboardExistingTileKey(startSelectionId),
+        sourceSelectionId: startSelectionId,
+        sourceImage: startItem,
+      },
+    ]
+
+    if (endItem) {
+      tiles.push({
+        kind: 'existing',
+        tileKey: getStoryboardExistingTileKey(getStoryboardSelectionId(endItem.imageIndex)),
+        sourceSelectionId: getStoryboardSelectionId(endItem.imageIndex),
+        sourceImage: endItem,
+      })
+    } else if (startItem.entry.frameType === 'start') {
+      tiles.push({
+        kind: 'missing-end',
+        tileKey: getStoryboardMissingEndTileKey(startSelectionId),
+        sourceSelectionId: startSelectionId,
+        sourceImage: startItem,
+      })
+    }
+
+    return tiles
+  })
+}
+
+async function buildStoryboardBoardTiles(
   storyboard: { images: StoryboardImageEntry[] } | null,
   selectedImageId: string,
   cwd: string,
 ) {
   if (!storyboard) {
-    return [] satisfies StoryboardGridSlot[]
+    return [] satisfies StoryboardBoardTile[]
   }
 
   const cards = await buildStoryboardCards(cwd)
   const cardBySelectionId = new Map(cards.map((card) => [card.selectionId, card]))
 
-  return buildStoryboardShotSlots(storyboard.images).map((slot) => {
-    const startItem = slot.items.find((item) => item.entry.frameType === 'start') ?? slot.items[0]!
-    const endItem =
-      slot.items.find(
-        (item) => item.entry.frameType === 'end' && item.imageIndex !== startItem.imageIndex,
-      ) ?? null
-    const mapTile = (item: StoryboardDerivedImageEntry) => {
-      const selectionId = getStoryboardSelectionId(item.imageIndex)
-      const card = cardBySelectionId.get(selectionId)
-
+  return buildStoryboardReorderSourceTiles(storyboard).map((tile) => {
+    if (tile.kind === 'missing-end') {
       return {
-        selectionId,
-        storyboardImageId: item.storyboardImageId,
-        shotId: item.shotId,
-        frameType: item.entry.frameType,
-        goal: item.entry.goal,
-        imageUrl:
-          card?.imageUrl ??
-          (item.entry.imagePath ? `/${encodeAssetUrl(item.entry.imagePath)}` : null),
-        imageExists: card?.imageExists ?? false,
-        isSelected: selectionId === selectedImageId,
-      } satisfies StoryboardGridTile
+        tileKey: tile.tileKey,
+        kind: tile.kind,
+        selectionId: getStoryboardMissingEndSelectionId(tile.sourceImage.imageIndex),
+        sourceSelectionId: tile.sourceSelectionId,
+        storyboardImageId: getStoryboardImageId({
+          shotId: tile.sourceImage.shotId,
+          frameType: 'end',
+        }),
+        shotId: tile.sourceImage.shotId,
+        frameType: 'end',
+        goal: tile.sourceImage.entry.goal,
+        imageUrl: null,
+        imageExists: false,
+        isSelected:
+          getStoryboardMissingEndSelectionId(tile.sourceImage.imageIndex) === selectedImageId,
+      } satisfies StoryboardBoardTile
     }
-    const canAddMissingEnd = startItem.entry.frameType === 'start' && endItem === null
-    const missingEndSelectionId = canAddMissingEnd
-      ? getStoryboardMissingEndSelectionId(startItem.imageIndex)
-      : null
+
+    const selectionId = tile.sourceSelectionId
+    const card = cardBySelectionId.get(selectionId)
 
     return {
-      shotId: slot.shotId,
-      startTile: mapTile(startItem),
-      endTile: endItem ? mapTile(endItem) : null,
-      missingEndSelectionId,
-      missingEndStoryboardImageId: canAddMissingEnd
-        ? getStoryboardImageId({ shotId: slot.shotId, frameType: 'end' })
-        : null,
-      isMissingEndSelected: missingEndSelectionId === selectedImageId,
-    } satisfies StoryboardGridSlot
+      tileKey: tile.tileKey,
+      kind: tile.kind,
+      selectionId,
+      sourceSelectionId: tile.sourceSelectionId,
+      storyboardImageId: tile.sourceImage.storyboardImageId,
+      shotId: tile.sourceImage.shotId,
+      frameType: tile.sourceImage.entry.frameType,
+      goal: tile.sourceImage.entry.goal,
+      imageUrl:
+        card?.imageUrl ??
+        (tile.sourceImage.entry.imagePath
+          ? `/${encodeAssetUrl(tile.sourceImage.entry.imagePath)}`
+          : null),
+      imageExists: card?.imageExists ?? false,
+      isSelected: selectionId === selectedImageId,
+    } satisfies StoryboardBoardTile
   })
 }
 
@@ -4026,6 +4464,21 @@ async function serveCanonicalShotVideo(requestPath: string, cwd: string) {
   return new Response(Bun.file(absolutePath))
 }
 
+async function serveSortableJsBundle(cwd: string) {
+  const absolutePath = path.resolve(cwd, 'node_modules', 'sortablejs', 'Sortable.min.js')
+
+  if (!(await fileExists(absolutePath))) {
+    return new Response('Not Found', { status: 404 })
+  }
+
+  return new Response(Bun.file(absolutePath), {
+    headers: {
+      'content-type': 'text/javascript; charset=utf-8',
+      'cache-control': 'no-store',
+    },
+  })
+}
+
 async function serveArtifactVersionMedia(
   descriptor: ArtifactDescriptor,
   versionId: string,
@@ -4368,6 +4821,186 @@ function createStoryboardDraftFromForm(input: StoryboardEditorFormInput, frameTy
   })
 }
 
+interface StoryboardReorderInput {
+  tileKeys: string[]
+  selectedTileKey: string | null
+}
+
+async function parseStoryboardReorderRequest(request: Request): Promise<StoryboardReorderInput> {
+  const payload = (await request.json()) as unknown
+
+  if (typeof payload !== 'object' || payload === null || Array.isArray(payload)) {
+    throw new Error('Storyboard reorder payload must be an object.')
+  }
+
+  const rawTileKeys = (payload as { tileKeys?: unknown }).tileKeys
+  const rawSelectedTileKey = (payload as { selectedTileKey?: unknown }).selectedTileKey
+
+  if (
+    !Array.isArray(rawTileKeys) ||
+    rawTileKeys.some((value) => typeof value !== 'string' || value.trim().length === 0)
+  ) {
+    throw new Error('Storyboard reorder payload must include a non-empty tileKeys array.')
+  }
+
+  if (
+    rawSelectedTileKey !== undefined &&
+    rawSelectedTileKey !== null &&
+    typeof rawSelectedTileKey !== 'string'
+  ) {
+    throw new Error('Storyboard reorder selectedTileKey must be a string when provided.')
+  }
+
+  return {
+    tileKeys: rawTileKeys.map((value) => value.trim()),
+    selectedTileKey:
+      typeof rawSelectedTileKey === 'string' && rawSelectedTileKey.trim().length > 0
+        ? rawSelectedTileKey.trim()
+        : null,
+  }
+}
+
+function shouldKeepStoryboardMissingEndVirtual(
+  tileKeys: readonly string[],
+  position: number,
+  source: StoryboardReorderMissingEndTileSource,
+) {
+  if (position % 2 !== 1) {
+    return false
+  }
+
+  return tileKeys[position - 1] === getStoryboardExistingTileKey(source.sourceSelectionId)
+}
+
+function materializeStoryboardReorderTile(
+  source: StoryboardReorderTileSource,
+  frameType: FrameType,
+) {
+  if (source.kind === 'existing') {
+    return {
+      ...source.sourceImage.entry,
+      frameType,
+    } satisfies StoryboardImageEntry
+  }
+
+  return createStoryboardImageEntry({
+    frameType,
+    goal: source.sourceImage.entry.goal,
+    references: source.sourceImage.entry.references ?? [],
+  })
+}
+
+function resolveStoryboardReorderSelectedImageId(options: {
+  orderedTileKeys: string[]
+  selectedTileKey: string | null
+  sourceTileByKey: Map<string, StoryboardReorderTileSource>
+  nextImageIndexByTileKey: Map<string, number>
+}) {
+  if (!options.selectedTileKey) {
+    return null
+  }
+
+  const selectedImageIndex = options.nextImageIndexByTileKey.get(options.selectedTileKey)
+
+  if (selectedImageIndex !== undefined) {
+    return getStoryboardSelectionId(selectedImageIndex)
+  }
+
+  const selectedSource = options.sourceTileByKey.get(options.selectedTileKey)
+
+  if (!selectedSource || selectedSource.kind !== 'missing-end') {
+    return null
+  }
+
+  const selectedPosition = options.orderedTileKeys.indexOf(options.selectedTileKey)
+
+  if (
+    selectedPosition < 0 ||
+    !shouldKeepStoryboardMissingEndVirtual(
+      options.orderedTileKeys,
+      selectedPosition,
+      selectedSource,
+    )
+  ) {
+    return null
+  }
+
+  const sourceImageIndex = options.nextImageIndexByTileKey.get(
+    getStoryboardExistingTileKey(selectedSource.sourceSelectionId),
+  )
+
+  return sourceImageIndex !== undefined
+    ? getStoryboardMissingEndSelectionId(sourceImageIndex)
+    : null
+}
+
+async function reorderStoryboardTiles(input: StoryboardReorderInput, cwd: string) {
+  const storyboard = await loadStoryboardOrEmpty(cwd)
+
+  if (!storyboard) {
+    throw new Error('workspace/STORYBOARD.json is missing.')
+  }
+
+  const sourceTiles = buildStoryboardReorderSourceTiles(storyboard)
+
+  if (sourceTiles.length === 0) {
+    throw new Error('There are no storyboard tiles to reorder.')
+  }
+
+  if (input.tileKeys.length !== sourceTiles.length) {
+    throw new Error('Storyboard reorder must include every visible board tile exactly once.')
+  }
+
+  const sourceTileByKey = new Map(sourceTiles.map((tile) => [tile.tileKey, tile]))
+  const seenTileKeys = new Set<string>()
+
+  for (const tileKey of input.tileKeys) {
+    if (seenTileKeys.has(tileKey)) {
+      throw new Error(`Storyboard reorder tile "${tileKey}" appears more than once.`)
+    }
+
+    if (!sourceTileByKey.has(tileKey)) {
+      throw new Error(`Storyboard reorder tile "${tileKey}" is not part of the current board.`)
+    }
+
+    seenTileKeys.add(tileKey)
+  }
+
+  const nextImages: StoryboardImageEntry[] = []
+  const nextImageIndexByTileKey = new Map<string, number>()
+
+  for (let position = 0; position < input.tileKeys.length; position += 1) {
+    const tileKey = input.tileKeys[position]!
+    const source = sourceTileByKey.get(tileKey)!
+    const frameType = position % 2 === 0 ? 'start' : 'end'
+
+    if (
+      source.kind === 'missing-end' &&
+      shouldKeepStoryboardMissingEndVirtual(input.tileKeys, position, source)
+    ) {
+      continue
+    }
+
+    nextImageIndexByTileKey.set(tileKey, nextImages.length)
+    nextImages.push(materializeStoryboardReorderTile(source, frameType))
+  }
+
+  const nextStoryboard = {
+    images: nextImages,
+  } satisfies StoryboardSidecar
+  const savedStoryboard = await writeStoryboardManifest(nextStoryboard, cwd)
+
+  return {
+    storyboard: savedStoryboard,
+    selectedImageId: resolveStoryboardReorderSelectedImageId({
+      orderedTileKeys: input.tileKeys,
+      selectedTileKey: input.selectedTileKey,
+      sourceTileByKey,
+      nextImageIndexByTileKey,
+    }),
+  }
+}
+
 async function syncKeyframeStoryboardReference(keyframeId: string, cwd: string) {
   const [storyboard, keyframes, shots, artifacts] = await Promise.all([
     loadStoryboardOrEmpty(cwd),
@@ -4521,6 +5154,27 @@ async function handleStoryboardSave(request: Request, cwd: string) {
     appendSearchParams(buildPostActionRedirectLocation('/storyboard', request, { updated: true }), {
       image: getStoryboardSelectionId(entry.entry.imageIndex),
     }),
+  )
+}
+
+async function handleStoryboardReorder(request: Request, cwd: string) {
+  const input = await parseStoryboardReorderRequest(request)
+  const result = await reorderStoryboardTiles(input, cwd)
+
+  return new Response(
+    JSON.stringify({
+      status: 'ok',
+      redirectUrl: appendSearchParams(
+        buildPostActionRedirectLocation('/storyboard', request, { updated: true }),
+        {
+          image: result.selectedImageId,
+        },
+      ),
+      storyboard: result.storyboard,
+    }),
+    {
+      headers: JSON_HEADERS,
+    },
   )
 }
 
@@ -4911,7 +5565,11 @@ export function startArtifactReviewServer(
           ) {
             const storyboard = await loadStoryboardOrEmpty(cwd)
             const selected = getStoryboardSelectionState(storyboard, url.searchParams.get('image'))
-            const slots = await buildStoryboardGridSlots(storyboard, selected.selectedImageId, cwd)
+            const boardTiles = await buildStoryboardBoardTiles(
+              storyboard,
+              selected.selectedImageId,
+              cwd,
+            )
             const cards = await buildStoryboardCards(cwd)
             const selectedCard = selected.selectedEntry
               ? (cards.find(
@@ -4936,7 +5594,7 @@ export function startArtifactReviewServer(
             return renderStoryboardSummary({
               storyboard,
               config: await loadConfig(cwd).catch(() => null),
-              slots,
+              boardTiles,
               selected,
               selectedCard,
               job: selectedJob,
@@ -5129,6 +5787,19 @@ export function startArtifactReviewServer(
             return await handleStoryboardSave(request, cwd)
           }
 
+          if (request.method === 'POST' && url.pathname === '/storyboard/reorder') {
+            try {
+              return await handleStoryboardReorder(request, cwd)
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error)
+
+              return new Response(JSON.stringify({ error: message }), {
+                status: 400,
+                headers: JSON_HEADERS,
+              })
+            }
+          }
+
           if (request.method === 'POST' && url.pathname === '/storyboard/render') {
             return await handleStoryboardRender(request, cwd, activeJobs, generatorOverrides)
           }
@@ -5213,6 +5884,13 @@ export function startArtifactReviewServer(
 
           if (request.method === 'POST' && /\/remove$/.test(url.pathname)) {
             return await handleRemove(url.pathname.replace(/\/remove$/, ''), request, cwd)
+          }
+
+          if (
+            (request.method === 'GET' || request.method === 'HEAD') &&
+            url.pathname === '/vendor/sortablejs.min.js'
+          ) {
+            return serveSortableJsBundle(cwd)
           }
 
           if (

@@ -268,6 +268,8 @@ test('artifact review server renders the storyboard board before the editor and 
       expect(html).not.toContain('storyboard-thumb-copy')
       expect(html).toContain('storyboard-thumb-add-icon')
       expect(html).toContain('aria-label="SHOT-01-START (Start frame)"')
+      expect(html).toContain('data-storyboard-reorder-toggle')
+      expect(html).toContain('/vendor/sortablejs.min.js')
       expect(html.indexOf('class="panel storyboard-grid-panel"')).toBeLessThan(
         html.indexOf('class="storyboard-editor-pane"'),
       )
@@ -314,6 +316,192 @@ test('artifact review server leaves storyboard prompt cache empty until generati
 
       expect(storyboard.images).toHaveLength(1)
       expect(storyboard.images[0]?.prompt ?? null).toBeNull()
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server reorder endpoint keeps an untouched missing end placeholder virtual', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'Open on the dog squinting at the glass.',
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard/reorder', server.url), {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          tileKeys: ['existing:0', 'missing-end:0'],
+          selectedTileKey: 'missing-end:0',
+        }),
+      })
+
+      expect(response.status).toBe(200)
+
+      const payload = (await response.json()) as {
+        status: string
+        redirectUrl: string
+      }
+
+      expect(payload.status).toBe('ok')
+      expect(payload.redirectUrl).toContain('image=__end__%3A0')
+
+      const storyboard = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+      ) as {
+        images: Array<{
+          frameType: 'start' | 'end'
+          goal: string
+          imagePath: string | null
+          prompt?: string | null
+        }>
+      }
+
+      expect(storyboard.images).toEqual([
+        {
+          frameType: 'start',
+          goal: 'Open on the dog squinting at the glass.',
+          imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+        },
+      ])
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server reorder endpoint flips frame sides and materializes moved placeholders', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'Merchant freezes in the market.',
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+            },
+            {
+              frameType: 'end',
+              goal: 'The crowd surges past his panic.',
+              imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
+            },
+            {
+              frameType: 'start',
+              goal: 'He rushes toward the library doors.',
+              imagePath: 'workspace/STORYBOARD/storyboard-image-gamma.png',
+              references: [
+                { kind: 'storyboard-template', path: 'templates/STORYBOARD.template.png' },
+              ],
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard/reorder', server.url), {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          tileKeys: ['existing:1', 'existing:0', 'missing-end:2', 'existing:2'],
+          selectedTileKey: 'existing:1',
+        }),
+      })
+
+      expect(response.status).toBe(200)
+
+      const payload = (await response.json()) as {
+        status: string
+        redirectUrl: string
+      }
+
+      expect(payload.status).toBe('ok')
+      expect(payload.redirectUrl).toContain('image=0')
+
+      const storyboard = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+      ) as {
+        images: Array<{
+          frameType: 'start' | 'end'
+          goal: string
+          imagePath: string | null
+          prompt?: string | null
+          references?: Array<{ kind: string; path: string }>
+        }>
+      }
+
+      expect(storyboard.images).toEqual([
+        {
+          frameType: 'start',
+          goal: 'The crowd surges past his panic.',
+          imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
+        },
+        {
+          frameType: 'end',
+          goal: 'Merchant freezes in the market.',
+          imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+        },
+        {
+          frameType: 'start',
+          goal: 'He rushes toward the library doors.',
+          prompt: null,
+          imagePath: null,
+          references: [
+            {
+              kind: 'storyboard-template',
+              path: 'templates/STORYBOARD.template.png',
+            },
+          ],
+        },
+        {
+          frameType: 'end',
+          goal: 'He rushes toward the library doors.',
+          imagePath: 'workspace/STORYBOARD/storyboard-image-gamma.png',
+          references: [
+            {
+              kind: 'storyboard-template',
+              path: 'templates/STORYBOARD.template.png',
+            },
+          ],
+        },
+      ])
     } finally {
       await server.stop()
     }
