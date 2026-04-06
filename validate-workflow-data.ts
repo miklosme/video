@@ -333,9 +333,7 @@ export async function validateStoryboardSidecar(sidecar: StoryboardSidecar | nul
   }
 
   const context = 'workspace/STORYBOARD.json'
-  const seenImageIds = new Set<string>()
   const seenImagePaths = new Set<string>()
-  const seenShotAnchors = new Set<string>()
 
   if (sidecar.images.length === 0) {
     throw new Error(`${context} must declare at least one storyboard image.`)
@@ -345,34 +343,17 @@ export async function validateStoryboardSidecar(sidecar: StoryboardSidecar | nul
     const imageContext = `${context}.images[${index}]`
     const previousImage = index > 0 ? (sidecar.images[index - 1] ?? null) : null
 
-    if (seenImageIds.has(image.storyboardImageId)) {
-      throw new Error(`${context} has duplicate storyboardImageId "${image.storyboardImageId}".`)
+    if (image.imagePath !== null) {
+      if (seenImagePaths.has(image.imagePath)) {
+        throw new Error(`${context} has duplicate imagePath "${image.imagePath}".`)
+      }
+
+      seenImagePaths.add(image.imagePath)
     }
 
-    if (seenImagePaths.has(image.imagePath)) {
-      throw new Error(`${context} has duplicate imagePath "${image.imagePath}".`)
-    }
-
-    const shotAnchorKey = `${image.shotId}:${image.frameType}`
-
-    if (seenShotAnchors.has(shotAnchorKey)) {
+    if (image.frameType === 'end' && previousImage?.frameType !== 'start') {
       throw new Error(
-        `${context} has duplicate storyboard image planning for ${image.shotId} ${image.frameType}.`,
-      )
-    }
-
-    seenImageIds.add(image.storyboardImageId)
-    seenImagePaths.add(image.imagePath)
-    seenShotAnchors.add(shotAnchorKey)
-
-    if (
-      image.frameType === 'end' &&
-      (!previousImage ||
-        previousImage.frameType !== 'start' ||
-        previousImage.shotId !== image.shotId)
-    ) {
-      throw new Error(
-        `${imageContext} must directly follow its matching start frame in workspace/STORYBOARD.json.`,
+        `${imageContext} must directly follow a matching start frame in workspace/STORYBOARD.json.`,
       )
     }
 
@@ -513,7 +494,9 @@ async function main() {
     const plannedStoryboardImages = storyboardSidecar?.images ?? []
     const storyboardImageStates = await Promise.all(
       plannedStoryboardImages.map((entry) =>
-        workspacePathExists(entry.imagePath.replace(/^workspace\//, ''), process.cwd()),
+        entry.imagePath === null
+          ? false
+          : workspacePathExists(entry.imagePath.replace(/^workspace\//, ''), process.cwd()),
       ),
     )
 

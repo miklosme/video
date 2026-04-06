@@ -497,7 +497,7 @@ function buildRuntimeDirective(
     '- Before writing or revising keyframe sidecars, character-sheet sidecars, shot sidecars, or SHOTS.json, read workspace/CONFIG.json, MODEL_PROMPTING_GUIDE.md, and CAMERA_VOCABULARY.json.',
   )
   lines.push(
-    '- workspace/STORYBOARD.json is the canonical storyboard plan. It stores sequenceSummary plus an ordered images array, where each storyboard image item owns storyboardImageId, shotId, frameType, imagePath, and its planning fields.',
+    '- workspace/STORYBOARD.json is the canonical storyboard plan. It stores an ordered images array where each storyboard image item owns frameType, goal, nullable imagePath, and optional references. Derive shot ids and storyboard image ids from board order instead of storing them.',
   )
   lines.push(
     '- Storyboard review now happens per image under workspace/STORYBOARD/*.png, generated one image at a time from workspace/STORYBOARD.json.',
@@ -1158,7 +1158,9 @@ export function createVideoAgentRuntime(options: VideoAgentRuntimeOptions = {}):
 
       const imageStates = await Promise.all(
         storyboard.images.map((entry) =>
-          workspacePathExists(entry.imagePath.replace(/^workspace\//, ''), rootDir),
+          entry.imagePath === null
+            ? false
+            : workspacePathExists(entry.imagePath.replace(/^workspace\//, ''), rootDir),
         ),
       )
 

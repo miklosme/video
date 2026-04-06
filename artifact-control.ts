@@ -5,7 +5,7 @@ import {
   getCharacterSheetImagePath,
   getKeyframeImagePath,
   getShotVideoPath,
-  getStoryboardImagePath,
+  getStoryboardArtifactIdFromPath,
   getStoryboardSidecarPath,
   normalizeRepoRelativePath,
   resolveRepoPath,
@@ -235,24 +235,29 @@ export async function assertResolvedReferencesExist(
 }
 
 export function getStoryboardArtifactDescriptor(
-  storyboardImage: Pick<StoryboardImageEntry, 'storyboardImageId' | 'shotId'>,
+  storyboardImage: Pick<StoryboardImageEntry, 'imagePath'> & {
+    shotId?: string | null
+    storyboardImageId?: string
+  },
 ): ArtifactDescriptor {
-  const historyDir = path.posix.join(
-    'workspace',
-    'STORYBOARD',
-    HISTORY_FOLDER_NAME,
-    storyboardImage.storyboardImageId,
-  )
+  if (storyboardImage.imagePath === null) {
+    throw new Error(
+      'Storyboard image is missing imagePath and cannot build an artifact descriptor.',
+    )
+  }
+
+  const artifactId = getStoryboardArtifactIdFromPath(storyboardImage.imagePath)
+  const historyDir = path.posix.join('workspace', 'STORYBOARD', HISTORY_FOLDER_NAME, artifactId)
 
   return {
     artifactType: 'storyboard',
-    artifactId: storyboardImage.storyboardImageId,
-    displayName: `Storyboard ${storyboardImage.storyboardImageId}`,
-    publicPath: getStoryboardImagePath(storyboardImage.storyboardImageId),
+    artifactId,
+    displayName: `Storyboard ${storyboardImage.storyboardImageId ?? artifactId}`,
+    publicPath: storyboardImage.imagePath,
     sidecarPath: getStoryboardSidecarPath(),
     historyDir,
     mediaExtension: '.png',
-    shotId: storyboardImage.shotId,
+    shotId: storyboardImage.shotId ?? null,
   }
 }
 

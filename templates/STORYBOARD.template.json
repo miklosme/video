@@ -1,16 +1,9 @@
 {
-  "sequenceSummary": "TBD",
   "images": [
     {
-      "storyboardImageId": "SHOT-01-START",
-      "shotId": "SHOT-01",
       "frameType": "start",
-      "title": "TBD",
-      "purpose": "TBD",
-      "visual": "TBD",
-      "transition": "TBD",
-      "status": "planned",
-      "imagePath": "workspace/STORYBOARD/SHOT-01-START.png",
+      "goal": "TBD",
+      "imagePath": null,
       "references": []
     }
   ]

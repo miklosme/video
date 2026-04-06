@@ -22,19 +22,11 @@ async function writeRepoFile(rootDir: string, relativePath: string, content: str
 
 function createStoryboard(): StoryboardSidecar {
   return {
-    sequenceSummary:
-      'A dog discovers a strange reflection and slowly realizes the transformation has already started.',
     images: [
       {
-        storyboardImageId: 'SHOT-01-START',
-        shotId: 'SHOT-01',
         frameType: 'start',
-        title: 'Discovery',
-        purpose: 'Establish the dog and trigger curiosity.',
-        visual: 'The dog notices something off in the window reflection.',
-        transition: 'Open quietly before the reveal escalates.',
-        status: 'planned',
-        imagePath: 'workspace/STORYBOARD/SHOT-01-START.png',
+        goal: 'Establish the dog noticing something off in the window reflection.',
+        imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
         references: [
           {
             kind: 'user-reference',
@@ -43,15 +35,9 @@ function createStoryboard(): StoryboardSidecar {
         ],
       },
       {
-        storyboardImageId: 'SHOT-02-END',
-        shotId: 'SHOT-02',
         frameType: 'end',
-        title: 'Transformation Lands',
-        purpose: 'Show the closing beat of the change.',
-        visual: 'The transformed dog stares directly at us.',
-        transition: 'End on an uncanny still beat.',
-        status: 'planned',
-        imagePath: 'workspace/STORYBOARD/SHOT-02-END.png',
+        goal: 'Land the transformed dog staring directly at us.',
+        imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
         references: [],
       },
     ],
@@ -62,11 +48,12 @@ test('buildStoryboardPrompt targets a single storyboard image rather than a boar
   const storyboard = createStoryboard()
   const prompt = buildStoryboardPrompt(storyboard, 'SHOT-01-START')
 
-  expect(prompt).toContain('A minimal storyboard sketch')
-  expect(prompt).toContain('Single frame only')
+  expect(prompt).toContain('Create a single storyboard image')
+  expect(prompt).toContain('Do not create a multi-panel sheet')
   expect(prompt).toContain('Shot: SHOT-01 (start)')
-  expect(prompt).toContain('Previous context: none.')
-  expect(prompt).toContain('Next context: The transformed dog stares directly at us.')
+  expect(prompt).toContain(
+    'Goal: Establish the dog noticing something off in the window reflection.',
+  )
   expect(prompt).not.toContain('storyboard template image')
 })
 
@@ -90,19 +77,21 @@ test('runStoryboardRegeneration keeps the selected storyboard image and retained
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD/HISTORY/SHOT-01-START/v2.png',
+      'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v2.png',
       'selected-storyboard',
     )
     await writeRepoFile(rootDir, 'workspace/references/window.png', 'reference-image')
 
     const generation: PendingStoryboardGeneration = {
+      imageIndex: 0,
       storyboardImageId: 'SHOT-01-START',
       shotId: 'SHOT-01',
       frameType: 'start',
-      title: 'Discovery',
+      goal: 'Establish the dog noticing something off in the window reflection.',
+      artifactId: 'storyboard-image-alpha',
       model: 'image-test',
       prompt: 'Prompt',
-      outputPath: 'workspace/STORYBOARD/SHOT-01-START.png',
+      outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
       userReferences: [
         {
           kind: 'user-reference',
@@ -113,9 +102,9 @@ test('runStoryboardRegeneration keeps the selected storyboard image and retained
 
     let seenSize: string | undefined
     const result = await runStoryboardRegeneration(generation, {
-      outputPath: 'workspace/STORYBOARD/HISTORY/SHOT-01-START/.staged-v3.png',
+      outputPath: 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/.staged-v3.png',
       regenerateRequest: 'Remove the extra background character.',
-      selectedVersionPath: 'workspace/STORYBOARD/HISTORY/SHOT-01-START/v2.png',
+      selectedVersionPath: 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v2.png',
       cwd: rootDir,
       generator: async (input) => {
         seenSize = input.size
@@ -129,11 +118,17 @@ test('runStoryboardRegeneration keeps the selected storyboard image and retained
     })
 
     expect(result.prompt).toContain('Regenerate the current storyboard image for SHOT-01-START')
-    expect(result.prompt).toContain('Keep the same minimal storyboard sketch style')
+    expect(result.prompt).toContain(
+      'Goal: Establish the dog noticing something off in the window reflection.',
+    )
+    expect(result.prompt).toContain('Direction:')
     expect(result.prompt).toContain('Remove the extra background character.')
     expect(seenSize).toBe('896x512')
     expect(result.references).toEqual([
-      { kind: 'selected-image', path: 'workspace/STORYBOARD/HISTORY/SHOT-01-START/v2.png' },
+      {
+        kind: 'selected-image',
+        path: 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v2.png',
+      },
       { kind: 'user-reference', path: 'workspace/references/window.png' },
     ])
   } finally {
@@ -166,7 +161,7 @@ test('generate-storyboard skips when the selected storyboard image already exist
       'workspace/STORYBOARD.json',
       `${JSON.stringify(createStoryboard(), null, 2)}\n`,
     )
-    await writeRepoFile(rootDir, 'workspace/STORYBOARD/SHOT-01-START.png', 'existing-png')
+    await writeRepoFile(rootDir, 'workspace/STORYBOARD/storyboard-image-alpha.png', 'existing-png')
 
     const result = Bun.spawnSync({
       cmd: [process.execPath, scriptPath, '--storyboard-image-id', 'SHOT-01-START'],
@@ -177,7 +172,7 @@ test('generate-storyboard skips when the selected storyboard image already exist
 
     expect(result.exitCode).toBe(0)
     expect(new TextDecoder().decode(result.stdout)).toContain(
-      'Skipping SHOT-01-START; image already exists at workspace/STORYBOARD/SHOT-01-START.png',
+      'Skipping SHOT-01-START; image already exists at workspace/STORYBOARD/storyboard-image-alpha.png',
     )
   } finally {
     await rm(rootDir, { recursive: true, force: true })
@@ -224,7 +219,11 @@ test('generate-storyboard explains when the storyboard sidecar is missing', asyn
 test('syncStoryboardGeneration renders variantCount retained versions and selects the last one', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-variants-'))
   const storyboard = createStoryboard()
-  const descriptor = getStoryboardArtifactDescriptor(storyboard.images[0]!)
+  const descriptor = getStoryboardArtifactDescriptor({
+    imagePath: storyboard.images[0]!.imagePath!,
+    shotId: 'SHOT-01',
+    storyboardImageId: 'SHOT-01-START',
+  })
 
   try {
     await writeRepoFile(rootDir, 'workspace/references/window.png', 'window-reference')
@@ -261,7 +260,10 @@ test('syncStoryboardGeneration renders variantCount retained versions and select
     expect(sizes).toEqual(['896x512', '896x512', '896x512'])
     expect(seeds).toEqual([1, 2, 3])
     expect(
-      await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/SHOT-01-START.png'), 'utf8'),
+      await readFile(
+        path.resolve(rootDir, 'workspace/STORYBOARD/storyboard-image-alpha.png'),
+        'utf8',
+      ),
     ).toBe('storyboard:3')
     expect(await readFile(path.resolve(rootDir, descriptor.historyDir, 'v1.png'), 'utf8')).toBe(
       'storyboard:1',

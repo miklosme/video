@@ -1,4 +1,7 @@
+import { randomBytes } from 'node:crypto'
+
 import {
+  getStoryboardArtifactIdFromPath,
   getStoryboardImageId,
   getStoryboardImagePath,
   type ArtifactReferenceEntry,
@@ -8,59 +11,84 @@ import {
 
 export const STORYBOARD_NEW_SELECTION_ID = '__new__'
 
+export interface StoryboardDerivedImageEntry {
+  imageIndex: number
+  shotIndex: number
+  shotId: string
+  storyboardImageId: string
+  entry: StoryboardImageEntry
+}
+
 export interface StoryboardShotSlot {
   shotIndex: number
   shotId: string
-  items: StoryboardImageEntry[]
+  items: StoryboardDerivedImageEntry[]
 }
 
 export function formatStoryboardShotId(index: number) {
   return `SHOT-${String(index).padStart(2, '0')}`
 }
 
-export function getNextStoryboardShotId(
-  images: readonly Pick<StoryboardImageEntry, 'shotId' | 'frameType'>[],
-) {
-  const numericShotIds = images
-    .filter((image) => image.frameType === 'start')
-    .map((image) => /(\d+)(?!.*\d)/.exec(image.shotId)?.[1] ?? null)
-    .filter((value): value is string => value !== null)
-    .map((value) => Number(value))
-    .filter((value) => Number.isFinite(value))
+export function getStoryboardSelectionId(imageIndex: number) {
+  return String(imageIndex)
+}
 
-  if (numericShotIds.length > 0) {
-    return formatStoryboardShotId(Math.max(...numericShotIds) + 1)
+export function parseStoryboardSelectionId(value: string) {
+  if (!/^\d+$/.test(value)) {
+    return null
   }
 
-  const plannedStartCount = images.filter((image) => image.frameType === 'start').length
-  return formatStoryboardShotId(plannedStartCount + 1)
+  const imageIndex = Number(value)
+  return Number.isInteger(imageIndex) && imageIndex >= 0 ? imageIndex : null
+}
+
+export function createStoryboardImagePath() {
+  return getStoryboardImagePath(`storyboard-image-${randomBytes(4).toString('hex')}.png`)
+}
+
+export function buildStoryboardDerivedImages(images: readonly StoryboardImageEntry[]) {
+  const derivedImages: StoryboardDerivedImageEntry[] = []
+  let currentShotIndex = -1
+
+  for (const [imageIndex, entry] of images.entries()) {
+    const previous = images[imageIndex - 1] ?? null
+    const sharesPreviousShot = entry.frameType === 'end' && previous?.frameType === 'start'
+
+    if (!sharesPreviousShot) {
+      currentShotIndex += 1
+    }
+
+    const shotId = formatStoryboardShotId(currentShotIndex + 1)
+
+    derivedImages.push({
+      imageIndex,
+      shotIndex: currentShotIndex,
+      shotId,
+      storyboardImageId: getStoryboardImageId({
+        shotId,
+        frameType: entry.frameType,
+      }),
+      entry,
+    })
+  }
+
+  return derivedImages
+}
+
+export function getNextStoryboardShotId(images: readonly StoryboardImageEntry[]) {
+  return formatStoryboardShotId(buildStoryboardShotSlots(images).length + 1)
 }
 
 export function createStoryboardImageEntry(options: {
-  shotId: string
   frameType: FrameType
-  title: string
-  purpose: string
-  visual: string
-  transition: string
-  status?: string
+  goal: string
+  imagePath?: string | null
   references?: ArtifactReferenceEntry[]
 }) {
-  const storyboardImageId = getStoryboardImageId({
-    shotId: options.shotId,
-    frameType: options.frameType,
-  })
-
   return {
-    storyboardImageId,
-    shotId: options.shotId,
     frameType: options.frameType,
-    title: options.title.trim(),
-    purpose: options.purpose.trim(),
-    visual: options.visual.trim(),
-    transition: options.transition.trim(),
-    status: options.status?.trim() || 'draft',
-    imagePath: getStoryboardImagePath(storyboardImageId),
+    goal: options.goal.trim(),
+    imagePath: options.imagePath ?? null,
     ...(options.references && options.references.length > 0
       ? { references: [...options.references] }
       : {}),
@@ -70,24 +98,18 @@ export function createStoryboardImageEntry(options: {
 export function buildStoryboardShotSlots(images: readonly StoryboardImageEntry[]) {
   const slots: StoryboardShotSlot[] = []
 
-  for (const image of images) {
+  for (const item of buildStoryboardDerivedImages(images)) {
     const lastSlot = slots[slots.length - 1] ?? null
-    const canAttachAsEnd =
-      image.frameType === 'end' &&
-      lastSlot !== null &&
-      lastSlot.items.length === 1 &&
-      lastSlot.items[0]?.frameType === 'start' &&
-      lastSlot.items[0]?.shotId === image.shotId
 
-    if (canAttachAsEnd && lastSlot) {
-      lastSlot.items.push(image)
+    if (lastSlot && lastSlot.shotIndex === item.shotIndex) {
+      lastSlot.items.push(item)
       continue
     }
 
     slots.push({
-      shotIndex: slots.length,
-      shotId: image.shotId,
-      items: [image],
+      shotIndex: item.shotIndex,
+      shotId: item.shotId,
+      items: [item],
     })
   }
 
@@ -105,5 +127,31 @@ export function findStoryboardImageForShotIndex(
     return null
   }
 
-  return slot.items.find((item) => item.frameType === frameType) ?? null
+  return slot.items.find((item) => item.entry.frameType === frameType)?.entry ?? null
+}
+
+export function findStoryboardDerivedImageBySelectionId(
+  images: readonly StoryboardImageEntry[],
+  selectionId: string,
+) {
+  const imageIndex = parseStoryboardSelectionId(selectionId)
+
+  if (imageIndex === null) {
+    return null
+  }
+
+  return buildStoryboardDerivedImages(images)[imageIndex] ?? null
+}
+
+export function findStoryboardDerivedImageByArtifactId(
+  images: readonly StoryboardImageEntry[],
+  artifactId: string,
+) {
+  return (
+    buildStoryboardDerivedImages(images).find(
+      (item) =>
+        item.entry.imagePath !== null &&
+        getStoryboardArtifactIdFromPath(item.entry.imagePath) === artifactId,
+    ) ?? null
+  )
 }

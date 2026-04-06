@@ -1,4 +1,4 @@
-import { access, rm } from 'node:fs/promises'
+import { access, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import arg from 'arg'
@@ -19,9 +19,13 @@ import {
 } from './generate-imagen-options'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import { ensureActiveWorkspace } from './project-workspace'
+import { buildStoryboardDerivedImages, createStoryboardImagePath } from './storyboard-utils'
 import {
+  getStoryboardArtifactIdFromPath,
   loadConfig,
   loadStoryboardSidecar,
+  resolveWorkflowPath,
+  WORKFLOW_FILES,
   type StoryboardImageEntry,
   type StoryboardSidecar,
 } from './workflow-data'
@@ -34,10 +38,12 @@ interface GenerateStoryboardArgs {
 const DEFAULT_STORYBOARD_IMAGE_SIZE = '896x512' as const
 
 export interface PendingStoryboardGeneration {
+  imageIndex: number
   storyboardImageId: string
   shotId: string
   frameType: StoryboardImageEntry['frameType']
-  title: string
+  goal: string
+  artifactId: string
   model: string
   prompt: string
   outputPath: string
@@ -72,74 +78,135 @@ async function fileExists(filePath: string) {
   }
 }
 
+async function writeStoryboardSidecar(storyboard: StoryboardSidecar, cwd = process.cwd()) {
+  await writeFile(
+    resolveWorkflowPath(WORKFLOW_FILES.storyboardSidecar, cwd),
+    `${JSON.stringify(storyboard, null, 2)}\n`,
+    'utf8',
+  )
+}
+
+function matchesStoryboardFilters(
+  image: ReturnType<typeof buildStoryboardDerivedImages>[number],
+  filters: GenerateStoryboardArgs,
+) {
+  if (filters.storyboardImageId && image.storyboardImageId !== filters.storyboardImageId) {
+    return false
+  }
+
+  if (filters.shotId && image.shotId !== filters.shotId) {
+    return false
+  }
+
+  return true
+}
+
+export async function ensureStoryboardImagePaths(
+  storyboard: StoryboardSidecar,
+  filters: GenerateStoryboardArgs = {},
+  cwd = process.cwd(),
+) {
+  const derivedImages = buildStoryboardDerivedImages(storyboard.images)
+  let didChange = false
+
+  const nextImages = derivedImages.map((image) => {
+    if (!matchesStoryboardFilters(image, filters) || image.entry.imagePath !== null) {
+      return image.entry
+    }
+
+    didChange = true
+
+    return {
+      ...image.entry,
+      imagePath: createStoryboardImagePath(),
+    } satisfies StoryboardImageEntry
+  })
+
+  if (!didChange) {
+    return storyboard
+  }
+
+  const nextStoryboard = {
+    images: nextImages,
+  } satisfies StoryboardSidecar
+
+  await writeStoryboardSidecar(nextStoryboard, cwd)
+  return nextStoryboard
+}
+
 function getStoryboardImageContext(
   storyboard: StoryboardSidecar,
-  storyboardImageId: string,
+  imageSelector: number | string,
 ): {
   index: number
-  current: StoryboardImageEntry
-  previous: StoryboardImageEntry | null
-  next: StoryboardImageEntry | null
+  current: ReturnType<typeof buildStoryboardDerivedImages>[number]
+  previous: ReturnType<typeof buildStoryboardDerivedImages>[number] | null
+  next: ReturnType<typeof buildStoryboardDerivedImages>[number] | null
 } {
-  const index = storyboard.images.findIndex(
-    (entry) => entry.storyboardImageId === storyboardImageId,
-  )
+  const derivedImages = buildStoryboardDerivedImages(storyboard.images)
+  const index =
+    typeof imageSelector === 'number'
+      ? imageSelector
+      : derivedImages.findIndex((entry) => entry.storyboardImageId === imageSelector)
 
   if (index < 0) {
     throw new Error(
-      `Storyboard image "${storyboardImageId}" is missing from workspace/STORYBOARD.json.`,
+      `Storyboard image "${String(imageSelector)}" is missing from workspace/STORYBOARD.json.`,
     )
   }
 
   return {
     index,
-    current: storyboard.images[index]!,
-    previous: index > 0 ? (storyboard.images[index - 1] ?? null) : null,
-    next: storyboard.images[index + 1] ?? null,
+    current: derivedImages[index]!,
+    previous: index > 0 ? (derivedImages[index - 1] ?? null) : null,
+    next: derivedImages[index + 1] ?? null,
   }
 }
 
-export function buildStoryboardPrompt(storyboard: StoryboardSidecar, storyboardImageId: string) {
-  const { current, previous, next } = getStoryboardImageContext(storyboard, storyboardImageId)
+export function buildStoryboardPrompt(
+  storyboard: StoryboardSidecar,
+  imageSelector: number | string,
+) {
+  const { current } = getStoryboardImageContext(storyboard, imageSelector)
   const frameInstruction =
-    current.frameType === 'end'
+    current.entry.frameType === 'end'
       ? 'Show the closing beat of the shot, not the opening beat.'
       : 'Show the opening beat of the shot, not the ending beat.'
 
   return [
-    `A minimal storyboard sketch of ${current.visual.trim()}.`,
-    'Single frame only. Loose graphite or pencil previs drawing, monochrome, simple tones, clear silhouette, no text, no labels, no multi-panel layout.',
-    'Keep it intentionally rough and easy to iterate from while locking composition and staging.',
+    'Create a single storyboard image for one planned shot anchor.',
+    'Do not create a multi-panel sheet, page layout, border frame, shot label, or any text inside the image.',
+    'Loose graphite or pencil previs drawing, monochrome, simple tones, clear silhouette, and clear staging.',
+    'Keep it rough and iteration-friendly while still locking composition and intent.',
     frameInstruction,
     '',
-    `Sequence: ${storyboard.sequenceSummary.trim()}`,
-    `Shot: ${current.shotId} (${current.frameType})`,
-    `Moment: ${current.title}`,
-    `Purpose: ${current.purpose}`,
-    `Transition: ${current.transition}`,
-    previous ? `Previous context: ${previous.visual}` : 'Previous context: none.',
-    next ? `Next context: ${next.visual}` : 'Next context: none.',
+    `Shot: ${current.shotId} (${current.entry.frameType})`,
+    `Goal: ${current.entry.goal.trim()}`,
   ].join('\n')
 }
 
 export function buildStoryboardRegeneratePrompt(
-  generation: Pick<PendingStoryboardGeneration, 'storyboardImageId' | 'shotId' | 'frameType'>,
-  regenerateRequest: string,
+  generation: Pick<
+    PendingStoryboardGeneration,
+    'storyboardImageId' | 'shotId' | 'frameType' | 'goal'
+  >,
+  regenerateRequest?: string | null,
 ) {
-  const trimmedRequest = regenerateRequest.trim()
+  const trimmedRequest = regenerateRequest?.trim() ?? ''
 
-  if (trimmedRequest.length === 0) {
-    throw new Error('Storyboard regenerate request is empty.')
-  }
-
-  return [
+  const lines = [
     `Regenerate the current storyboard image for ${generation.storyboardImageId}.`,
     `Use the attached ${generation.frameType} frame from ${generation.shotId} as the direct visual baseline.`,
-    'Keep the same minimal storyboard sketch style, staging, and intent unless the approved change below explicitly asks for a broader update.',
+    'Keep the same minimal storyboard sketch style and overall intent unless the direction below explicitly asks for a broader change.',
     '',
-    'Approved change:',
-    trimmedRequest,
-  ].join('\n')
+    `Goal: ${generation.goal}`,
+  ]
+
+  if (trimmedRequest.length > 0) {
+    lines.push('', 'Direction:', trimmedRequest)
+  }
+
+  return lines.join('\n')
 }
 
 export function selectPendingStoryboardGenerations(
@@ -147,28 +214,28 @@ export function selectPendingStoryboardGenerations(
   model: string,
   filters: GenerateStoryboardArgs = {},
 ): PendingStoryboardGeneration[] {
-  return storyboard.images
-    .filter((entry) => {
-      if (filters.storyboardImageId && entry.storyboardImageId !== filters.storyboardImageId) {
-        return false
+  return buildStoryboardDerivedImages(storyboard.images)
+    .filter((entry) => matchesStoryboardFilters(entry, filters))
+    .map((entry) => {
+      if (entry.entry.imagePath === null) {
+        throw new Error(
+          `Storyboard image "${entry.storyboardImageId}" is missing imagePath and must be prepared before generation.`,
+        )
       }
 
-      if (filters.shotId && entry.shotId !== filters.shotId) {
-        return false
+      return {
+        imageIndex: entry.imageIndex,
+        storyboardImageId: entry.storyboardImageId,
+        shotId: entry.shotId,
+        frameType: entry.entry.frameType,
+        goal: entry.entry.goal,
+        artifactId: getStoryboardArtifactIdFromPath(entry.entry.imagePath),
+        model,
+        prompt: buildStoryboardPrompt(storyboard, entry.imageIndex),
+        outputPath: entry.entry.imagePath,
+        userReferences: entry.entry.references,
       }
-
-      return true
     })
-    .map((entry) => ({
-      storyboardImageId: entry.storyboardImageId,
-      shotId: entry.shotId,
-      frameType: entry.frameType,
-      title: entry.title,
-      model,
-      prompt: buildStoryboardPrompt(storyboard, entry.storyboardImageId),
-      outputPath: entry.imagePath,
-      userReferences: entry.references,
-    }))
 }
 
 export async function runStoryboardGeneration(
@@ -198,7 +265,7 @@ export async function runStoryboardGeneration(
     cwd: options.cwd,
     seed: options.seed,
     artifactType: 'storyboard',
-    artifactId: generation.storyboardImageId,
+    artifactId: generation.artifactId,
   })
 
   return {
@@ -220,7 +287,11 @@ export async function generateStoryboardArtifactVersion(
     generator?: ImageGenerator
   } = {},
 ) {
-  const descriptor = getStoryboardArtifactDescriptor(generation)
+  const descriptor = getStoryboardArtifactDescriptor({
+    imagePath: generation.outputPath,
+    shotId: generation.shotId,
+    storyboardImageId: generation.storyboardImageId,
+  })
   const cwd = options.cwd ?? process.cwd()
   const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
   const seed = options.seed ?? getVersionSeed(stagedVersion.versionId)
@@ -257,7 +328,7 @@ export async function runStoryboardRegeneration(
   generation: PendingStoryboardGeneration,
   options: {
     outputPath?: string
-    regenerateRequest: string
+    regenerateRequest?: string | null
     selectedVersionPath: string
     userReferences?: StoryboardImageEntry['references']
     logFile?: string
@@ -284,7 +355,7 @@ export async function runStoryboardRegeneration(
     cwd: options.cwd,
     seed: options.seed,
     artifactType: 'storyboard',
-    artifactId: generation.storyboardImageId,
+    artifactId: generation.artifactId,
   })
 
   return {
@@ -298,7 +369,7 @@ export async function runStoryboardRegeneration(
 export async function regenerateStoryboardArtifactVersion(
   generation: PendingStoryboardGeneration,
   options: {
-    regenerateRequest: string
+    regenerateRequest?: string | null
     selectedVersionPath: string
     userReferences?: StoryboardImageEntry['references']
     logFile?: string
@@ -308,7 +379,11 @@ export async function regenerateStoryboardArtifactVersion(
     generator?: ImageGenerator
   },
 ) {
-  const descriptor = getStoryboardArtifactDescriptor(generation)
+  const descriptor = getStoryboardArtifactDescriptor({
+    imagePath: generation.outputPath,
+    shotId: generation.shotId,
+    storyboardImageId: generation.storyboardImageId,
+  })
   const cwd = options.cwd ?? process.cwd()
   const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
   const seed = options.seed ?? getVersionSeed(stagedVersion.versionId)
@@ -353,11 +428,8 @@ export async function syncStoryboardGeneration(options: {
   generator?: ImageGenerator
 }): Promise<StoryboardGenerationSummary> {
   const cwd = options.cwd ?? process.cwd()
-  const generations = selectPendingStoryboardGenerations(
-    options.storyboard,
-    options.model,
-    options.filters,
-  )
+  const storyboard = await ensureStoryboardImagePaths(options.storyboard, options.filters, cwd)
+  const generations = selectPendingStoryboardGenerations(storyboard, options.model, options.filters)
   const variantCount = options.variantCount ?? 1
   let generatedCount = 0
   let skippedCount = 0

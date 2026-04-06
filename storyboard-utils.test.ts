@@ -11,28 +11,16 @@ import { type StoryboardImageEntry } from './workflow-data'
 function createImages(): StoryboardImageEntry[] {
   return [
     createStoryboardImageEntry({
-      shotId: 'SHOT-01',
       frameType: 'start',
-      title: 'One',
-      purpose: 'Start one',
-      visual: 'Visual one',
-      transition: 'Transition one',
+      goal: 'Start one',
     }),
     createStoryboardImageEntry({
-      shotId: 'SHOT-01',
       frameType: 'end',
-      title: 'One End',
-      purpose: 'End one',
-      visual: 'Visual one end',
-      transition: 'Transition one end',
+      goal: 'End one',
     }),
     createStoryboardImageEntry({
-      shotId: 'SHOT-02',
       frameType: 'start',
-      title: 'Two',
-      purpose: 'Start two',
-      visual: 'Visual two',
-      transition: 'Transition two',
+      goal: 'Start two',
     }),
   ]
 }
@@ -51,13 +39,18 @@ test('buildStoryboardShotSlots groups adjacent start and end storyboard frames',
 test('findStoryboardImageForShotIndex matches storyboard frames by slot order and frame type', () => {
   const images = createImages()
 
-  expect(findStoryboardImageForShotIndex(images, 0, 'start')?.storyboardImageId).toBe(
-    'SHOT-01-START',
-  )
-  expect(findStoryboardImageForShotIndex(images, 0, 'end')?.storyboardImageId).toBe('SHOT-01-END')
-  expect(findStoryboardImageForShotIndex(images, 1, 'start')?.storyboardImageId).toBe(
-    'SHOT-02-START',
-  )
+  expect(findStoryboardImageForShotIndex(images, 0, 'start')).toMatchObject({
+    frameType: 'start',
+    goal: 'Start one',
+  })
+  expect(findStoryboardImageForShotIndex(images, 0, 'end')).toMatchObject({
+    frameType: 'end',
+    goal: 'End one',
+  })
+  expect(findStoryboardImageForShotIndex(images, 1, 'start')).toMatchObject({
+    frameType: 'start',
+    goal: 'Start two',
+  })
   expect(findStoryboardImageForShotIndex(images, 1, 'end')).toBeNull()
 })
 

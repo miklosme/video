@@ -121,22 +121,15 @@ export interface ShotArtifactEntry {
 }
 
 export interface StoryboardSidecar {
-  sequenceSummary: string
   images: StoryboardImageEntry[]
 }
 
 export type ShotArtifactsData = ShotArtifactEntry[]
 
 export interface StoryboardImageEntry {
-  storyboardImageId: string
-  shotId: string
   frameType: FrameType
-  title: string
-  purpose: string
-  visual: string
-  transition: string
-  status: string
-  imagePath: string
+  goal: string
+  imagePath: string | null
   references?: ArtifactReferenceEntry[]
 }
 
@@ -308,20 +301,16 @@ export function getCharacterSheetImagePath(characterId: string) {
   )
 }
 
-export function getStoryboardImageId(entry: Pick<StoryboardImageEntry, 'shotId' | 'frameType'>) {
+export function getStoryboardImageId(entry: { shotId: string; frameType: FrameType }) {
   return `${entry.shotId}-${entry.frameType.toUpperCase()}`
 }
 
-export function getStoryboardImagePath(
-  entry: string | Pick<StoryboardImageEntry, 'storyboardImageId'>,
-) {
-  const storyboardImageId = typeof entry === 'string' ? entry : entry.storyboardImageId
+export function getStoryboardImagePath(fileName: string) {
+  return path.posix.join(WORKSPACE_DIR, folderStem(WORKFLOW_FOLDERS.storyboard), fileName)
+}
 
-  return path.posix.join(
-    WORKSPACE_DIR,
-    folderStem(WORKFLOW_FOLDERS.storyboard),
-    `${storyboardImageId}.png`,
-  )
+export function getStoryboardArtifactIdFromPath(imagePath: string) {
+  return path.posix.basename(imagePath, path.posix.extname(imagePath))
 }
 
 export function getLegacyStoryboardImagePath() {
@@ -490,6 +479,14 @@ function expectStringArray(value: unknown, context: string): string[] {
 function parseOptionalString(value: unknown, context: string) {
   if (value === undefined) {
     return undefined
+  }
+
+  return expectString(value, context)
+}
+
+function parseNullableString(value: unknown, context: string) {
+  if (value === null) {
+    return null
   }
 
   return expectString(value, context)
@@ -667,31 +664,15 @@ function flattenShotKeyframes(shots: ShotsData): KeyframesData {
 
 function parseStoryboardImageEntry(value: unknown, context: string): StoryboardImageEntry {
   const object = expectObject(value, context)
-  const shotId = expectString(object.shotId, `${context}.shotId`)
-  const frameType = expectFrameType(object.frameType, `${context}.frameType`)
-  const storyboardImageId = expectString(object.storyboardImageId, `${context}.storyboardImageId`)
-  const imagePath = expectString(object.imagePath, `${context}.imagePath`)
-  const expectedStoryboardImageId = getStoryboardImageId({ shotId, frameType })
-  const expectedImagePath = getStoryboardImagePath(storyboardImageId)
-
-  if (storyboardImageId !== expectedStoryboardImageId) {
-    throw new Error(`${context}.storyboardImageId must be "${expectedStoryboardImageId}".`)
-  }
-
-  if (imagePath !== expectedImagePath) {
-    throw new Error(`${context}.imagePath must be "${expectedImagePath}".`)
-  }
+  const imagePathValue = parseNullableString(object.imagePath, `${context}.imagePath`)
 
   return {
-    storyboardImageId,
-    shotId,
-    frameType,
-    title: expectString(object.title, `${context}.title`),
-    purpose: expectString(object.purpose, `${context}.purpose`),
-    visual: expectString(object.visual, `${context}.visual`),
-    transition: expectString(object.transition, `${context}.transition`),
-    status: expectString(object.status, `${context}.status`),
-    imagePath,
+    frameType: expectFrameType(object.frameType, `${context}.frameType`),
+    goal: expectString(object.goal, `${context}.goal`),
+    imagePath:
+      imagePathValue === null
+        ? null
+        : normalizeRepoRelativePath(imagePathValue, `${context}.imagePath`),
     references:
       object.references === undefined
         ? undefined
@@ -738,10 +719,6 @@ export function parseStoryboardSidecar(value: unknown): StoryboardSidecar {
   const object = expectObject(value, WORKFLOW_FILES.storyboardSidecar)
 
   return {
-    sequenceSummary: expectString(
-      object.sequenceSummary,
-      `${WORKFLOW_FILES.storyboardSidecar}.sequenceSummary`,
-    ),
     images: expectArray(object.images, `${WORKFLOW_FILES.storyboardSidecar}.images`).map(
       (entry, index) =>
         parseStoryboardImageEntry(entry, `${WORKFLOW_FILES.storyboardSidecar}.images[${index}]`),
