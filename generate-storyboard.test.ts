@@ -48,9 +48,10 @@ test('buildStoryboardPrompt targets a single storyboard image rather than a boar
   const storyboard = createStoryboard()
   const prompt = buildStoryboardPrompt(storyboard, 'SHOT-01-START')
 
-  expect(prompt).toContain('Create a single storyboard image')
-  expect(prompt).toContain('Do not create a multi-panel sheet')
-  expect(prompt).toContain('Shot: SHOT-01 (start)')
+  expect(prompt).toContain('Create a single 16:9 storyboard thumbnail image')
+  expect(prompt).toContain('No multi-panel sheet, page layout')
+  expect(prompt).toContain('Shot: SHOT-01')
+  expect(prompt).toContain('Frame: start')
   expect(prompt).toContain(
     'Goal: Establish the dog noticing something off in the window reflection.',
   )

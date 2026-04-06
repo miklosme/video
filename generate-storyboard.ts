@@ -19,6 +19,12 @@ import {
 } from './generate-imagen-options'
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import { ensureActiveWorkspace } from './project-workspace'
+import {
+  buildStoryboardPrompt,
+  buildStoryboardPromptText,
+  buildStoryboardRegeneratePrompt,
+  STORYBOARD_THUMBNAIL_IMAGE_SIZE,
+} from './storyboard-prompting'
 import { buildStoryboardDerivedImages, createStoryboardImagePath } from './storyboard-utils'
 import {
   getStoryboardArtifactIdFromPath,
@@ -34,8 +40,6 @@ interface GenerateStoryboardArgs {
   storyboardImageId?: string
   shotId?: string
 }
-
-const DEFAULT_STORYBOARD_IMAGE_SIZE = '896x512' as const
 
 export interface PendingStoryboardGeneration {
   imageIndex: number
@@ -56,6 +60,12 @@ export interface StoryboardGenerationSummary {
 }
 
 type ImageGenerator = (input: GenerateImagenOptionsInput) => Promise<GenerateImagenOptionsResult>
+
+export {
+  buildStoryboardPrompt,
+  buildStoryboardRegeneratePrompt,
+  STORYBOARD_THUMBNAIL_IMAGE_SIZE,
+} from './storyboard-prompting'
 
 function parseArgs(): GenerateStoryboardArgs {
   const args = arg({
@@ -134,81 +144,6 @@ export async function ensureStoryboardImagePaths(
   return nextStoryboard
 }
 
-function getStoryboardImageContext(
-  storyboard: StoryboardSidecar,
-  imageSelector: number | string,
-): {
-  index: number
-  current: ReturnType<typeof buildStoryboardDerivedImages>[number]
-  previous: ReturnType<typeof buildStoryboardDerivedImages>[number] | null
-  next: ReturnType<typeof buildStoryboardDerivedImages>[number] | null
-} {
-  const derivedImages = buildStoryboardDerivedImages(storyboard.images)
-  const index =
-    typeof imageSelector === 'number'
-      ? imageSelector
-      : derivedImages.findIndex((entry) => entry.storyboardImageId === imageSelector)
-
-  if (index < 0) {
-    throw new Error(
-      `Storyboard image "${String(imageSelector)}" is missing from workspace/STORYBOARD.json.`,
-    )
-  }
-
-  return {
-    index,
-    current: derivedImages[index]!,
-    previous: index > 0 ? (derivedImages[index - 1] ?? null) : null,
-    next: derivedImages[index + 1] ?? null,
-  }
-}
-
-export function buildStoryboardPrompt(
-  storyboard: StoryboardSidecar,
-  imageSelector: number | string,
-) {
-  const { current } = getStoryboardImageContext(storyboard, imageSelector)
-  const frameInstruction =
-    current.entry.frameType === 'end'
-      ? 'Show the closing beat of the shot, not the opening beat.'
-      : 'Show the opening beat of the shot, not the ending beat.'
-
-  return [
-    'Create a single storyboard image for one planned shot anchor.',
-    'Do not create a multi-panel sheet, page layout, border frame, shot label, or any text inside the image.',
-    'Loose graphite or pencil previs drawing, monochrome, simple tones, clear silhouette, and clear staging.',
-    'Keep it rough and iteration-friendly while still locking composition and intent.',
-    frameInstruction,
-    '',
-    `Shot: ${current.shotId} (${current.entry.frameType})`,
-    `Goal: ${current.entry.goal.trim()}`,
-  ].join('\n')
-}
-
-export function buildStoryboardRegeneratePrompt(
-  generation: Pick<
-    PendingStoryboardGeneration,
-    'storyboardImageId' | 'shotId' | 'frameType' | 'goal'
-  >,
-  regenerateRequest?: string | null,
-) {
-  const trimmedRequest = regenerateRequest?.trim() ?? ''
-
-  const lines = [
-    `Regenerate the current storyboard image for ${generation.storyboardImageId}.`,
-    `Use the attached ${generation.frameType} frame from ${generation.shotId} as the direct visual baseline.`,
-    'Keep the same minimal storyboard sketch style and overall intent unless the direction below explicitly asks for a broader change.',
-    '',
-    `Goal: ${generation.goal}`,
-  ]
-
-  if (trimmedRequest.length > 0) {
-    lines.push('', 'Direction:', trimmedRequest)
-  }
-
-  return lines.join('\n')
-}
-
 export function selectPendingStoryboardGenerations(
   storyboard: StoryboardSidecar,
   model: string,
@@ -259,13 +194,14 @@ export async function runStoryboardGeneration(
     prompt: generation.prompt,
     model: generation.model,
     outputPath: options.outputPath ?? generation.outputPath,
-    size: DEFAULT_STORYBOARD_IMAGE_SIZE,
+    size: STORYBOARD_THUMBNAIL_IMAGE_SIZE,
     references,
     logFile: options.logFile,
     cwd: options.cwd,
     seed: options.seed,
     artifactType: 'storyboard',
     artifactId: generation.artifactId,
+    promptTextBuilder: buildStoryboardPromptText,
   })
 
   return {
@@ -349,13 +285,14 @@ export async function runStoryboardRegeneration(
     prompt,
     model: generation.model,
     outputPath: options.outputPath ?? generation.outputPath,
-    size: DEFAULT_STORYBOARD_IMAGE_SIZE,
+    size: STORYBOARD_THUMBNAIL_IMAGE_SIZE,
     references,
     logFile: options.logFile,
     cwd: options.cwd,
     seed: options.seed,
     artifactType: 'storyboard',
     artifactId: generation.artifactId,
+    promptTextBuilder: buildStoryboardPromptText,
   })
 
   return {

@@ -14,8 +14,8 @@ test('buildPromptText tells keyframe generation which storyboard panel to use', 
     'SHOT-02',
   )
 
-  expect(prompt).toContain('Reference 1 is the full-project storyboard board.')
-  expect(prompt).toContain('Follow the panel labeled "SHOT-02"')
+  expect(prompt).toContain('Reference 1 is the storyboard image for SHOT-02.')
+  expect(prompt).toContain('Follow it for shot composition, staging, and visual intent.')
   expect(prompt).toContain('Reference 2 is a character identity sheet.')
   expect(prompt).not.toContain('provided order of priority')
 })

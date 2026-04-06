@@ -53,6 +53,7 @@ export interface GenerateImagenOptionsInput {
   artifactType?: ArtifactType
   artifactId?: string
   cwd?: string
+  promptTextBuilder?: PromptTextBuilder
 }
 
 export interface GenerateImagenOptionsResult {
@@ -60,6 +61,17 @@ export interface GenerateImagenOptionsResult {
   model: string
   outputPaths: string[]
 }
+
+export interface PromptTextBuilderInput {
+  prompt: string
+  references: GenerationReferenceEntry[]
+  aspectRatio: string
+  model: string
+  shotId?: string
+  size?: `${number}x${number}`
+}
+
+export type PromptTextBuilder = (input: PromptTextBuilderInput) => string
 
 function resolvePath(maybeRelativePath: string, cwd = process.cwd()) {
   return path.resolve(cwd, maybeRelativePath)
@@ -199,16 +211,26 @@ async function generateImagesWithGateway(input: {
   references: GenerationReferenceEntry[]
   shotId?: string
   cwd?: string
+  promptTextBuilder?: PromptTextBuilder
 }) {
   const gateway = createGatewayProvider()
-  const promptText = buildPromptText(
-    input.prompt,
-    input.references,
-    input.aspectRatio,
-    input.model,
-    input.shotId,
-    input.size,
-  )
+  const promptText =
+    input.promptTextBuilder?.({
+      prompt: input.prompt,
+      references: input.references,
+      aspectRatio: input.aspectRatio,
+      model: input.model,
+      shotId: input.shotId,
+      size: input.size,
+    }) ??
+    buildPromptText(
+      input.prompt,
+      input.references,
+      input.aspectRatio,
+      input.model,
+      input.shotId,
+      input.size,
+    )
   const loadedReferences = await loadReferenceImages(input.references, input.cwd)
 
   if (IMAGE_ONLY_MODELS.has(input.model)) {
@@ -322,6 +344,7 @@ export async function generateImagenOptions(
       references,
       shotId: input.shotId,
       cwd,
+      promptTextBuilder: input.promptTextBuilder,
     })
 
     await mkdir(outputDir, { recursive: true })
