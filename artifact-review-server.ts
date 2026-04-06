@@ -1661,6 +1661,31 @@ function renderPage(
         overflow: hidden;
       }
 
+      .storyboard-thumb-media-optional-end {
+        background: transparent;
+      }
+
+      .storyboard-thumb-goal {
+        height: 100%;
+        display: flex;
+        align-items: center;
+        padding: 16px 18px;
+        background:
+          linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015)),
+          rgba(9, 12, 16, 0.92);
+      }
+
+      .storyboard-thumb-goal-copy {
+        display: block;
+        width: 100%;
+        max-height: calc(1.45em * 5);
+        overflow: hidden;
+        color: rgba(215, 227, 241, 0.84);
+        font-size: 13px;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+      }
+
       .storyboard-thumb-add {
         display: grid;
         place-items: center;

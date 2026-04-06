@@ -65,11 +65,24 @@ interface StoryboardPageRenderUtils {
   frameTypeLabel: (frameType: FrameType) => string
 }
 
+function renderStoryboardGoalFallback(
+  goal: string,
+  utils: Pick<StoryboardPageRenderUtils, 'escapeHtml'>,
+) {
+  return `
+    <div class="storyboard-thumb-goal">
+      <span class="storyboard-thumb-goal-copy">${utils.escapeHtml(goal)}</span>
+    </div>
+  `
+}
+
 function renderStoryboardBoardTile(tile: StoryboardBoardTile, utils: StoryboardPageRenderUtils) {
   const label =
     tile.kind === 'missing-end'
       ? `${tile.storyboardImageId} (Optional end frame placeholder)`
       : `${tile.storyboardImageId} (${utils.frameTypeLabel(tile.frameType)} frame)`
+  const hasGoalFallback =
+    tile.kind === 'existing' && !tile.imageExists && tile.goal.trim().length > 0
 
   return `
     <a
@@ -88,18 +101,25 @@ function renderStoryboardBoardTile(tile: StoryboardBoardTile, utils: StoryboardP
       data-storyboard-kind="${utils.escapeHtml(tile.kind)}"
       data-storyboard-source-selection-id="${utils.escapeHtml(tile.sourceSelectionId)}"
     >
-      <div class="storyboard-thumb-media">
+      <div class="${[
+        'storyboard-thumb-media',
+        tile.kind === 'missing-end' ? 'storyboard-thumb-media-optional-end' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}">
         ${
           tile.kind === 'missing-end'
-            ? utils.renderPlaceholder('Optional end frame', 'omitted')
-            : utils.renderMediaBlock({
-                mediaType: 'image',
-                mediaUrl: tile.imageUrl,
-                mediaExists: tile.imageExists,
-                alt: tile.storyboardImageId,
-                placeholder: '',
-                className: 'version-media',
-              })
+            ? ''
+            : hasGoalFallback
+              ? renderStoryboardGoalFallback(tile.goal, utils)
+              : utils.renderMediaBlock({
+                  mediaType: 'image',
+                  mediaUrl: tile.imageUrl,
+                  mediaExists: tile.imageExists,
+                  alt: tile.storyboardImageId,
+                  placeholder: '',
+                  className: 'version-media',
+                })
         }
       </div>
     </a>

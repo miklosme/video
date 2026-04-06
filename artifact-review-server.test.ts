@@ -284,6 +284,98 @@ test('artifact review server renders the storyboard board before the editor and 
   }
 })
 
+test('artifact review server renders storyboard goals in tiles when image artifacts are missing', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'Board tile should show this goal when the artifact is missing.',
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+              references: [],
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('class="storyboard-thumb-goal"')
+      expect(html).toContain(
+        'class="storyboard-thumb-goal-copy">Board tile should show this goal when the artifact is missing.',
+      )
+      expect(html).not.toContain('placeholder placeholder-missing')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server renders optional end frame tiles without a visible label', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'Establish the dog noticing something wrong in the glass.',
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+              references: [],
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/storyboard-image-alpha.png',
+      'storyboard-image',
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('class="storyboard-thumb-media storyboard-thumb-media-optional-end"')
+      expect(html).toContain(
+        'storyboard-thumb-media-optional-end {\n        background: transparent;',
+      )
+      expect(html).not.toContain('>Optional end frame<')
+      expect(html).not.toContain('placeholder placeholder-omitted')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('artifact review server leaves storyboard prompt cache empty until generation runs', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
