@@ -55,6 +55,7 @@ import {
   selectPendingStoryboardGenerations,
   type PendingStoryboardGeneration,
 } from './generate-storyboard'
+import { renderStoryboardPageContent, type StoryboardBoardTile } from './storyboard-page'
 import {
   buildStoryboardDerivedImages,
   buildStoryboardShotSlots,
@@ -160,20 +161,6 @@ interface StoryboardReviewCard {
   goal: string
   imageUrl: string | null
   imageExists: boolean
-}
-
-interface StoryboardBoardTile {
-  tileKey: string
-  kind: 'existing' | 'missing-end'
-  selectionId: string
-  sourceSelectionId: string
-  storyboardImageId: string
-  shotId: string
-  frameType: FrameType
-  goal: string
-  imageUrl: string | null
-  imageExists: boolean
-  isSelected: boolean
 }
 
 interface StoryboardReorderExistingTileSource {
@@ -1563,7 +1550,7 @@ function renderPage(
 
       .storyboard-editor-layout {
         display: grid;
-        grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 18px;
         align-items: start;
       }
@@ -1585,38 +1572,9 @@ function renderPage(
       .storyboard-grid-toolbar {
         display: flex;
         justify-content: space-between;
-        align-items: flex-start;
+        align-items: center;
         gap: 14px;
       }
-
-      .storyboard-grid-column-labels {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-
-      .storyboard-grid-column-label {
-        padding: 9px 12px;
-        border: 1px solid rgba(255,255,255,0.05);
-        border-radius: 999px;
-        background: rgba(255,255,255,0.02);
-        color: var(--soft);
-        font-size: 11px;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        text-align: center;
-      }
-
-      .storyboard-reorder-status {
-        min-height: 18px;
-        color: var(--soft);
-        font-size: 12px;
-        line-height: 1.45;
-      }
-
-      .storyboard-reorder-status[data-tone="info"] { color: var(--accent-2); }
-      .storyboard-reorder-status[data-tone="error"] { color: var(--error); }
 
       .storyboard-grid {
         display: grid;
@@ -1625,13 +1583,7 @@ function renderPage(
         min-width: 0;
       }
 
-      .storyboard-add-row {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-
-      .storyboard-add-spacer {
+      [data-storyboard-add-tile] {
         min-width: 0;
       }
 
@@ -1667,35 +1619,6 @@ function renderPage(
         border-style: dashed;
       }
 
-      .storyboard-thumb-slot-badge {
-        position: absolute;
-        top: 10px;
-        left: 10px;
-        z-index: 2;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 24px;
-        padding: 0 10px;
-        border-radius: 999px;
-        border: 1px solid rgba(255,255,255,0.08);
-        background: rgba(10, 14, 20, 0.82);
-        backdrop-filter: blur(8px);
-        color: var(--soft);
-        font-size: 10px;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        opacity: 0;
-        transform: translateY(-4px);
-        pointer-events: none;
-        transition:
-          opacity 140ms ease,
-          transform 140ms ease,
-          color 140ms ease,
-          border-color 140ms ease;
-      }
-
       .storyboard-grid-panel-reordering {
         border-color: rgba(125,211,252,0.2);
         box-shadow:
@@ -1705,21 +1628,6 @@ function renderPage(
 
       .storyboard-grid-panel-reordering .storyboard-thumb {
         cursor: grab;
-      }
-
-      .storyboard-grid-panel-reordering .storyboard-thumb-slot-badge {
-        opacity: 1;
-        transform: translateY(0);
-      }
-
-      .storyboard-grid-panel-reordering .storyboard-thumb[data-storyboard-reorder-frame-type="start"] .storyboard-thumb-slot-badge {
-        color: var(--accent);
-        border-color: rgba(159,232,112,0.22);
-      }
-
-      .storyboard-grid-panel-reordering .storyboard-thumb[data-storyboard-reorder-frame-type="end"] .storyboard-thumb-slot-badge {
-        color: var(--accent-2);
-        border-color: rgba(125,211,252,0.24);
       }
 
       .storyboard-thumb-ghost {
@@ -1739,6 +1647,7 @@ function renderPage(
 
       .storyboard-thumb-drag {
         transform: rotate(-1.5deg) scale(1.02);
+        cursor: grabbing;
         box-shadow:
           0 22px 34px rgba(5, 10, 15, 0.4),
           inset 0 0 0 1px rgba(255,255,255,0.06);
@@ -2587,315 +2496,6 @@ function renderCharactersSummary(cards: CharacterReviewCard[]) {
   )
 }
 
-function renderStoryboardBoardTile(tile: StoryboardBoardTile) {
-  const label =
-    tile.kind === 'missing-end'
-      ? `${tile.storyboardImageId} (Optional end frame placeholder)`
-      : `${tile.storyboardImageId} (${frameTypeLabel(tile.frameType)} frame)`
-
-  return `
-    <a
-      class="${[
-        'storyboard-thumb',
-        tile.kind === 'missing-end' ? 'storyboard-thumb-empty' : '',
-        tile.isSelected ? 'storyboard-thumb-active' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}"
-      href="${appendSearchParams('/storyboard', { image: tile.selectionId })}"
-      aria-label="${escapeHtml(label)}"
-      title="${escapeHtml(label)}"
-      data-storyboard-tile-key="${escapeHtml(tile.tileKey)}"
-      data-storyboard-selection-id="${escapeHtml(tile.selectionId)}"
-      data-storyboard-kind="${escapeHtml(tile.kind)}"
-      data-storyboard-source-selection-id="${escapeHtml(tile.sourceSelectionId)}"
-    >
-      <span class="storyboard-thumb-slot-badge" data-storyboard-slot-badge aria-hidden="true"></span>
-      <div class="storyboard-thumb-media">
-        ${
-          tile.kind === 'missing-end'
-            ? renderPlaceholder('Optional end frame', 'omitted')
-            : renderMediaBlock({
-                mediaType: 'image',
-                mediaUrl: tile.imageUrl,
-                mediaExists: tile.imageExists,
-                alt: tile.storyboardImageId,
-                placeholder: '',
-                className: 'version-media',
-              })
-        }
-      </div>
-    </a>
-  `
-}
-
-function renderStoryboardAddTile(isSelected: boolean) {
-  return `
-    <a
-      class="${['storyboard-thumb', 'storyboard-thumb-empty', isSelected ? 'storyboard-thumb-active' : ''].filter(Boolean).join(' ')}"
-      href="${appendSearchParams('/storyboard', { image: STORYBOARD_NEW_SELECTION_ID })}"
-      aria-label="Add storyboard frame"
-      title="Add storyboard frame"
-    >
-      <div class="storyboard-thumb-media storyboard-thumb-add">
-        <span class="storyboard-thumb-add-icon" aria-hidden="true">+</span>
-      </div>
-    </a>
-  `
-}
-
-function renderStoryboardAddRow(isSelected: boolean) {
-  return `
-    <div class="storyboard-add-row">
-      ${renderStoryboardAddTile(isSelected)}
-      <div class="storyboard-add-spacer" aria-hidden="true"></div>
-    </div>
-  `
-}
-
-function renderStoryboardReorderScript() {
-  return `
-    <script src="/vendor/sortablejs.min.js"></script>
-    <script>
-      window.addEventListener('load', function () {
-        var shell = document.querySelector('[data-storyboard-reorder-shell]');
-        var grid = document.querySelector('[data-storyboard-grid]');
-        var toggleButton = document.querySelector('[data-storyboard-reorder-toggle]');
-        var saveButton = document.querySelector('[data-storyboard-reorder-save]');
-        var cancelButton = document.querySelector('[data-storyboard-reorder-cancel]');
-        var status = document.querySelector('[data-storyboard-reorder-status]');
-
-        if (!shell || !grid || !toggleButton || !saveButton || !cancelButton || !status) {
-          return;
-        }
-
-        if (typeof window.Sortable === 'undefined') {
-          toggleButton.setAttribute('disabled', 'disabled');
-          status.textContent = 'SortableJS did not load, so reorder mode is unavailable.';
-          status.dataset.tone = 'error';
-          return;
-        }
-
-        var sortable = null;
-        var isReordering = false;
-        var originalOrder = [];
-
-        function getTileItems() {
-          return Array.from(grid.querySelectorAll('[data-storyboard-tile-key]'));
-        }
-
-        function getTileKeys() {
-          return getTileItems()
-            .map(function (item) {
-              return item.getAttribute('data-storyboard-tile-key');
-            })
-            .filter(function (value) {
-              return typeof value === 'string' && value.length > 0;
-            });
-        }
-
-        function arraysEqual(left, right) {
-          if (left.length !== right.length) {
-            return false;
-          }
-
-          return left.every(function (value, index) {
-            return value === right[index];
-          });
-        }
-
-        function setStatus(message, tone) {
-          status.textContent = message;
-          status.dataset.tone = tone || 'default';
-        }
-
-        function updateTileRoles() {
-          getTileItems().forEach(function (item, index) {
-            var frameType = index % 2 === 0 ? 'start' : 'end';
-            item.setAttribute('data-storyboard-reorder-frame-type', frameType);
-
-            var badge = item.querySelector('[data-storyboard-slot-badge]');
-            if (badge) {
-              badge.textContent = frameType === 'start' ? 'Start slot' : 'End slot';
-            }
-          });
-        }
-
-        function syncButtons() {
-          var hasChanges = !arraysEqual(getTileKeys(), originalOrder);
-          saveButton.disabled = !hasChanges;
-        }
-
-        function enterReorderMode() {
-          if (isReordering) {
-            return;
-          }
-
-          originalOrder = getTileKeys();
-          isReordering = true;
-          shell.classList.add('storyboard-grid-panel-reordering');
-          toggleButton.hidden = true;
-          saveButton.hidden = false;
-          cancelButton.hidden = false;
-          updateTileRoles();
-          syncButtons();
-          setStatus(
-            'Drag tiles into place. Left column saves as start, right column saves as end. A moved placeholder becomes a real draft.',
-            'info',
-          );
-
-          sortable = window.Sortable.create(grid, {
-            animation: 180,
-            invertSwap: true,
-            swapThreshold: 0.68,
-            ghostClass: 'storyboard-thumb-ghost',
-            chosenClass: 'storyboard-thumb-chosen',
-            dragClass: 'storyboard-thumb-drag',
-            onEnd: function () {
-              updateTileRoles();
-              syncButtons();
-            },
-          });
-        }
-
-        function exitReorderMode() {
-          if (sortable) {
-            sortable.destroy();
-            sortable = null;
-          }
-
-          isReordering = false;
-          shell.classList.remove('storyboard-grid-panel-reordering');
-          toggleButton.hidden = false;
-          saveButton.hidden = true;
-          cancelButton.hidden = true;
-          saveButton.disabled = false;
-          cancelButton.disabled = false;
-          toggleButton.disabled = false;
-          updateTileRoles();
-        }
-
-        function restoreOriginalOrder() {
-          var itemsByKey = new Map(
-            getTileItems().map(function (item) {
-              return [item.getAttribute('data-storyboard-tile-key'), item];
-            }),
-          );
-
-          originalOrder.forEach(function (tileKey) {
-            var item = itemsByKey.get(tileKey);
-
-            if (item) {
-              grid.appendChild(item);
-            }
-          });
-        }
-
-        async function saveReorder() {
-          var tileKeys = getTileKeys();
-
-          if (arraysEqual(tileKeys, originalOrder)) {
-            exitReorderMode();
-            setStatus('Board order unchanged.', 'default');
-            return;
-          }
-
-          saveButton.disabled = true;
-          cancelButton.disabled = true;
-          toggleButton.disabled = true;
-          setStatus('Saving storyboard order...', 'info');
-
-          var selectedTile = document.querySelector('.storyboard-thumb-active[data-storyboard-tile-key]');
-          var selectedTileKey =
-            selectedTile instanceof Element
-              ? selectedTile.getAttribute('data-storyboard-tile-key')
-              : null;
-
-          try {
-            var response = await fetch('/storyboard/reorder', {
-              method: 'POST',
-              headers: {
-                'content-type': 'application/json',
-              },
-              body: JSON.stringify({
-                tileKeys: tileKeys,
-                selectedTileKey: selectedTileKey,
-              }),
-            });
-
-            if (!response.ok) {
-              var errorMessage = 'Failed to save storyboard order.';
-
-              try {
-                var errorPayload = await response.json();
-
-                if (
-                  errorPayload &&
-                  typeof errorPayload === 'object' &&
-                  typeof errorPayload.error === 'string' &&
-                  errorPayload.error.trim().length > 0
-                ) {
-                  errorMessage = errorPayload.error.trim();
-                }
-              } catch (error) {}
-
-              throw new Error(errorMessage);
-            }
-
-            var payload = await response.json();
-            var redirectUrl =
-              payload &&
-              typeof payload === 'object' &&
-              typeof payload.redirectUrl === 'string' &&
-              payload.redirectUrl.trim().length > 0
-                ? payload.redirectUrl
-                : '/storyboard';
-
-            window.location.assign(redirectUrl);
-          } catch (error) {
-            saveButton.disabled = false;
-            cancelButton.disabled = false;
-            toggleButton.disabled = false;
-            setStatus(
-              error instanceof Error ? error.message : 'Failed to save storyboard order.',
-              'error',
-            );
-          }
-        }
-
-        toggleButton.addEventListener('click', enterReorderMode);
-        cancelButton.addEventListener('click', function () {
-          restoreOriginalOrder();
-          exitReorderMode();
-          setStatus('Reorder cancelled.', 'default');
-        });
-        saveButton.addEventListener('click', function () {
-          void saveReorder();
-        });
-        grid.addEventListener('click', function (event) {
-          if (!isReordering) {
-            return;
-          }
-
-          var tile = event.target instanceof Element
-            ? event.target.closest('[data-storyboard-tile-key]')
-            : null;
-
-          if (tile) {
-            event.preventDefault();
-          }
-        });
-
-        updateTileRoles();
-        setStatus(
-          'Rows save left-to-right as start then end. Reorder mode lets you drag frames and placeholders before committing.',
-          'default',
-        );
-      });
-    </script>
-  `
-}
-
 function renderStoryboardSummary(options: {
   storyboard: { images: StoryboardImageEntry[] } | null
   config: { fastImageModel: string } | null
@@ -2941,90 +2541,49 @@ function renderStoryboardSummary(options: {
       : options.selected.kind === 'missing-end' && pendingEndFor
         ? `This end frame is still virtual. Saving or generating it will insert ${getStoryboardImageId({ shotId: pendingEndFor.shotId, frameType: 'end' })} after ${pendingEndFor.storyboardImageId}.`
         : 'The extra tile stays at the end of the board so you can append a new planned frame.'
+  const { content, extraBodyHtml } = renderStoryboardPageContent(
+    {
+      boardTiles: options.boardTiles,
+      selected: {
+        selectedImageId: options.selected.selectedImageId,
+        kind: options.selected.kind,
+        selectedEntry: selectedEntry
+          ? {
+              storyboardImageId: selectedEntry.storyboardImageId,
+              entry: {
+                frameType: selectedEntry.entry.frameType,
+                goal: selectedEntry.entry.goal,
+              },
+            }
+          : null,
+      },
+      selectionLabel,
+      selectionHelp,
+      fastImageModel: options.config?.fastImageModel ?? null,
+      referenceEditorValue: buildReferenceEditorValue(references),
+      saveButtonLabel,
+      primaryButtonLabel,
+      showDirectionField: options.selectedCard?.imageExists ?? false,
+      showDropImageAction: Boolean(selectedEntry && options.selectedCard?.imageExists),
+      dropImageConfirmMessage: selectedEntry
+        ? `Drop the current image for ${selectedEntry.storyboardImageId}? The storyboard entry will stay in place.`
+        : null,
+      jobBannerHtml: renderJobBanner(options.job),
+    },
+    {
+      appendSearchParams,
+      escapeHtml,
+      renderMediaBlock,
+      renderPlaceholder,
+      frameTypeLabel,
+    },
+  )
 
   return new Response(
-    renderPage(
-      'storyboard',
-      `<section class="storyboard-editor-layout">
-        <div class="panel storyboard-grid-panel" data-storyboard-reorder-shell>
-          <div class="storyboard-grid-toolbar">
-            <div class="meta-stack">
-              <p class="section-title">Board</p>
-              <p class="form-note">Reorder scenes directly on the board. Left column commits as start, right column commits as end.</p>
-            </div>
-            ${
-              options.boardTiles.length > 0
-                ? `<div class="summary-actions">
-                    <button class="button-secondary" type="button" data-storyboard-reorder-toggle>Reorder Board</button>
-                    <button class="button-primary" type="button" data-storyboard-reorder-save hidden>Commit Reorder</button>
-                    <button type="button" data-storyboard-reorder-cancel hidden>Cancel</button>
-                  </div>`
-                : ''
-            }
-          </div>
-          <div class="storyboard-grid-column-labels" aria-hidden="true">
-            <span class="storyboard-grid-column-label">Start Slot</span>
-            <span class="storyboard-grid-column-label">End Slot</span>
-          </div>
-          <p class="storyboard-reorder-status" data-storyboard-reorder-status></p>
-          <div class="storyboard-grid" data-storyboard-grid>
-            ${options.boardTiles.map(renderStoryboardBoardTile).join('')}
-          </div>
-          ${renderStoryboardAddRow(options.selected.kind === 'new-start')}
-        </div>
-        <div class="storyboard-editor-pane">
-          ${renderJobBanner(options.job)}
-          <section class="panel">
-            <div class="meta-stack">
-              <p class="section-title">${escapeHtml(selectionLabel)}</p>
-              <p class="form-note">${escapeHtml(selectionHelp)}</p>
-              <p class="small">Each render creates one minimal sketch-style storyboard frame with ${escapeHtml(options.config?.fastImageModel ?? 'the configured fast image model')}.</p>
-            </div>
-            <form method="post" action="/storyboard/save">
-              <input type="hidden" name="selectedImageId" value="${escapeHtml(options.selected.selectedImageId)}">
-              <label class="field-label" for="storyboard-goal">Goal</label>
-              <textarea id="storyboard-goal" name="goal" required>${escapeHtml(selectedEntry?.entry.goal ?? '')}</textarea>
-              <label class="field-label" for="storyboard-references">Source References</label>
-              <textarea id="storyboard-references" name="referencesJson" spellcheck="false">${escapeHtml(buildReferenceEditorValue(references))}</textarea>
-              ${
-                options.selectedCard?.imageExists
-                  ? `<label class="field-label" for="storyboard-direction">Direction</label>
-              <textarea id="storyboard-direction" name="regenerateRequest" placeholder="Optional. Describe what should change in the existing image."></textarea>`
-                  : ''
-              }
-              <div class="form-actions">
-                <button class="button-secondary" type="submit" formaction="/storyboard/save">${escapeHtml(saveButtonLabel)}</button>
-                <button class="button-primary" type="submit" formaction="/storyboard/render">${escapeHtml(primaryButtonLabel)}</button>
-              </div>
-            </form>
-          </section>
-          ${
-            selectedEntry && options.selectedCard?.imageExists
-              ? `
-                <section class="panel">
-                  <p class="section-title">Drop Image</p>
-                  <p class="form-note">${escapeHtml(
-                    'Remove the current storyboard image artifact while keeping this storyboard slot and its planning data in place.',
-                  )}</p>
-                  <form method="post" action="/storyboard/drop-image" onsubmit="return window.confirm(${escapeHtml(
-                    JSON.stringify(
-                      `Drop the current image for ${selectedEntry.storyboardImageId}? The storyboard entry will stay in place.`,
-                    ),
-                  )})">
-                    <input type="hidden" name="selectedImageId" value="${escapeHtml(options.selected.selectedImageId)}">
-                    <button class="button-danger" type="submit">Drop image</button>
-                  </form>
-                </section>
-              `
-              : ''
-          }
-        </div>
-      </section>`,
-      {
-        autoRefresh: options.job?.status === 'running',
-        extraBodyHtml: options.boardTiles.length > 0 ? renderStoryboardReorderScript() : '',
-      },
-    ),
+    renderPage('storyboard', content, {
+      autoRefresh: options.job?.status === 'running',
+      extraBodyHtml,
+    }),
     {
       headers: HTML_HEADERS,
     },

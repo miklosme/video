@@ -270,10 +270,12 @@ test('artifact review server renders the storyboard board before the editor and 
       expect(html).toContain('aria-label="SHOT-01-START (Start frame)"')
       expect(html).toContain('data-storyboard-reorder-toggle')
       expect(html).toContain('/vendor/sortablejs.min.js')
+      expect(html).not.toContain('Start Slot')
+      expect(html).not.toContain('storyboard-reorder-status')
       expect(html.indexOf('class="panel storyboard-grid-panel"')).toBeLessThan(
         html.indexOf('class="storyboard-editor-pane"'),
       )
-      expect(html).toContain('grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);')
+      expect(html).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));')
     } finally {
       await server.stop()
     }
