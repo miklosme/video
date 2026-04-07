@@ -78,6 +78,7 @@ import {
   getLegacyStoryboardImagePath,
   getShotVideoPath,
   getStoryboardImageId,
+  getStoryboardSidecarPath,
   loadCameraVocabulary,
   loadCharacterSheets,
   loadConfig,
@@ -122,6 +123,7 @@ const JSON_HEADERS = {
 
 const CURRENT_BASE_VERSION_ID = 'current'
 const STORYBOARD_END_SELECTION_PREFIX = '__end__:'
+const STORYBOARD_SIDECAR_PATH = getStoryboardSidecarPath()
 
 type Tab = 'idea' | 'story' | 'characters' | 'storyboard' | 'timeline'
 
@@ -3172,13 +3174,13 @@ async function writeArtifactSidecarReferences(
     const storyboard = await loadStoryboardOrEmpty(cwd)
 
     if (!storyboard) {
-      throw new Error('workspace/STORYBOARD.json is missing.')
+      throw new Error(`${STORYBOARD_SIDECAR_PATH} is missing.`)
     }
 
     const current = findStoryboardImageByArtifactId(storyboard, descriptor.artifactId)
 
     if (!current) {
-      throw new Error(`${descriptor.displayName} is missing from workspace/STORYBOARD.json.`)
+      throw new Error(`${descriptor.displayName} is missing from ${STORYBOARD_SIDECAR_PATH}.`)
     }
 
     const nextStoryboard = {
@@ -3238,13 +3240,13 @@ async function writeArtifactSidecarCamera(
     const storyboard = await loadStoryboardOrEmpty(cwd)
 
     if (!storyboard) {
-      throw new Error('workspace/STORYBOARD.json is missing.')
+      throw new Error(`${STORYBOARD_SIDECAR_PATH} is missing.`)
     }
 
     const current = findStoryboardImageByArtifactId(storyboard, descriptor.artifactId)
 
     if (!current) {
-      throw new Error(`${descriptor.displayName} is missing from workspace/STORYBOARD.json.`)
+      throw new Error(`${descriptor.displayName} is missing from ${STORYBOARD_SIDECAR_PATH}.`)
     }
 
     const nextStoryboard = {
@@ -4749,7 +4751,7 @@ async function reorderStoryboardTiles(input: StoryboardReorderInput, cwd: string
   const storyboard = await loadStoryboardOrEmpty(cwd)
 
   if (!storyboard) {
-    throw new Error('workspace/STORYBOARD.json is missing.')
+    throw new Error(`${STORYBOARD_SIDECAR_PATH} is missing.`)
   }
 
   const sourceTiles = buildStoryboardReorderSourceTiles(storyboard)
@@ -4930,7 +4932,7 @@ async function upsertStoryboardSelection(
     }
 
     throw new Error(
-      `Storyboard image "${input.selectedImageId}" is missing from workspace/STORYBOARD.json.`,
+      `Storyboard image "${input.selectedImageId}" is missing from ${STORYBOARD_SIDECAR_PATH}.`,
     )
   }
 
@@ -5084,7 +5086,7 @@ async function handleStoryboardDropImage(request: Request, cwd: string) {
 
   if (!current) {
     throw new Error(
-      `Storyboard image "${selectedImageId}" is missing from workspace/STORYBOARD.json.`,
+      `Storyboard image "${selectedImageId}" is missing from ${STORYBOARD_SIDECAR_PATH}.`,
     )
   }
 
@@ -5110,7 +5112,7 @@ async function handleStoryboardDeleteThumbnail(request: Request, cwd: string) {
 
   if (!current) {
     throw new Error(
-      `Storyboard image "${selectedImageId}" is missing from workspace/STORYBOARD.json.`,
+      `Storyboard image "${selectedImageId}" is missing from ${STORYBOARD_SIDECAR_PATH}.`,
     )
   }
 
@@ -5149,7 +5151,7 @@ async function handleStoryboardRemoveImage(pathname: string, request: Request, c
 
   if (!storyboard || !current || current.entry.imagePath === null) {
     throw new Error(
-      `Storyboard image "${detail.descriptor.artifactId}" is missing from workspace/STORYBOARD.json.`,
+      `Storyboard image "${detail.descriptor.artifactId}" is missing from ${STORYBOARD_SIDECAR_PATH}.`,
     )
   }
 

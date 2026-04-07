@@ -5,6 +5,7 @@ import { resolveFinalCutProps, validateFinalCutManifestAgainstShots } from './fi
 import { ensureActiveWorkspace } from './project-workspace'
 import {
   CAMERA_VOCABULARY_FILE,
+  getStoryboardSidecarPath,
   LEGACY_KEYFRAMES_FILE,
   loadCameraVocabulary,
   loadCharacterSheets,
@@ -329,10 +330,10 @@ async function validateShotArtifacts(
 
 export async function validateStoryboardSidecar(sidecar: StoryboardSidecar | null) {
   if (!sidecar) {
-    throw new Error('workspace/STORYBOARD.json is required.')
+    throw new Error(`${getStoryboardSidecarPath()} is required.`)
   }
 
-  const context = 'workspace/STORYBOARD.json'
+  const context = getStoryboardSidecarPath()
   const seenImagePaths = new Set<string>()
 
   if (sidecar.images.length === 0) {
@@ -352,9 +353,7 @@ export async function validateStoryboardSidecar(sidecar: StoryboardSidecar | nul
     }
 
     if (image.frameType === 'end' && previousImage?.frameType !== 'start') {
-      throw new Error(
-        `${imageContext} must directly follow a matching start frame in workspace/STORYBOARD.json.`,
-      )
+      throw new Error(`${imageContext} must directly follow a matching start frame in ${context}.`)
     }
 
     await validateArtifactReferencesExist(image.references, imageContext)
@@ -462,7 +461,7 @@ async function main() {
   await requireWorkspacePath('IDEA.md', 'workspace/IDEA.md')
   await requireWorkspacePath(WORKFLOW_FILES.config, 'workspace/CONFIG.json')
   await requireWorkspacePath(WORKFLOW_FILES.status, 'workspace/STATUS.json')
-  await requireWorkspacePath(WORKFLOW_FILES.storyboardSidecar, 'workspace/STORYBOARD.json')
+  await requireWorkspacePath(WORKFLOW_FILES.storyboardSidecar, getStoryboardSidecarPath())
 
   const modelOptions = await loadModelOptions()
   const cameraVocabulary = await loadCameraVocabulary()

@@ -294,7 +294,7 @@ test('syncStoryboardGeneration regenerates rewrite prompts without persisting th
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -344,7 +344,7 @@ test('syncStoryboardGeneration regenerates rewrite prompts without persisting th
     })
 
     const savedStoryboard = JSON.parse(
-      await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+      await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
     ) as StoryboardSidecar
 
     expect(seenPrompt).toBe('Fresh FLUX prompt.')
@@ -376,7 +376,7 @@ test('generate-storyboard skips when the selected storyboard image already exist
     )
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(createStoryboard(), null, 2)}\n`,
     )
     await writeRepoFile(rootDir, 'workspace/STORYBOARD/storyboard-image-alpha.png', 'existing-png')
@@ -427,7 +427,7 @@ test('generate-storyboard explains when the storyboard sidecar is missing', asyn
 
     expect(result.exitCode).toBe(1)
     expect(new TextDecoder().decode(result.stderr)).toContain(
-      'workspace/STORYBOARD.json is required before running bun run generate:storyboard.',
+      'workspace/STORYBOARD/STORYBOARD.json is required before running bun run generate:storyboard.',
     )
   } finally {
     await rm(rootDir, { recursive: true, force: true })

@@ -36,6 +36,7 @@ import {
 } from './storyboard-utils'
 import {
   getStoryboardArtifactIdFromPath,
+  getStoryboardSidecarPath,
   loadConfig,
   loadStoryboardSidecar,
   resolveWorkflowPath,
@@ -72,6 +73,8 @@ export interface StoryboardGenerationSummary {
 }
 
 type ImageGenerator = (input: GenerateImagenOptionsInput) => Promise<GenerateImagenOptionsResult>
+
+const STORYBOARD_SIDECAR_PATH = getStoryboardSidecarPath()
 
 export {
   buildStoryboardPrompt,
@@ -500,7 +503,7 @@ export async function syncStoryboardGeneration(options: {
 
   if (generations.length === 0) {
     throw new Error(
-      'workspace/STORYBOARD.json has no storyboard images that match the requested filters.',
+      `${STORYBOARD_SIDECAR_PATH} has no storyboard images that match the requested filters.`,
     )
   }
 
@@ -574,13 +577,13 @@ async function main() {
 
   if (!storyboard) {
     throw new Error(
-      'workspace/STORYBOARD.json is required before running bun run generate:storyboard.',
+      `${STORYBOARD_SIDECAR_PATH} is required before running bun run generate:storyboard.`,
     )
   }
 
   if (storyboard.images.length === 0) {
     throw new Error(
-      'workspace/STORYBOARD.json must declare at least one storyboard image before running bun run generate:storyboard.',
+      `${STORYBOARD_SIDECAR_PATH} must declare at least one storyboard image before running bun run generate:storyboard.`,
     )
   }
 

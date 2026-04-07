@@ -17,6 +17,7 @@ import {
   DEFAULT_FAST_IMAGE_MODEL,
   DEFAULT_VARIANT_COUNT,
   DEFAULT_VIDEO_DURATION_SECONDS,
+  getStoryboardSidecarPath,
   loadCameraVocabulary,
   loadCharacterSheets,
   loadConfig,
@@ -32,6 +33,7 @@ import {
   parseKeyframeArtifactEntry,
   parseShotArtifactEntry,
   resolveRepoPath,
+  resolveWorkflowPath,
   validateConfigAgainstModelOptions,
   WORKFLOW_FILES,
   WORKFLOW_FOLDERS,
@@ -223,7 +225,7 @@ export interface VideoAgentRuntime {
 }
 
 function resolveWorkspacePath(rootDir: string, fileName: string) {
-  return path.resolve(rootDir, 'workspace', fileName)
+  return resolveWorkflowPath(fileName, rootDir)
 }
 
 function resolveTemplatePath(rootDir: string, fileName: string) {
@@ -497,10 +499,10 @@ function buildRuntimeDirective(
     '- Before writing or revising keyframe sidecars, character-sheet sidecars, shot sidecars, or SHOTS.json, read workspace/CONFIG.json, MODEL_PROMPTING_GUIDE.md, and CAMERA_VOCABULARY.json.',
   )
   lines.push(
-    '- workspace/STORYBOARD.json is the canonical storyboard plan. It stores an ordered images array where each storyboard image item owns frameType, goal, nullable imagePath, and optional references. Derive shot ids and storyboard image ids from board order instead of storing them.',
+    `- ${getStoryboardSidecarPath()} is the canonical storyboard plan. It stores an ordered images array where each storyboard image item owns frameType, goal, nullable imagePath, and optional references. Derive shot ids and storyboard image ids from board order instead of storing them.`,
   )
   lines.push(
-    '- Storyboard review now happens per image under workspace/STORYBOARD/*.png, generated one image at a time from workspace/STORYBOARD.json.',
+    `- Storyboard review now happens per image under workspace/STORYBOARD/*.png, generated one image at a time from ${getStoryboardSidecarPath()}.`,
   )
   lines.push(
     '- Use workspace/CONFIG.json.imageModel for still-image prompting style and generation. Do not store model fields in workspace/KEYFRAMES/*.json or workspace/CHARACTERS/*.json sidecars.',

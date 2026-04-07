@@ -7,6 +7,7 @@ import { formatKeyframeCameraPlan } from './camera-utils'
 import type { PromptTextBuilderInput } from './generate-imagen-options'
 import { buildStoryboardDerivedImages } from './storyboard-utils'
 import {
+  getStoryboardSidecarPath,
   loadCharacterSheets,
   resolveWorkflowPath,
   workspacePathExists,
@@ -19,6 +20,7 @@ import {
 
 export const STORYBOARD_THUMBNAIL_IMAGE_SIZE = '896x512' as const
 export const STORYBOARD_PROMPT_REWRITE_IMAGE_MODELS = ['bfl/flux-2-klein-9b'] as const
+const STORYBOARD_SIDECAR_PATH = getStoryboardSidecarPath()
 
 const STORYBOARD_PROMPT_REWRITE_IMAGE_MODEL_SET = new Set<string>(
   STORYBOARD_PROMPT_REWRITE_IMAGE_MODELS,
@@ -193,7 +195,7 @@ function getStoryboardImageContext(
 
   if (index < 0) {
     throw new Error(
-      `Storyboard image "${String(imageSelector)}" is missing from workspace/STORYBOARD.json.`,
+      `Storyboard image "${String(imageSelector)}" is missing from ${STORYBOARD_SIDECAR_PATH}.`,
     )
   }
 

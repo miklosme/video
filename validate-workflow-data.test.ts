@@ -112,6 +112,7 @@ async function writeValidationBaseFiles(
       {
         agentModel: 'agent-test',
         imageModel: 'image-test',
+        fastImageModel: 'image-test',
         videoModel: 'video-test',
         variantCount: 1,
       },
@@ -122,10 +123,17 @@ async function writeValidationBaseFiles(
   await writeRepoFile(rootDir, 'workspace/STATUS.json', '[]\n')
   await writeRepoFile(
     rootDir,
-    'workspace/STORYBOARD.json',
+    'workspace/STORYBOARD/STORYBOARD.json',
     `${JSON.stringify(
       {
-        references: storyboardReferences,
+        images: [
+          {
+            frameType: 'start',
+            goal: 'Establish the storyboard validation fixture.',
+            imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+            references: storyboardReferences,
+          },
+        ],
       },
       null,
       2,
@@ -328,34 +336,42 @@ test('validate-workflow-data rejects duplicate reference paths in storyboard sid
 
     expect(result.exitCode).toBe(1)
     expect(new TextDecoder().decode(result.stderr)).toContain(
-      'workspace/STORYBOARD.json has duplicate reference path "templates/STORYBOARD.template.png"',
+      'workspace/STORYBOARD/STORYBOARD.json.images[0] has duplicate reference path "templates/STORYBOARD.template.png"',
     )
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }
 })
 
-test('validate-workflow-data rejects storyboard sidecars with non-user refs after the template', async () => {
+test('validate-workflow-data rejects storyboard sidecars whose first frame is an end frame', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
 
   try {
-    await writeValidationBaseFiles(rootDir, [
-      {
-        kind: 'storyboard-template',
-        path: 'templates/STORYBOARD.template.png',
-      },
-      {
-        kind: 'storyboard',
-        path: 'workspace/STORYBOARD.png',
-      },
-    ])
-    await writeRepoFile(rootDir, 'workspace/STORYBOARD.png', 'storyboard')
+    await writeValidationBaseFiles(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'end',
+              goal: 'Try to start the board on a closing beat.',
+              imagePath: null,
+              references: [],
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
 
     const result = runValidation(rootDir)
 
     expect(result.exitCode).toBe(1)
     expect(new TextDecoder().decode(result.stderr)).toContain(
-      'workspace/STORYBOARD.json reference 2 must use kind "user-reference" after the storyboard template reference.',
+      'workspace/STORYBOARD/STORYBOARD.json.images[0] must directly follow a matching start frame in workspace/STORYBOARD/STORYBOARD.json.',
     )
   } finally {
     await rm(rootDir, { recursive: true, force: true })

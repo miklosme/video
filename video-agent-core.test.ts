@@ -124,10 +124,17 @@ async function createTestRepo() {
     'templates/STORYBOARD.template.json',
     `${JSON.stringify(
       {
-        references: [
+        images: [
           {
-            kind: 'storyboard-template',
-            path: 'templates/STORYBOARD.template.png',
+            frameType: 'start',
+            goal: 'TBD',
+            camera: {
+              shotSize: 'medium-shot',
+              cameraPosition: 'eye-level',
+              cameraAngle: 'level-angle',
+            },
+            imagePath: null,
+            references: [],
           },
         ],
       },
@@ -149,6 +156,7 @@ function createValidConfig() {
     {
       agentModel: 'agent-test',
       imageModel: 'image-test',
+      fastImageModel: 'image-test',
       videoModel: 'video-test',
       variantCount: 1,
     },
@@ -503,15 +511,15 @@ test('loadWorkflowSummary distinguishes storyboard authoring from storyboard rev
       createWorkflowStatus([
         {
           title: 'Build storyboard',
-          instruction: 'Write the storyboard markdown.',
+          instruction: 'Write the storyboard plan.',
           checked: false,
-          relatedFiles: ['STORYBOARD.md'],
+          relatedFiles: ['STORYBOARD.json'],
         },
         {
           title: 'Review storyboard',
-          instruction: 'Review the storyboard image.',
+          instruction: 'Review the storyboard images.',
           checked: false,
-          relatedFiles: ['STORYBOARD.md', 'STORYBOARD.png'],
+          relatedFiles: ['STORYBOARD/'],
         },
         {
           title: 'Plan keyframes',
@@ -523,8 +531,26 @@ test('loadWorkflowSummary distinguishes storyboard authoring from storyboard rev
     )
     await writeRepoFile(
       repo.rootDir,
-      'workspace/STORYBOARD.md',
-      '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n- Visual: The white dog sits by the bowl.\n',
+      'workspace/STORYBOARD/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'Establish the dog sitting by the bowl.',
+              camera: {
+                shotSize: 'medium-shot',
+                cameraPosition: 'eye-level',
+                cameraAngle: 'level-angle',
+              },
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+              references: [],
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
     )
 
     const runtime = createVideoAgentRuntime({ rootDir: repo.rootDir, creativePrompt: 'test' })
@@ -534,34 +560,14 @@ test('loadWorkflowSummary distinguishes storyboard authoring from storyboard rev
     expect(workflowBeforeImage.status[1]).toMatchObject({
       checked: false,
       state: 'incomplete',
-      relatedFiles: ['STORYBOARD.md', 'STORYBOARD.json', 'STORYBOARD.png'],
+      relatedFiles: ['STORYBOARD.json', 'STORYBOARD/'],
     })
     expect(workflowBeforeImage.nextMilestone).toMatchObject({ title: 'Review storyboard' })
 
-    await writeRepoFile(repo.rootDir, 'workspace/STORYBOARD.png', 'png-bytes')
-
-    const workflowWithoutSidecar = await runtime.loadWorkflowSummary()
-
-    expect(workflowWithoutSidecar.status[1]).toMatchObject({
-      checked: false,
-      state: 'incomplete',
-    })
-
     await writeRepoFile(
       repo.rootDir,
-      'workspace/STORYBOARD.json',
-      `${JSON.stringify(
-        {
-          references: [
-            {
-              kind: 'storyboard-template',
-              path: 'templates/STORYBOARD.template.png',
-            },
-          ],
-        },
-        null,
-        2,
-      )}\n`,
+      'workspace/STORYBOARD/storyboard-image-alpha.png',
+      'png-bytes',
     )
 
     const workflowAfterImage = await runtime.loadWorkflowSummary()
@@ -573,7 +579,7 @@ test('loadWorkflowSummary distinguishes storyboard authoring from storyboard rev
   }
 })
 
-test('writeWorkspaceFile bootstraps storyboard sidecar after storyboard markdown is written', async () => {
+test('writeWorkspaceFile bootstraps storyboard sidecar after the story is written', async () => {
   const repo = await createTestRepo()
 
   try {
@@ -583,39 +589,48 @@ test('writeWorkspaceFile bootstraps storyboard sidecar after storyboard markdown
       'workspace/STATUS.json',
       createWorkflowStatus([
         {
-          title: 'Build storyboard',
-          instruction: 'Write the storyboard markdown.',
+          title: 'Shape story',
+          instruction: 'Write the story.',
           checked: false,
-          relatedFiles: ['STORYBOARD.md'],
+          relatedFiles: ['STORY.md'],
         },
         {
-          title: 'Review storyboard',
-          instruction: 'Review the storyboard image.',
+          title: 'Build storyboard',
+          instruction: 'Write the storyboard plan.',
           checked: false,
-          relatedFiles: ['STORYBOARD.md', 'STORYBOARD.png'],
+          relatedFiles: ['STORYBOARD.json'],
         },
       ]),
     )
 
     const runtime = createVideoAgentRuntime({ rootDir: repo.rootDir, creativePrompt: 'test' })
     const result = await runtime.writeWorkspaceFile(
-      'STORYBOARD.md',
-      '# STORYBOARD\n\n## SHOT-01\n\n- Purpose: Establish the dog.\n- Visual: The white dog sits by the bowl.\n',
+      'STORY.md',
+      '# STORY\n\nThe dog notices something unsettling in the reflection before turning toward the bowl.\n',
     )
 
     expect(result.bootstrappedFiles).toEqual([
       {
         fileName: 'STORYBOARD.json',
-        workspacePath: path.resolve(repo.rootDir, 'workspace/STORYBOARD.json'),
+        workspacePath: path.resolve(repo.rootDir, 'workspace/STORYBOARD/STORYBOARD.json'),
       },
     ])
-    expect(await readFile(path.resolve(repo.rootDir, 'workspace/STORYBOARD.json'), 'utf8')).toBe(
+    expect(
+      await readFile(path.resolve(repo.rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
+    ).toBe(
       `${JSON.stringify(
         {
-          references: [
+          images: [
             {
-              kind: 'storyboard-template',
-              path: 'templates/STORYBOARD.template.png',
+              frameType: 'start',
+              goal: 'TBD',
+              camera: {
+                shotSize: 'medium-shot',
+                cameraPosition: 'eye-level',
+                cameraAngle: 'level-angle',
+              },
+              imagePath: null,
+              references: [],
             },
           ],
         },

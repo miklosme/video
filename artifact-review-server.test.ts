@@ -237,7 +237,7 @@ test('artifact review server renders the storyboard board before the editor and 
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -294,7 +294,7 @@ test('artifact review server renders storyboard camera controls in the editor pa
     await writeCameraVocabularyFixture(rootDir)
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -355,7 +355,7 @@ test('artifact review server renders storyboard goals in tiles when image artifa
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -398,7 +398,7 @@ test('artifact review server renders optional end frame tiles without a visible 
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -447,7 +447,7 @@ test('artifact review server renders delete thumbnail action when a selected sto
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -489,7 +489,7 @@ test('artifact review server renders delete thumbnail action for selected end fr
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -541,7 +541,7 @@ test('artifact review server delete thumbnail endpoint promotes a paired end fra
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -578,7 +578,7 @@ test('artifact review server delete thumbnail endpoint promotes a paired end fra
       expect(response.headers.get('location')).toContain('image=0')
 
       const storyboard = JSON.parse(
-        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
       ) as {
         images: Array<{
           frameType: 'start' | 'end'
@@ -608,7 +608,7 @@ test('artifact review server delete thumbnail endpoint removes a missing end fra
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -650,7 +650,7 @@ test('artifact review server delete thumbnail endpoint removes a missing end fra
       expect(response.headers.get('location')).toContain('image=0')
 
       const storyboard = JSON.parse(
-        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
       ) as {
         images: Array<{
           frameType: 'start' | 'end'
@@ -680,7 +680,7 @@ test('artifact review server does not persist storyboard prompt fields', async (
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify({ images: [] }, null, 2)}\n`,
     )
 
@@ -701,7 +701,7 @@ test('artifact review server does not persist storyboard prompt fields', async (
       expect(response.status).toBe(303)
 
       const storyboard = JSON.parse(
-        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
       ) as {
         images: Array<{ prompt?: string | null }>
       }
@@ -722,7 +722,7 @@ test('artifact review server reorder endpoint keeps an untouched missing end pla
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -763,7 +763,7 @@ test('artifact review server reorder endpoint keeps an untouched missing end pla
       expect(payload.redirectUrl).toContain('image=__end__%3A0')
 
       const storyboard = JSON.parse(
-        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
       ) as {
         images: Array<{
           frameType: 'start' | 'end'
@@ -794,7 +794,7 @@ test('artifact review server reorder endpoint flips frame sides and materializes
   try {
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -848,7 +848,7 @@ test('artifact review server reorder endpoint flips frame sides and materializes
       expect(payload.redirectUrl).toContain('image=0')
 
       const storyboard = JSON.parse(
-        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
       ) as {
         images: Array<{
           frameType: 'start' | 'end'
@@ -2404,7 +2404,7 @@ test('artifact review server persists storyboard camera overrides from the board
     await writeCameraVocabularyFixture(rootDir)
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -2477,7 +2477,7 @@ test('artifact review server persists storyboard camera overrides from the board
       })
 
       const storyboard = JSON.parse(
-        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
       ) as {
         images: Array<{
           camera?: {
@@ -2580,7 +2580,7 @@ test('runApprovedRegenerateAction passes storyboard camera overrides into regene
     await writeConfigFixture(rootDir)
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -2663,7 +2663,7 @@ test('runApprovedRegenerateAction stays single-variant even when CONFIG.json.var
     )
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [
@@ -2759,7 +2759,7 @@ test('runApprovedRegenerateAction keeps storyboard sidecar references during reg
     )
     await writeRepoFile(
       rootDir,
-      'workspace/STORYBOARD.json',
+      'workspace/STORYBOARD/STORYBOARD.json',
       `${JSON.stringify(
         {
           images: [

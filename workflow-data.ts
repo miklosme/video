@@ -306,6 +306,14 @@ function folderStem(folderName: string) {
   return folderName.replace(/\/+$/, '')
 }
 
+function resolveWorkspaceRelativePath(fileName: string) {
+  if (fileName === WORKFLOW_FILES.storyboardSidecar) {
+    return path.posix.join(folderStem(WORKFLOW_FOLDERS.storyboard), fileName)
+  }
+
+  return fileName
+}
+
 export function getCharacterSheetJsonPath(characterId: string) {
   return path.posix.join(
     WORKSPACE_DIR,
@@ -339,7 +347,10 @@ export function getLegacyStoryboardImagePath() {
 }
 
 export function getStoryboardSidecarPath() {
-  return path.posix.join(WORKSPACE_DIR, WORKFLOW_FILES.storyboardSidecar)
+  return path.posix.join(
+    WORKSPACE_DIR,
+    resolveWorkspaceRelativePath(WORKFLOW_FILES.storyboardSidecar),
+  )
 }
 
 export function getKeyframeArtifactJsonPath(entry: Pick<KeyframeEntry, 'shotId' | 'keyframeId'>) {
@@ -369,7 +380,7 @@ export function getShotVideoPath(entry: Pick<ShotEntry, 'shotId'>) {
 }
 
 export function resolveWorkflowPath(fileName: string, cwd = process.cwd()) {
-  return path.resolve(cwd, WORKSPACE_DIR, fileName)
+  return path.resolve(cwd, WORKSPACE_DIR, resolveWorkspaceRelativePath(fileName))
 }
 
 export function resolveRepoPath(fileName: string, cwd = process.cwd()) {
@@ -745,12 +756,12 @@ export function parseCharacterSheetEntry(value: unknown, context: string): Chara
 }
 
 export function parseStoryboardSidecar(value: unknown): StoryboardSidecar {
-  const object = expectObject(value, WORKFLOW_FILES.storyboardSidecar)
+  const context = getStoryboardSidecarPath()
+  const object = expectObject(value, context)
 
   return {
-    images: expectArray(object.images, `${WORKFLOW_FILES.storyboardSidecar}.images`).map(
-      (entry, index) =>
-        parseStoryboardImageEntry(entry, `${WORKFLOW_FILES.storyboardSidecar}.images[${index}]`),
+    images: expectArray(object.images, `${context}.images`).map((entry, index) =>
+      parseStoryboardImageEntry(entry, `${context}.images[${index}]`),
     ),
   }
 }

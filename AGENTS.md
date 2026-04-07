@@ -21,7 +21,7 @@ When a technical task depends on creative context, treat these as the source of 
   - `workspace/STORY.md`
 - `workspace/CHARACTERS.md`
 - `workspace/CHARACTERS/`
-- `workspace/STORYBOARD.json`
+- `workspace/STORYBOARD/STORYBOARD.json`
 - `workspace/STORYBOARD/`
 - `workspace/SHOTS.json`
 - `workspace/KEYFRAMES/`
