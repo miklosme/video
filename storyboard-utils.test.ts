@@ -12,15 +12,15 @@ function createImages(): StoryboardImageEntry[] {
   return [
     createStoryboardImageEntry({
       frameType: 'start',
-      goal: 'Start one',
+      prompt: 'Start one',
     }),
     createStoryboardImageEntry({
       frameType: 'end',
-      goal: 'End one',
+      prompt: 'End one',
     }),
     createStoryboardImageEntry({
       frameType: 'start',
-      goal: 'Start two',
+      prompt: 'Start two',
     }),
   ]
 }
@@ -41,15 +41,15 @@ test('findStoryboardImageForShotIndex matches storyboard frames by slot order an
 
   expect(findStoryboardImageForShotIndex(images, 0, 'start')).toMatchObject({
     frameType: 'start',
-    goal: 'Start one',
+    prompt: 'Start one',
   })
   expect(findStoryboardImageForShotIndex(images, 0, 'end')).toMatchObject({
     frameType: 'end',
-    goal: 'End one',
+    prompt: 'End one',
   })
   expect(findStoryboardImageForShotIndex(images, 1, 'start')).toMatchObject({
     frameType: 'start',
-    goal: 'Start two',
+    prompt: 'Start two',
   })
   expect(findStoryboardImageForShotIndex(images, 1, 'end')).toBeNull()
 })

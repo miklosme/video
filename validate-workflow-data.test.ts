@@ -121,7 +121,7 @@ async function writeValidationBaseFiles(rootDir: string) {
         images: [
           {
             frameType: 'start',
-            goal: 'Establish the storyboard validation fixture.',
+            prompt: 'Establish the storyboard validation fixture.',
             imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
           },
         ],
@@ -320,7 +320,7 @@ test('validate-workflow-data rejects storyboard sidecars whose first frame is an
           images: [
             {
               frameType: 'end',
-              goal: 'Try to start the board on a closing beat.',
+              prompt: 'Try to start the board on a closing beat.',
               imagePath: null,
               references: [],
             },

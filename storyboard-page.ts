@@ -9,7 +9,7 @@ export interface StoryboardBoardTile {
   storyboardImageId: string
   shotId: string
   frameType: FrameType
-  goal: string
+  prompt: string
   imageUrl: string | null
   imageExists: boolean
   isSelected: boolean
@@ -19,7 +19,7 @@ interface StoryboardPageSelectedEntry {
   storyboardImageId: string
   entry: {
     frameType: FrameType
-    goal: string
+    prompt: string
   }
 }
 
@@ -66,13 +66,13 @@ interface StoryboardPageRenderUtils {
   frameTypeLabel: (frameType: FrameType) => string
 }
 
-function renderStoryboardGoalFallback(
-  goal: string,
+function renderStoryboardPromptFallback(
+  prompt: string,
   utils: Pick<StoryboardPageRenderUtils, 'escapeHtml'>,
 ) {
   return `
-    <div class="storyboard-thumb-goal">
-      <span class="storyboard-thumb-goal-copy">${utils.escapeHtml(goal)}</span>
+    <div class="storyboard-thumb-prompt">
+      <span class="storyboard-thumb-prompt-copy">${utils.escapeHtml(prompt)}</span>
     </div>
   `
 }
@@ -82,8 +82,8 @@ function renderStoryboardBoardTile(tile: StoryboardBoardTile, utils: StoryboardP
     tile.kind === 'missing-end'
       ? `${tile.storyboardImageId} (Optional end frame placeholder)`
       : `${tile.storyboardImageId} (${utils.frameTypeLabel(tile.frameType)} frame)`
-  const hasGoalFallback =
-    tile.kind === 'existing' && !tile.imageExists && tile.goal.trim().length > 0
+  const hasPromptFallback =
+    tile.kind === 'existing' && !tile.imageExists && tile.prompt.trim().length > 0
 
   return `
     <a
@@ -111,8 +111,8 @@ function renderStoryboardBoardTile(tile: StoryboardBoardTile, utils: StoryboardP
         ${
           tile.kind === 'missing-end'
             ? ''
-            : hasGoalFallback
-              ? renderStoryboardGoalFallback(tile.goal, utils)
+            : hasPromptFallback
+              ? renderStoryboardPromptFallback(tile.prompt, utils)
               : utils.renderMediaBlock({
                   mediaType: 'image',
                   mediaUrl: tile.imageUrl,
@@ -366,8 +366,8 @@ export function renderStoryboardPageContent(
         <section class="panel">
           <form method="post" action="/storyboard/save">
             <input type="hidden" name="selectedImageId" value="${utils.escapeHtml(options.selected.selectedImageId)}">
-            <label class="field-label" for="storyboard-goal">Goal</label>
-            <textarea id="storyboard-goal" name="goal" required>${utils.escapeHtml(options.selected.selectedEntry?.entry.goal ?? '')}</textarea>
+            <label class="field-label" for="storyboard-prompt">Prompt</label>
+            <textarea id="storyboard-prompt" name="prompt" placeholder="Write the explicit FLUX Klein prompt for this storyboard frame." required>${utils.escapeHtml(options.selected.selectedEntry?.entry.prompt ?? '')}</textarea>
             ${options.cameraControlsHtml}
             ${
               options.showDirectionField

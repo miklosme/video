@@ -243,7 +243,7 @@ test('artifact review server renders the storyboard board before the editor and 
           images: [
             {
               frameType: 'start',
-              goal: 'Establish the dog noticing something wrong in the glass.',
+              prompt: 'Establish the dog noticing something wrong in the glass.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
               references: [],
             },
@@ -300,7 +300,7 @@ test('artifact review server renders storyboard camera controls in the editor pa
           images: [
             {
               frameType: 'start',
-              goal: 'Establish the dog noticing something wrong in the glass.',
+              prompt: 'Establish the dog noticing something wrong in the glass.',
               camera: {
                 shotSize: 'medium-shot',
                 cameraPosition: 'eye-level',
@@ -349,7 +349,7 @@ test('artifact review server renders storyboard camera controls in the editor pa
   }
 })
 
-test('artifact review server renders storyboard goals in tiles when image artifacts are missing', async () => {
+test('artifact review server renders storyboard prompts in tiles when image artifacts are missing', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
@@ -361,7 +361,7 @@ test('artifact review server renders storyboard goals in tiles when image artifa
           images: [
             {
               frameType: 'start',
-              goal: 'Board tile should show this goal when the artifact is missing.',
+              prompt: 'Board tile should show this prompt when the artifact is missing.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
               references: [],
             },
@@ -379,9 +379,9 @@ test('artifact review server renders storyboard goals in tiles when image artifa
       const html = await response.text()
 
       expect(response.status).toBe(200)
-      expect(html).toContain('class="storyboard-thumb-goal"')
+      expect(html).toContain('class="storyboard-thumb-prompt"')
       expect(html).toContain(
-        'class="storyboard-thumb-goal-copy">Board tile should show this goal when the artifact is missing.',
+        'class="storyboard-thumb-prompt-copy">Board tile should show this prompt when the artifact is missing.',
       )
       expect(html).not.toContain('placeholder placeholder-missing')
     } finally {
@@ -404,7 +404,7 @@ test('artifact review server renders optional end frame tiles without a visible 
           images: [
             {
               frameType: 'start',
-              goal: 'Establish the dog noticing something wrong in the glass.',
+              prompt: 'Establish the dog noticing something wrong in the glass.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
               references: [],
             },
@@ -453,7 +453,7 @@ test('artifact review server renders delete thumbnail action when a selected sto
           images: [
             {
               frameType: 'start',
-              goal: 'Keep the empty storyboard slot editable until it is deleted.',
+              prompt: 'Keep the empty storyboard slot editable until it is deleted.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
               references: [],
             },
@@ -495,12 +495,12 @@ test('artifact review server renders delete thumbnail action for selected end fr
           images: [
             {
               frameType: 'start',
-              goal: 'The dog hesitates at the window.',
+              prompt: 'The dog hesitates at the window.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
             },
             {
               frameType: 'end',
-              goal: 'The dog bolts toward the back door.',
+              prompt: 'The dog bolts toward the back door.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
             },
           ],
@@ -547,12 +547,12 @@ test('artifact review server delete thumbnail endpoint promotes a paired end fra
           images: [
             {
               frameType: 'start',
-              goal: 'The crowd jolts as the dog notices the crack.',
+              prompt: 'The crowd jolts as the dog notices the crack.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
             },
             {
               frameType: 'end',
-              goal: 'The dog lands at the door in a new pose.',
+              prompt: 'The dog lands at the door in a new pose.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
             },
           ],
@@ -582,7 +582,7 @@ test('artifact review server delete thumbnail endpoint promotes a paired end fra
       ) as {
         images: Array<{
           frameType: 'start' | 'end'
-          goal: string
+          prompt: string
           imagePath: string | null
         }>
       }
@@ -590,7 +590,7 @@ test('artifact review server delete thumbnail endpoint promotes a paired end fra
       expect(storyboard.images).toEqual([
         {
           frameType: 'start',
-          goal: 'The dog lands at the door in a new pose.',
+          prompt: 'The dog lands at the door in a new pose.',
           imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
         },
       ])
@@ -614,12 +614,12 @@ test('artifact review server delete thumbnail endpoint removes a missing end fra
           images: [
             {
               frameType: 'start',
-              goal: 'The dog freezes at the first tremor.',
+              prompt: 'The dog freezes at the first tremor.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
             },
             {
               frameType: 'end',
-              goal: 'The dog races toward the hallway.',
+              prompt: 'The dog races toward the hallway.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
             },
           ],
@@ -654,7 +654,7 @@ test('artifact review server delete thumbnail endpoint removes a missing end fra
       ) as {
         images: Array<{
           frameType: 'start' | 'end'
-          goal: string
+          prompt: string
           imagePath: string | null
         }>
       }
@@ -662,7 +662,7 @@ test('artifact review server delete thumbnail endpoint removes a missing end fra
       expect(storyboard.images).toEqual([
         {
           frameType: 'start',
-          goal: 'The dog freezes at the first tremor.',
+          prompt: 'The dog freezes at the first tremor.',
           imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
         },
       ])
@@ -674,7 +674,7 @@ test('artifact review server delete thumbnail endpoint removes a missing end fra
   }
 })
 
-test('artifact review server does not persist storyboard prompt fields', async () => {
+test('artifact review server persists storyboard prompt fields', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
@@ -692,7 +692,7 @@ test('artifact review server does not persist storyboard prompt fields', async (
         redirect: 'manual',
         body: new URLSearchParams({
           selectedImageId: '__new__',
-          goal: 'Establish the dog noticing something wrong in the glass.',
+          prompt: 'Establish the dog noticing something wrong in the glass.',
           regenerateRequest: '',
         }),
       })
@@ -702,11 +702,13 @@ test('artifact review server does not persist storyboard prompt fields', async (
       const storyboard = JSON.parse(
         await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
       ) as {
-        images: Array<{ prompt?: string | null }>
+        images: Array<{ prompt: string }>
       }
 
       expect(storyboard.images).toHaveLength(1)
-      expect(storyboard.images[0]?.prompt).toBeUndefined()
+      expect(storyboard.images[0]?.prompt).toBe(
+        'Establish the dog noticing something wrong in the glass.',
+      )
     } finally {
       await server.stop()
     }
@@ -727,7 +729,7 @@ test('artifact review server reorder endpoint keeps an untouched missing end pla
           images: [
             {
               frameType: 'start',
-              goal: 'Open on the dog squinting at the glass.',
+              prompt: 'Open on the dog squinting at the glass.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
             },
           ],
@@ -766,16 +768,15 @@ test('artifact review server reorder endpoint keeps an untouched missing end pla
       ) as {
         images: Array<{
           frameType: 'start' | 'end'
-          goal: string
+          prompt: string
           imagePath: string | null
-          prompt?: string | null
         }>
       }
 
       expect(storyboard.images).toEqual([
         {
           frameType: 'start',
-          goal: 'Open on the dog squinting at the glass.',
+          prompt: 'Open on the dog squinting at the glass.',
           imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
         },
       ])
@@ -799,17 +800,17 @@ test('artifact review server reorder endpoint flips frame sides and materializes
           images: [
             {
               frameType: 'start',
-              goal: 'Merchant freezes in the market.',
+              prompt: 'Merchant freezes in the market.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
             },
             {
               frameType: 'end',
-              goal: 'The crowd surges past his panic.',
+              prompt: 'The crowd surges past his panic.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
             },
             {
               frameType: 'start',
-              goal: 'He rushes toward the library doors.',
+              prompt: 'He rushes toward the library doors.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-gamma.png',
             },
           ],
@@ -848,31 +849,30 @@ test('artifact review server reorder endpoint flips frame sides and materializes
       ) as {
         images: Array<{
           frameType: 'start' | 'end'
-          goal: string
+          prompt: string
           imagePath: string | null
-          prompt?: string | null
         }>
       }
 
       expect(storyboard.images).toEqual([
         {
           frameType: 'start',
-          goal: 'The crowd surges past his panic.',
+          prompt: 'The crowd surges past his panic.',
           imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
         },
         {
           frameType: 'end',
-          goal: 'Merchant freezes in the market.',
+          prompt: 'Merchant freezes in the market.',
           imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
         },
         {
           frameType: 'start',
-          goal: 'He rushes toward the library doors.',
+          prompt: 'He rushes toward the library doors.',
           imagePath: null,
         },
         {
           frameType: 'end',
-          goal: 'He rushes toward the library doors.',
+          prompt: 'He rushes toward the library doors.',
           imagePath: 'workspace/STORYBOARD/storyboard-image-gamma.png',
         },
       ])
@@ -2393,7 +2393,7 @@ test('artifact review server persists storyboard camera overrides from the board
           images: [
             {
               frameType: 'start',
-              goal: 'Establish the dog noticing something wrong in the glass.',
+              prompt: 'Establish the dog noticing something wrong in the glass.',
               camera: {
                 shotSize: 'medium-shot',
                 cameraPosition: 'eye-level',
@@ -2439,7 +2439,7 @@ test('artifact review server persists storyboard camera overrides from the board
         redirect: 'manual',
         body: new URLSearchParams({
           selectedImageId: '0',
-          goal: 'Establish the dog noticing something wrong in the glass.',
+          prompt: 'Establish the dog noticing something wrong in the glass.',
           regenerateRequest: '',
           cameraOverrideShotSize: 'close-up',
         }),
@@ -2476,7 +2476,7 @@ test('artifact review server persists storyboard camera overrides from the board
       })
       expect(capturedPrompt).toContain('Use this camera plan for this frame:')
       expect(capturedPrompt).toContain('Shot Size: Close Up')
-      expect(capturedPrompt).not.toContain('Direction:')
+      expect(capturedPrompt).not.toContain('Requested change:')
     } finally {
       await server.stop()
     }
@@ -2499,7 +2499,7 @@ test('artifact review server uses a direction-only edit path when the storyboard
           images: [
             {
               frameType: 'start',
-              goal: 'The merchant arrives outside the library and scrambles to dismount.',
+              prompt: 'The merchant arrives outside the library and scrambles to dismount.',
               camera: {
                 shotSize: 'medium-shot',
                 cameraPosition: 'eye-level',
@@ -2550,7 +2550,7 @@ test('artifact review server uses a direction-only edit path when the storyboard
         redirect: 'manual',
         body: new URLSearchParams({
           selectedImageId: '0',
-          goal: 'The merchant arrives outside the library and scrambles to dismount.',
+          prompt: 'The merchant arrives outside the library and scrambles to dismount.',
           regenerateRequest: 'Make them face the door',
         }),
       })
@@ -2567,7 +2567,11 @@ test('artifact review server uses a direction-only edit path when the storyboard
         ).toBe('storyboard-direction-edit')
       })
 
-      expect(capturedPrompts).toEqual(['Make them face the door'])
+      expect(capturedPrompts).toHaveLength(1)
+      expect(capturedPrompts[0]).toContain(
+        'The merchant arrives outside the library and scrambles to dismount.',
+      )
+      expect(capturedPrompts[0]).toContain('Requested change: Make them face the door')
       expect(
         await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
       ).toBe(initialStoryboard)
@@ -2600,7 +2604,7 @@ test('artifact review server does a fresh storyboard render before applying dire
           images: [
             {
               frameType: 'start',
-              goal: 'The merchant arrives outside the library and scrambles to dismount.',
+              prompt: 'The merchant arrives outside the library and scrambles to dismount.',
               camera: {
                 shotSize: 'medium-shot',
                 cameraPosition: 'eye-level',
@@ -2656,7 +2660,8 @@ test('artifact review server does a fresh storyboard render before applying dire
         redirect: 'manual',
         body: new URLSearchParams({
           selectedImageId: '0',
-          goal: 'The merchant reaches the library door and turns directly toward it while dismounting.',
+          prompt:
+            'The merchant reaches the library door and turns directly toward it while dismounting.',
           regenerateRequest: 'Make them face the door',
         }),
       })
@@ -2675,9 +2680,9 @@ test('artifact review server does a fresh storyboard render before applying dire
 
       expect(capturedPrompts).toHaveLength(2)
       expect(capturedPrompts[0]).toContain(
-        'Goal: The merchant reaches the library door and turns directly toward it while dismounting.',
+        'The merchant reaches the library door and turns directly toward it while dismounting.',
       )
-      expect(capturedPrompts[1]).toBe('Make them face the door')
+      expect(capturedPrompts[1]).toContain('Requested change: Make them face the door')
       expect(capturedReferences[1]).toEqual([
         {
           kind: 'selected-image',
@@ -2785,7 +2790,7 @@ test('runApprovedRegenerateAction passes storyboard camera overrides into regene
           images: [
             {
               frameType: 'start',
-              goal: 'Establish the dog noticing something wrong in the glass.',
+              prompt: 'Establish the dog noticing something wrong in the glass.',
               camera: {
                 shotSize: 'medium-shot',
                 cameraPosition: 'eye-level',
@@ -2832,9 +2837,9 @@ test('runApprovedRegenerateAction passes storyboard camera overrides into regene
       },
     )
 
-    expect(capturedPrompt).toContain('Use this camera plan for this regeneration:')
+    expect(capturedPrompt).toContain('Use this camera plan for this frame:')
     expect(capturedPrompt).toContain('Shot Size: Close Up')
-    expect(capturedPrompt).not.toContain('Direction:')
+    expect(capturedPrompt).not.toContain('Requested change:')
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }
@@ -2867,7 +2872,7 @@ test('runApprovedRegenerateAction stays single-variant even when CONFIG.json.var
           images: [
             {
               frameType: 'start',
-              goal: 'Establish the dog noticing something wrong in the glass.',
+              prompt: 'Establish the dog noticing something wrong in the glass.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
             },
           ],
@@ -2962,7 +2967,7 @@ test('runApprovedRegenerateAction keeps the selected storyboard image during reg
           images: [
             {
               frameType: 'start',
-              goal: 'Establish the dog noticing something wrong in the glass.',
+              prompt: 'Establish the dog noticing something wrong in the glass.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
             },
           ],
@@ -3000,7 +3005,7 @@ test('runApprovedRegenerateAction keeps the selected storyboard image during reg
       },
     )
 
-    expect(capturedPrompt).toContain('Regenerate the current storyboard image for SHOT-01-START')
+    expect(capturedPrompt).toContain('Establish the dog noticing something wrong in the glass.')
     expect(capturedPrompt).toContain('Remove the extra character.')
     expect(capturedReferences).toEqual([
       {

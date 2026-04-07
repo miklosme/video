@@ -7,7 +7,6 @@ import {
   type FrameType,
   type KeyframeCameraSpec,
   type StoryboardImageEntry,
-  type StoryboardSidecar,
 } from './workflow-data'
 
 export const STORYBOARD_NEW_SELECTION_ID = '__new__'
@@ -82,26 +81,16 @@ export function getNextStoryboardShotId(images: readonly StoryboardImageEntry[])
 
 export function createStoryboardImageEntry(options: {
   frameType: FrameType
-  goal: string
+  prompt: string
   camera?: KeyframeCameraSpec
   imagePath?: string | null
 }) {
   return {
     frameType: options.frameType,
-    goal: options.goal.trim(),
+    prompt: options.prompt.trim(),
     ...(options.camera ? { camera: options.camera } : {}),
     imagePath: options.imagePath ?? null,
   } satisfies StoryboardImageEntry
-}
-
-export function stripStoryboardPromptFields(
-  storyboard: Pick<StoryboardSidecar, 'images'>,
-): StoryboardSidecar {
-  return {
-    images: storyboard.images.map(({ prompt: _prompt, ...entry }) => ({
-      ...entry,
-    })),
-  } satisfies StoryboardSidecar
 }
 
 export function buildStoryboardShotSlots(images: readonly StoryboardImageEntry[]) {

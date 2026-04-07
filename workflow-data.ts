@@ -128,9 +128,8 @@ export type ShotArtifactsData = ShotArtifactEntry[]
 
 export interface StoryboardImageEntry {
   frameType: FrameType
-  goal: string
+  prompt: string
   camera?: KeyframeCameraSpec
-  prompt?: string | null
   imagePath: string | null
 }
 
@@ -699,15 +698,11 @@ function parseStoryboardImageEntry(value: unknown, context: string): StoryboardI
 
   return {
     frameType: expectFrameType(object.frameType, `${context}.frameType`),
-    goal: expectString(object.goal, `${context}.goal`),
+    prompt: expectString(object.prompt, `${context}.prompt`),
     camera:
       object.camera === undefined
         ? undefined
         : parseKeyframeCameraSpec(object.camera, `${context}.camera`),
-    prompt:
-      object.prompt === undefined
-        ? undefined
-        : parseNullableString(object.prompt, `${context}.prompt`),
     imagePath:
       imagePathValue === null
         ? null

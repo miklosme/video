@@ -67,7 +67,6 @@ import {
   getStoryboardSelectionId,
   parseStoryboardSelectionId,
   STORYBOARD_NEW_SELECTION_ID,
-  stripStoryboardPromptFields,
   type StoryboardDerivedImageEntry,
 } from './storyboard-utils'
 import { renderTimelineContent } from './timeline-component'
@@ -162,7 +161,7 @@ interface StoryboardReviewCard {
   storyboardImageId: string
   shotId: string
   frameType: FrameType
-  goal: string
+  prompt: string
   imageUrl: string | null
   imageExists: boolean
 }
@@ -1704,7 +1703,7 @@ function renderPage(
         background: transparent;
       }
 
-      .storyboard-thumb-goal {
+      .storyboard-thumb-prompt {
         height: 100%;
         display: flex;
         align-items: center;
@@ -1714,7 +1713,7 @@ function renderPage(
           rgba(9, 12, 16, 0.92);
       }
 
-      .storyboard-thumb-goal-copy {
+      .storyboard-thumb-prompt-copy {
         display: block;
         width: 100%;
         max-height: calc(1.45em * 5);
@@ -2646,7 +2645,7 @@ function renderStoryboardSummary(options: {
       ? 'Add draft'
       : options.selected.kind === 'missing-end'
         ? 'Add end draft'
-        : 'Save goal'
+        : 'Save prompt'
   const cameraControl = buildStoryboardCameraOverrideControl(
     options.storyboard,
     options.selected.selectedImageId,
@@ -2663,7 +2662,7 @@ function renderStoryboardSummary(options: {
               storyboardImageId: selectedEntry.storyboardImageId,
               entry: {
                 frameType: selectedEntry.entry.frameType,
-                goal: selectedEntry.entry.goal,
+                prompt: selectedEntry.entry.prompt,
               },
             }
           : null,
@@ -3230,7 +3229,7 @@ async function writeArtifactSidecarCamera(
         index === current.imageIndex
           ? createStoryboardImageEntry({
               frameType: entry.frameType,
-              goal: entry.goal,
+              prompt: entry.prompt,
               camera: resolveKeyframeCameraSpec(camera as KeyframeCameraSpec),
               imagePath: entry.imagePath,
             })
@@ -3287,7 +3286,7 @@ async function buildStoryboardCards(cwd: string) {
       storyboardImageId: entry.storyboardImageId,
       shotId: entry.shotId,
       frameType: entry.entry.frameType,
-      goal: entry.entry.goal,
+      prompt: entry.entry.prompt,
       imageUrl: entry.entry.imagePath ? `/${encodeAssetUrl(entry.entry.imagePath)}` : null,
       imageExists:
         entry.entry.imagePath === null
@@ -3363,7 +3362,7 @@ async function buildStoryboardBoardTiles(
         }),
         shotId: tile.sourceImage.shotId,
         frameType: 'end',
-        goal: tile.sourceImage.entry.goal,
+        prompt: tile.sourceImage.entry.prompt,
         imageUrl: null,
         imageExists: false,
         isSelected:
@@ -3382,7 +3381,7 @@ async function buildStoryboardBoardTiles(
       storyboardImageId: tile.sourceImage.storyboardImageId,
       shotId: tile.sourceImage.shotId,
       frameType: tile.sourceImage.entry.frameType,
-      goal: tile.sourceImage.entry.goal,
+      prompt: tile.sourceImage.entry.prompt,
       imageUrl:
         card?.imageUrl ??
         (tile.sourceImage.entry.imagePath
@@ -3780,7 +3779,7 @@ async function loadStoryboardDetail(
     sourceModel: config?.fastImageModel ?? null,
     sourceStatus: null,
     historyState,
-    notesHtml: `<section class="panel"><p class="section-title">Storyboard Plan</p><p class="muted">${escapeHtml(storyboardImage.storyboardImageId)}</p><p class="small">Shot: ${escapeHtml(storyboardImage.shotId)} • Frame: ${escapeHtml(storyboardImage.entry.frameType)}</p><p class="small">${escapeHtml(storyboardImage.entry.goal)}</p></section>`,
+    notesHtml: `<section class="panel"><p class="section-title">Storyboard Plan</p><p class="muted">${escapeHtml(storyboardImage.storyboardImageId)}</p><p class="small">Shot: ${escapeHtml(storyboardImage.shotId)} • Frame: ${escapeHtml(storyboardImage.entry.frameType)}</p><p class="small">${escapeHtml(storyboardImage.entry.prompt)}</p></section>`,
     canEdit: historyState.currentExists || historyState.activeVersionId !== null,
     canEditReferences: false,
     primaryAction:
@@ -3937,9 +3936,6 @@ async function buildStoryboardPendingGeneration(
     config.fastImageModel,
     {
       storyboardImageId: entry.storyboardImageId,
-    },
-    {
-      rewriteModel: config.agentModel,
     },
   )
 
@@ -4467,15 +4463,13 @@ async function writeStoryboardManifest(
   storyboard: { images: StoryboardImageEntry[] },
   cwd: string,
 ) {
-  const sanitizedStoryboard = stripStoryboardPromptFields(storyboard)
-
   await writeFile(
     resolveWorkflowPath(WORKFLOW_FILES.storyboardSidecar, cwd),
-    `${JSON.stringify(sanitizedStoryboard, null, 2)}\n`,
+    `${JSON.stringify(storyboard, null, 2)}\n`,
     'utf8',
   )
 
-  return sanitizedStoryboard
+  return storyboard
 }
 
 async function dropStoryboardImageArtifact(entry: StoryboardDerivedImageEntry, cwd: string) {
@@ -4553,7 +4547,7 @@ function resolveStoryboardSelectionAfterDelete(
 
 interface StoryboardEditorFormInput {
   selectedImageId: string
-  goal: string
+  prompt: string
   regenerateRequest: string
   camera?: KeyframeCameraSpec
 }
@@ -4566,7 +4560,7 @@ function storyboardEditorInputMatchesEntry(
   const nextCamera = resolveKeyframeCameraSpec(input.camera)
 
   return (
-    entry.entry.goal.trim() === input.goal.trim() &&
+    entry.entry.prompt.trim() === input.prompt.trim() &&
     currentCamera.shotSize === nextCamera.shotSize &&
     currentCamera.cameraPosition === nextCamera.cameraPosition &&
     currentCamera.cameraAngle === nextCamera.cameraAngle
@@ -4580,13 +4574,13 @@ async function parseStoryboardEditorForm(
 ): Promise<StoryboardEditorFormInput> {
   const formData = await request.formData()
   const selectedImageId = String(formData.get('selectedImageId') ?? '').trim()
-  const goal = String(formData.get('goal') ?? '').trim()
+  const prompt = String(formData.get('prompt') ?? '').trim()
   const regenerateRequest = String(formData.get('regenerateRequest') ?? '').trim()
   const normalizedSelectedImageId =
     selectedImageId.length > 0 ? selectedImageId : STORYBOARD_NEW_SELECTION_ID
 
-  if (goal.length === 0) {
-    throw new Error('Goal is required.')
+  if (prompt.length === 0) {
+    throw new Error('Prompt is required.')
   }
 
   const cameraControl = buildStoryboardCameraOverrideControl(
@@ -4603,7 +4597,7 @@ async function parseStoryboardEditorForm(
 
   return {
     selectedImageId: normalizedSelectedImageId,
-    goal,
+    prompt,
     regenerateRequest,
     camera,
   }
@@ -4612,7 +4606,7 @@ async function parseStoryboardEditorForm(
 function createStoryboardDraftFromForm(input: StoryboardEditorFormInput, frameType: FrameType) {
   return createStoryboardImageEntry({
     frameType,
-    goal: input.goal,
+    prompt: input.prompt,
     camera: input.camera,
   })
 }
@@ -4681,7 +4675,7 @@ function materializeStoryboardReorderTile(
 
   return createStoryboardImageEntry({
     frameType,
-    goal: source.sourceImage.entry.goal,
+    prompt: source.sourceImage.entry.prompt,
     camera: source.sourceImage.entry.camera,
   })
 }
@@ -4921,7 +4915,7 @@ async function upsertStoryboardSelection(
 
   const nextEntry = createStoryboardImageEntry({
     frameType: current.entry.frameType,
-    goal: input.goal,
+    prompt: input.prompt,
     camera: input.camera,
     imagePath: current.entry.imagePath,
   })

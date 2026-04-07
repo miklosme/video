@@ -2,7 +2,7 @@
   "images": [
     {
       "frameType": "start",
-      "goal": "TBD",
+      "prompt": "TBD",
       "camera": {
         "shotSize": "medium-shot",
         "cameraPosition": "eye-level",

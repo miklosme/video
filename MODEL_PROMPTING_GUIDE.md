@@ -21,6 +21,39 @@ three-quarter view], [plain background], [soft even lighting],
 [stable identity details that must persist]
 ```
 
+## BFL Flux 2 Klein
+
+for `bfl/flux-2-klein-9b`, assume the prompt you write is the prompt the model sees. there is no magical cleanup pass anymore, so storyboard prompts should already be explicit, visual, and model-ready.
+
+**the core approach**
+
+- write **2-4 sentences of natural visual prose**, not keyword piles
+- **front-load the subject and action** in the first sentence
+- make **framing explicit** inside the prompt itself: medium-wide, close-up, eye-level, slight low angle, etc.
+- specify the **environment, lighting, and spatial relationships** instead of leaving them implied
+- end with a **`Style:` line** that locks the rough storyboard treatment
+
+**what consistently helps for storyboard prompts**
+
+- describe **what the frame literally shows**, not the abstract intent behind it
+- include the **comic or dramatic contrast** only through visible staging, posture, props, and expressions
+- keep the prompt **positive and concrete**; don't use negative prompts or tag syntax
+- if a reference image is attached, the prompt should still stand on its own and describe the desired end frame clearly
+
+**recommended shape**
+
+```
+[Framing] storyboard frame of [main subject and action], [immediate setting and supporting action].
+[Visible character details, props, blocking, environment, lighting, and what should read most clearly].
+Style: black-and-white rough graphite storyboard sketch, loose previs linework, light grayscale shading, readable silhouettes, unfinished but cinematic.
+```
+
+**example**
+
+```
+A medium-wide eye-level storyboard frame of an anxious Renaissance merchant freezing in a crowded market as he checks a worn leather satchel and realizes he is disastrously late, while the crowd continues moving around him. Keep his strained face and clutched satchel as the focal point, with fabric stalls, produce, and passing bodies creating readable depth behind him. Style: black-and-white rough graphite storyboard sketch, loose previs linework, light grayscale shading, clear silhouettes, unfinished but cinematic.
+```
+
 ## Imagen 4 Fast / Ultra
 
 **the core framework**

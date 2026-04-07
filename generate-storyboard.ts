@@ -20,20 +20,14 @@ import {
 import { captureWorkflowEvent, shutdownPostHog } from './posthog'
 import { ensureActiveWorkspace } from './project-workspace'
 import {
-  buildStoryboardDirectPromptText,
+  appendStoryboardCameraPrompt,
+  buildStoryboardDirectionPrompt,
   buildStoryboardPrompt,
   buildStoryboardPromptText,
   buildStoryboardRegeneratePrompt,
-  modelUsesStoryboardPromptRewrite,
-  rewriteStoryboardPrompt,
   STORYBOARD_THUMBNAIL_IMAGE_SIZE,
-  type StoryboardPromptRewriter,
 } from './storyboard-prompting'
-import {
-  buildStoryboardDerivedImages,
-  createStoryboardImagePath,
-  stripStoryboardPromptFields,
-} from './storyboard-utils'
+import { buildStoryboardDerivedImages, createStoryboardImagePath } from './storyboard-utils'
 import {
   getStoryboardArtifactIdFromPath,
   getStoryboardSidecarPath,
@@ -55,13 +49,9 @@ export interface PendingStoryboardGeneration {
   storyboardImageId: string
   shotId: string
   frameType: StoryboardImageEntry['frameType']
-  goal: string
   camera?: StoryboardImageEntry['camera']
-  previousFrameSummary?: string | null
-  nextFrameSummary?: string | null
   artifactId: string
   model: string
-  rewriteModel?: string | null
   prompt: string
   outputPath: string
 }
@@ -76,20 +66,11 @@ type ImageGenerator = (input: GenerateImagenOptionsInput) => Promise<GenerateIma
 const STORYBOARD_SIDECAR_PATH = getStoryboardSidecarPath()
 
 export {
+  buildStoryboardDirectionPrompt,
   buildStoryboardPrompt,
   buildStoryboardRegeneratePrompt,
   STORYBOARD_THUMBNAIL_IMAGE_SIZE,
 } from './storyboard-prompting'
-
-export function buildStoryboardDirectionPrompt(regenerateRequest: string) {
-  const trimmedRequest = regenerateRequest.trim()
-
-  if (trimmedRequest.length === 0) {
-    throw new Error('A direction request is required for storyboard direction edits.')
-  }
-
-  return trimmedRequest
-}
 
 function parseArgs(): GenerateStoryboardArgs {
   const args = arg({
@@ -113,11 +94,9 @@ async function fileExists(filePath: string) {
 }
 
 async function writeStoryboardSidecar(storyboard: StoryboardSidecar, cwd = process.cwd()) {
-  const sanitizedStoryboard = stripStoryboardPromptFields(storyboard)
-
   await writeFile(
     resolveWorkflowPath(WORKFLOW_FILES.storyboardSidecar, cwd),
-    `${JSON.stringify(sanitizedStoryboard, null, 2)}\n`,
+    `${JSON.stringify(storyboard, null, 2)}\n`,
     'utf8',
   )
 }
@@ -174,9 +153,6 @@ export function selectPendingStoryboardGenerations(
   storyboard: StoryboardSidecar,
   model: string,
   filters: GenerateStoryboardArgs = {},
-  options: {
-    rewriteModel?: string | null
-  } = {},
 ): PendingStoryboardGeneration[] {
   const derivedImages = buildStoryboardDerivedImages(storyboard.images)
 
@@ -189,27 +165,15 @@ export function selectPendingStoryboardGenerations(
         )
       }
 
-      const previousEntry =
-        entry.imageIndex > 0 ? (derivedImages[entry.imageIndex - 1] ?? null) : null
-      const nextEntry = derivedImages[entry.imageIndex + 1] ?? null
-
       return {
         imageIndex: entry.imageIndex,
         storyboardImageId: entry.storyboardImageId,
         shotId: entry.shotId,
         frameType: entry.entry.frameType,
-        goal: entry.entry.goal,
         camera: entry.entry.camera,
-        previousFrameSummary: previousEntry
-          ? `${previousEntry.storyboardImageId} (${previousEntry.entry.frameType}) — ${previousEntry.entry.goal.trim()}`
-          : null,
-        nextFrameSummary: nextEntry
-          ? `${nextEntry.storyboardImageId} (${nextEntry.entry.frameType}) — ${nextEntry.entry.goal.trim()}`
-          : null,
         artifactId: getStoryboardArtifactIdFromPath(entry.entry.imagePath),
         model,
-        rewriteModel: options.rewriteModel ?? null,
-        prompt: buildStoryboardPrompt(storyboard, entry.imageIndex),
+        prompt: entry.entry.prompt.trim(),
         outputPath: entry.entry.imagePath,
       }
     })
@@ -217,45 +181,11 @@ export function selectPendingStoryboardGenerations(
 
 export async function resolveStoryboardGenerationPrompt(
   generation: PendingStoryboardGeneration,
-  references: NonNullable<GenerateImagenOptionsInput['references']>,
   options: {
     basePrompt?: string
-    regenerateRequest?: string | null
-    logFile?: string
-    cwd?: string
-    promptRewriter?: StoryboardPromptRewriter
   } = {},
 ) {
-  if (modelUsesStoryboardPromptRewrite(generation.model) && !generation.rewriteModel) {
-    throw new Error(
-      `Storyboard image "${generation.storyboardImageId}" requires a configured agent rewrite model before it can be generated with ${generation.model}.`,
-    )
-  }
-
-  console.log(
-    `Resolving prompt for ${generation.storyboardImageId} with model ${generation.model}...`,
-  )
-
-  return rewriteStoryboardPrompt(
-    {
-      prompt: options.basePrompt ?? generation.prompt,
-      imageModel: generation.model,
-      rewriteModel: generation.rewriteModel ?? generation.model,
-      storyboardImageId: generation.storyboardImageId,
-      shotId: generation.shotId,
-      frameType: generation.frameType,
-      goal: generation.goal,
-      previousFrameSummary: generation.previousFrameSummary ?? null,
-      nextFrameSummary: generation.nextFrameSummary ?? null,
-      references,
-      regenerateRequest: options.regenerateRequest,
-      cwd: options.cwd,
-    },
-    {
-      logFile: options.logFile,
-      rewriter: options.promptRewriter,
-    },
-  )
+  return options.basePrompt ?? appendStoryboardCameraPrompt(generation.prompt, generation.camera)
 }
 
 export async function runStoryboardGeneration(
@@ -267,18 +197,11 @@ export async function runStoryboardGeneration(
     seed?: number
     generator?: ImageGenerator
     resolvedPrompt?: string
-    promptRewriter?: StoryboardPromptRewriter
   } = {},
 ) {
   const { resolvedReferences, references } = resolveStoryboardGenerationReferences()
   await assertResolvedReferencesExist(resolvedReferences, options.cwd)
-  const prompt =
-    options.resolvedPrompt ??
-    (await resolveStoryboardGenerationPrompt(generation, references, {
-      logFile: options.logFile,
-      cwd: options.cwd,
-      promptRewriter: options.promptRewriter,
-    }))
+  const prompt = options.resolvedPrompt ?? (await resolveStoryboardGenerationPrompt(generation))
 
   const generator = options.generator ?? generateImagenOptions
   const result = await generator({
@@ -292,9 +215,7 @@ export async function runStoryboardGeneration(
     seed: options.seed,
     artifactType: 'storyboard',
     artifactId: generation.artifactId,
-    promptTextBuilder: modelUsesStoryboardPromptRewrite(generation.model)
-      ? buildStoryboardDirectPromptText
-      : buildStoryboardPromptText,
+    promptTextBuilder: buildStoryboardPromptText,
   })
 
   return {
@@ -314,7 +235,6 @@ export async function generateStoryboardArtifactVersion(
     autoSelect?: boolean
     generator?: ImageGenerator
     resolvedPrompt?: string
-    promptRewriter?: StoryboardPromptRewriter
   } = {},
 ) {
   const descriptor = getStoryboardArtifactDescriptor({
@@ -334,7 +254,6 @@ export async function generateStoryboardArtifactVersion(
       seed: seed ?? undefined,
       generator: options.generator,
       resolvedPrompt: options.resolvedPrompt,
-      promptRewriter: options.promptRewriter,
     })
     const recorded = await recordArtifactVersionFromStage({
       descriptor,
@@ -366,7 +285,6 @@ export async function runStoryboardRegeneration(
     seed?: number
     generator?: ImageGenerator
     resolvedPrompt?: string
-    promptRewriter?: StoryboardPromptRewriter
   },
 ) {
   const { resolvedReferences, references } = resolveStoryboardRegenerationReferences(
@@ -377,12 +295,8 @@ export async function runStoryboardRegeneration(
   const basePrompt = buildStoryboardRegeneratePrompt(generation, options.regenerateRequest)
   const prompt =
     options.resolvedPrompt ??
-    (await resolveStoryboardGenerationPrompt(generation, references, {
+    (await resolveStoryboardGenerationPrompt(generation, {
       basePrompt,
-      regenerateRequest: options.regenerateRequest,
-      logFile: options.logFile,
-      cwd: options.cwd,
-      promptRewriter: options.promptRewriter,
     }))
   const generator = options.generator ?? generateImagenOptions
   const result = await generator({
@@ -396,9 +310,7 @@ export async function runStoryboardRegeneration(
     seed: options.seed,
     artifactType: 'storyboard',
     artifactId: generation.artifactId,
-    promptTextBuilder: modelUsesStoryboardPromptRewrite(generation.model)
-      ? buildStoryboardDirectPromptText
-      : buildStoryboardPromptText,
+    promptTextBuilder: buildStoryboardPromptText,
   })
 
   return {
@@ -426,7 +338,7 @@ export async function runStoryboardDirectionRegeneration(
   )
   await assertResolvedReferencesExist(resolvedReferences, options.cwd)
 
-  const prompt = buildStoryboardDirectionPrompt(options.regenerateRequest)
+  const prompt = buildStoryboardDirectionPrompt(generation, options.regenerateRequest)
   const generator = options.generator ?? generateImagenOptions
   const result = await generator({
     prompt,
@@ -439,7 +351,7 @@ export async function runStoryboardDirectionRegeneration(
     seed: options.seed,
     artifactType: 'storyboard',
     artifactId: generation.artifactId,
-    promptTextBuilder: buildStoryboardDirectPromptText,
+    promptTextBuilder: buildStoryboardPromptText,
   })
 
   return {
@@ -461,7 +373,6 @@ export async function regenerateStoryboardArtifactVersion(
     autoSelect?: boolean
     generator?: ImageGenerator
     resolvedPrompt?: string
-    promptRewriter?: StoryboardPromptRewriter
   },
 ) {
   const descriptor = getStoryboardArtifactDescriptor({
@@ -483,7 +394,6 @@ export async function regenerateStoryboardArtifactVersion(
       seed: seed ?? undefined,
       generator: options.generator,
       resolvedPrompt: options.resolvedPrompt,
-      promptRewriter: options.promptRewriter,
     })
     const recorded = await recordArtifactVersionFromStage({
       descriptor,
@@ -516,7 +426,6 @@ export async function renderStoryboardArtifactVersion(
     autoSelect?: boolean
     generator?: ImageGenerator
     resolvedPrompt?: string
-    promptRewriter?: StoryboardPromptRewriter
   } = {},
 ) {
   const descriptor = getStoryboardArtifactDescriptor({
@@ -556,7 +465,6 @@ export async function renderStoryboardArtifactVersion(
         seed: seed ?? undefined,
         generator: options.generator,
         resolvedPrompt: options.resolvedPrompt,
-        promptRewriter: options.promptRewriter,
       })
 
       if (trimmedRequest.length > 0) {
@@ -594,36 +502,15 @@ export async function renderStoryboardArtifactVersion(
 export async function syncStoryboardGeneration(options: {
   storyboard: StoryboardSidecar
   model: string
-  rewriteModel?: string | null
   filters?: GenerateStoryboardArgs
   variantCount?: number
   logFile?: string
   cwd?: string
   generator?: ImageGenerator
-  promptRewriter?: StoryboardPromptRewriter
 }): Promise<StoryboardGenerationSummary> {
   const cwd = options.cwd ?? process.cwd()
-  const storyboardWithPaths = await ensureStoryboardImagePaths(
-    options.storyboard,
-    options.filters,
-    cwd,
-  )
-  const storyboard = storyboardWithPaths.images.some((entry) => entry.prompt !== undefined)
-    ? stripStoryboardPromptFields(storyboardWithPaths)
-    : storyboardWithPaths
-
-  if (storyboard !== storyboardWithPaths) {
-    await writeStoryboardSidecar(storyboard, cwd)
-  }
-
-  const generations = selectPendingStoryboardGenerations(
-    storyboard,
-    options.model,
-    options.filters,
-    {
-      rewriteModel: options.rewriteModel,
-    },
-  )
+  const storyboard = await ensureStoryboardImagePaths(options.storyboard, options.filters, cwd)
+  const generations = selectPendingStoryboardGenerations(storyboard, options.model, options.filters)
   const variantCount = options.variantCount ?? 1
   let generatedCount = 0
   let skippedCount = 0
@@ -645,16 +532,7 @@ export async function syncStoryboardGeneration(options: {
       continue
     }
 
-    const generationReferences = resolveStoryboardGenerationReferences().references
-    const resolvedPrompt = await resolveStoryboardGenerationPrompt(
-      generation,
-      generationReferences,
-      {
-        logFile: options.logFile,
-        cwd,
-        promptRewriter: options.promptRewriter,
-      },
-    )
+    const resolvedPrompt = await resolveStoryboardGenerationPrompt(generation)
 
     for (let variantIndex = 0; variantIndex < variantCount; variantIndex += 1) {
       if (variantCount === 1) {
@@ -673,7 +551,6 @@ export async function syncStoryboardGeneration(options: {
         autoSelect: variantIndex === variantCount - 1,
         generator: options.generator,
         resolvedPrompt,
-        promptRewriter: options.promptRewriter,
       })
     }
 
@@ -717,7 +594,6 @@ async function main() {
   await syncStoryboardGeneration({
     storyboard,
     model: config.fastImageModel,
-    rewriteModel: config.agentModel,
     filters,
     variantCount: config.variantCount,
   })

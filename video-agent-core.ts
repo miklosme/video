@@ -496,10 +496,13 @@ function buildRuntimeDirective(
   )
   lines.push('Prompt-writing rules:')
   lines.push(
-    '- Before writing or revising keyframe sidecars, character-sheet sidecars, shot sidecars, or SHOTS.json, read workspace/CONFIG.json, MODEL_PROMPTING_GUIDE.md, and CAMERA_VOCABULARY.json.',
+    '- Before writing or revising storyboard sidecars, keyframe sidecars, character-sheet sidecars, shot sidecars, or SHOTS.json, read workspace/CONFIG.json, MODEL_PROMPTING_GUIDE.md, and CAMERA_VOCABULARY.json.',
   )
   lines.push(
-    `- ${getStoryboardSidecarPath()} is the canonical storyboard plan. It stores an ordered images array where each storyboard image item owns frameType, goal, nullable imagePath, and optional camera. Storyboard images do not carry authored references. Derive shot ids and storyboard image ids from board order instead of storing them.`,
+    `- ${getStoryboardSidecarPath()} is the canonical storyboard plan. It stores an ordered images array where each storyboard image item owns frameType, prompt, nullable imagePath, and optional camera. Storyboard images do not carry authored references. Derive shot ids and storyboard image ids from board order instead of storing them.`,
+  )
+  lines.push(
+    '- Storyboard prompts are authored directly for FLUX Klein. Write 2-4 sentences of concrete visual prose, front-load the subject and action, specify environment and lighting, make framing explicit, and end with a `Style:` line for the rough monochrome storyboard treatment.',
   )
   lines.push(
     `- Storyboard review now happens per image under workspace/STORYBOARD/*.png, generated one image at a time from ${getStoryboardSidecarPath()}.`,

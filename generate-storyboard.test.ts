@@ -28,7 +28,8 @@ function createStoryboard(): StoryboardSidecar {
     images: [
       {
         frameType: 'start',
-        goal: 'Establish the dog noticing something off in the window reflection.',
+        prompt:
+          'A medium shot of a tense dog noticing something off in the window reflection. Style: rough graphite storyboard sketch.',
         camera: {
           shotSize: 'medium-shot',
           cameraPosition: 'eye-level',
@@ -38,7 +39,8 @@ function createStoryboard(): StoryboardSidecar {
       },
       {
         frameType: 'end',
-        goal: 'Land the transformed dog staring directly at us.',
+        prompt:
+          'A close-up of the transformed dog staring directly at us. Style: rough graphite storyboard sketch.',
         camera: {
           shotSize: 'close-up',
           cameraPosition: 'eye-level',
@@ -50,20 +52,15 @@ function createStoryboard(): StoryboardSidecar {
   }
 }
 
-test('buildStoryboardPrompt targets a single storyboard image rather than a board sheet', () => {
+test('buildStoryboardPrompt returns the authored prompt plus deterministic camera guidance', () => {
   const storyboard = createStoryboard()
   const prompt = buildStoryboardPrompt(storyboard, 'SHOT-01-START')
 
-  expect(prompt).toContain('Create a single 16:9 storyboard thumbnail image')
-  expect(prompt).toContain('No multi-panel sheet, page layout')
-  expect(prompt).toContain('Shot: SHOT-01')
-  expect(prompt).toContain('Frame: start')
   expect(prompt).toContain(
-    'Goal: Establish the dog noticing something off in the window reflection.',
+    'A medium shot of a tense dog noticing something off in the window reflection. Style: rough graphite storyboard sketch.',
   )
   expect(prompt).toContain('Use this camera plan for this frame:')
   expect(prompt).toContain('Shot Size: Medium Shot')
-  expect(prompt).not.toContain('storyboard template image')
 })
 
 test('selectPendingStoryboardGenerations returns storyboard entries without authored references', () => {
@@ -75,42 +72,22 @@ test('selectPendingStoryboardGenerations returns storyboard entries without auth
   expect(generations[0]).not.toHaveProperty('userReferences')
 })
 
-test('selectPendingStoryboardGenerations rebuilds storyboard prompts even when legacy prompt data exists', () => {
-  const storyboard = createStoryboard()
-  storyboard.images[0] = {
-    ...storyboard.images[0]!,
-    prompt: 'Legacy storyboard prompt.',
-  }
-
-  const generations = selectPendingStoryboardGenerations(storyboard, 'image-test', {
+test('resolveStoryboardGenerationPrompt returns the authored prompt by default', async () => {
+  const prompt = await resolveStoryboardGenerationPrompt({
+    imageIndex: 0,
     storyboardImageId: 'SHOT-01-START',
+    shotId: 'SHOT-01',
+    frameType: 'start',
+    artifactId: 'storyboard-image-alpha',
+    model: 'bfl/flux-2-klein-9b',
+    prompt:
+      'A medium shot of a tense dog noticing something off in the window reflection. Style: rough graphite storyboard sketch.',
+    outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
   })
 
-  expect(generations).toHaveLength(1)
-  expect(generations[0]?.prompt).toBe(buildStoryboardPrompt(storyboard, 'SHOT-01-START'))
-})
-
-test('resolveStoryboardGenerationPrompt rewrites storyboard prompts for rewrite models', async () => {
-  const prompt = await resolveStoryboardGenerationPrompt(
-    {
-      imageIndex: 0,
-      storyboardImageId: 'SHOT-01-START',
-      shotId: 'SHOT-01',
-      frameType: 'start',
-      goal: 'Establish the dog noticing something off in the window reflection.',
-      artifactId: 'storyboard-image-alpha',
-      model: 'bfl/flux-2-klein-9b',
-      rewriteModel: 'openai/gpt-5.4-mini',
-      prompt: 'Base storyboard prompt.',
-      outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
-    },
-    [],
-    {
-      promptRewriter: async () => 'Fresh storyboard prompt.',
-    },
+  expect(prompt).toBe(
+    'A medium shot of a tense dog noticing something off in the window reflection. Style: rough graphite storyboard sketch.',
   )
-
-  expect(prompt).toBe('Fresh storyboard prompt.')
 })
 
 test('runStoryboardRegeneration keeps the selected storyboard image as the edit baseline', async () => {
@@ -128,15 +105,10 @@ test('runStoryboardRegeneration keeps the selected storyboard image as the edit 
       storyboardImageId: 'SHOT-01-START',
       shotId: 'SHOT-01',
       frameType: 'start',
-      goal: 'Establish the dog noticing something off in the window reflection.',
-      camera: {
-        shotSize: 'medium-shot',
-        cameraPosition: 'eye-level',
-        cameraAngle: 'level-angle',
-      },
       artifactId: 'storyboard-image-alpha',
       model: 'image-test',
-      prompt: 'Prompt',
+      prompt:
+        'A medium shot of a tense dog noticing something off in the window reflection. Style: rough graphite storyboard sketch.',
       outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
     }
 
@@ -157,14 +129,13 @@ test('runStoryboardRegeneration keeps the selected storyboard image as the edit 
       },
     })
 
-    expect(result.prompt).toContain('Regenerate the current storyboard image for SHOT-01-START')
     expect(result.prompt).toContain(
-      'Goal: Establish the dog noticing something off in the window reflection.',
+      'A medium shot of a tense dog noticing something off in the window reflection.',
     )
-    expect(result.prompt).toContain('Use this camera plan for this regeneration:')
-    expect(result.prompt).toContain('Shot Size: Medium Shot')
-    expect(result.prompt).toContain('Direction:')
-    expect(result.prompt).toContain('Remove the extra background character.')
+    expect(result.prompt).toContain(
+      'Use the attached current storyboard thumbnail as the direct visual baseline.',
+    )
+    expect(result.prompt).toContain('Requested change: Remove the extra background character.')
     expect(seenSize).toBe('896x512')
     expect(result.references).toEqual([
       {
@@ -177,7 +148,7 @@ test('runStoryboardRegeneration keeps the selected storyboard image as the edit 
   }
 })
 
-test('runStoryboardDirectionRegeneration sends only the direction request as the prompt', async () => {
+test('runStoryboardDirectionRegeneration keeps the base prompt and applies the direction request', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-direction-'))
 
   try {
@@ -192,22 +163,17 @@ test('runStoryboardDirectionRegeneration sends only the direction request as the
       storyboardImageId: 'SHOT-01-START',
       shotId: 'SHOT-01',
       frameType: 'start',
-      goal: 'Establish the dog noticing something off in the window reflection.',
-      camera: {
-        shotSize: 'medium-shot',
-        cameraPosition: 'eye-level',
-        cameraAngle: 'level-angle',
-      },
       artifactId: 'storyboard-image-alpha',
       model: 'image-test',
-      prompt: 'Prompt',
+      prompt:
+        'A medium shot of a tense dog noticing something off in the window reflection. Style: rough graphite storyboard sketch.',
       outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
     }
 
     let promptText = ''
     const result = await runStoryboardDirectionRegeneration(generation, {
       outputPath: 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/.staged-v3.png',
-      regenerateRequest: 'Make them face the door',
+      regenerateRequest: 'Make them face the door.',
       selectedVersionPath: 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v2.png',
       cwd: rootDir,
       generator: async (input) => {
@@ -229,8 +195,12 @@ test('runStoryboardDirectionRegeneration sends only the direction request as the
       },
     })
 
-    expect(result.prompt).toBe('Make them face the door')
-    expect(promptText).toBe('Make them face the door')
+    expect(result.prompt).toContain(
+      'A medium shot of a tense dog noticing something off in the window reflection.',
+    )
+    expect(result.prompt).toContain('Apply only the requested change')
+    expect(result.prompt).toContain('Requested change: Make them face the door.')
+    expect(promptText).toContain('Reference 1 is the currently selected storyboard thumbnail.')
     expect(result.references).toEqual([
       {
         kind: 'selected-image',
@@ -242,36 +212,26 @@ test('runStoryboardDirectionRegeneration sends only the direction request as the
   }
 })
 
-test('runStoryboardGeneration rewrites flux klein storyboard prompts before image generation', async () => {
-  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-flux-rewrite-'))
+test('runStoryboardGeneration uses the authored prompt directly for flux klein generation', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-direct-prompt-'))
 
   try {
-    await writeRepoFile(rootDir, 'workspace/IDEA.md', '# IDEA\nComic market panic.\n')
-    await writeRepoFile(rootDir, 'workspace/STORY.md', '# STORY\nThe merchant loses the bag.\n')
-
     let seenPrompt = ''
     let promptText = ''
-    const logFile = 'workspace/test-log.jsonl'
     const result = await runStoryboardGeneration(
       {
         imageIndex: 0,
         storyboardImageId: 'SHOT-01-START',
         shotId: 'SHOT-01',
         frameType: 'start',
-        goal: 'Establish the merchant realizing the bag is gone.',
-        previousFrameSummary: null,
-        nextFrameSummary: 'SHOT-01-END (end) — The merchant lunges into the crowd.',
         artifactId: 'storyboard-image-alpha',
         model: 'bfl/flux-2-klein-9b',
-        rewriteModel: 'openai/gpt-5.4-mini',
-        prompt: 'Base storyboard prompt.',
+        prompt:
+          'A frantic merchant freezes beside a market stall, clutching an empty satchel as the crowd swirls behind him. Style: rough graphite storyboard sketch.',
         outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
       },
       {
         cwd: rootDir,
-        logFile,
-        promptRewriter: async () =>
-          'A frantic merchant freezes beside a market stall, clutching an empty satchel as the crowd swirls behind him. Style: rough graphite storyboard sketch.',
         generator: async (input) => {
           seenPrompt = input.prompt
           promptText =
@@ -293,39 +253,18 @@ test('runStoryboardGeneration rewrites flux klein storyboard prompts before imag
       },
     )
 
-    expect(seenPrompt).toContain('A frantic merchant freezes beside a market stall')
+    expect(seenPrompt).toBe(
+      'A frantic merchant freezes beside a market stall, clutching an empty satchel as the crowd swirls behind him. Style: rough graphite storyboard sketch.',
+    )
     expect(promptText).toBe(seenPrompt)
     expect(result.prompt).toBe(seenPrompt)
-    const logEntries = (await readFile(path.resolve(rootDir, logFile), 'utf8'))
-      .trim()
-      .split('\n')
-      .map(
-        (line) =>
-          JSON.parse(line) as {
-            operation?: string
-            model: string
-            outputText?: string | null
-            settings: { targetModel?: string }
-          },
-      )
-
-    expect(logEntries).toHaveLength(1)
-    expect(logEntries[0]).toMatchObject({
-      operation: 'storyboard-prompt-rewrite',
-      model: 'openai/gpt-5.4-mini',
-      outputText:
-        'A frantic merchant freezes beside a market stall, clutching an empty satchel as the crowd swirls behind him. Style: rough graphite storyboard sketch.',
-      settings: {
-        targetModel: 'bfl/flux-2-klein-9b',
-      },
-    })
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }
 })
 
-test('syncStoryboardGeneration regenerates rewrite prompts without persisting them', async () => {
-  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-prompt-refresh-'))
+test('syncStoryboardGeneration keeps storyboard prompts persisted as authored', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-prompt-persist-'))
   const storyboard = {
     images: [createStoryboard().images[0]!],
   } satisfies StoryboardSidecar
@@ -334,36 +273,14 @@ test('syncStoryboardGeneration regenerates rewrite prompts without persisting th
     await writeRepoFile(
       rootDir,
       'workspace/STORYBOARD/STORYBOARD.json',
-      `${JSON.stringify(
-        {
-          images: [
-            {
-              ...storyboard.images[0],
-              prompt: 'Stale storyboard cache.',
-            },
-          ],
-        },
-        null,
-        2,
-      )}\n`,
+      `${JSON.stringify(storyboard, null, 2)}\n`,
     )
-    await writeRepoFile(rootDir, 'workspace/IDEA.md', '# IDEA\nComic market panic.\n')
-    await writeRepoFile(rootDir, 'workspace/STORY.md', '# STORY\nThe merchant loses the bag.\n')
 
     let seenPrompt = ''
     await syncStoryboardGeneration({
-      storyboard: {
-        images: [
-          {
-            ...storyboard.images[0]!,
-            prompt: 'Stale storyboard cache.',
-          },
-        ],
-      },
+      storyboard,
       model: 'bfl/flux-2-klein-9b',
-      rewriteModel: 'openai/gpt-5.4-mini',
       cwd: rootDir,
-      promptRewriter: async () => 'Fresh FLUX prompt.',
       generator: async (input) => {
         seenPrompt = input.prompt
 
@@ -385,8 +302,9 @@ test('syncStoryboardGeneration regenerates rewrite prompts without persisting th
       await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
     ) as StoryboardSidecar
 
-    expect(seenPrompt).toBe('Fresh FLUX prompt.')
-    expect(savedStoryboard.images[0]?.prompt).toBeUndefined()
+    expect(seenPrompt).toContain(storyboard.images[0]?.prompt ?? '')
+    expect(seenPrompt).toContain('Use this camera plan for this frame:')
+    expect(savedStoryboard.images[0]?.prompt).toBe(storyboard.images[0]?.prompt)
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }
@@ -519,12 +437,19 @@ test('syncStoryboardGeneration renders variantCount retained versions and select
         'utf8',
       ),
     ).toBe('storyboard:3')
-    expect(await readFile(path.resolve(rootDir, descriptor.historyDir, 'v1.png'), 'utf8')).toBe(
-      'storyboard:1',
-    )
-    expect(await readFile(path.resolve(rootDir, descriptor.historyDir, 'v2.png'), 'utf8')).toBe(
-      'storyboard:2',
-    )
+    expect(
+      await readFile(
+        path.resolve(rootDir, 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v1.png'),
+        'utf8',
+      ),
+    ).toBe('storyboard:1')
+    expect(
+      await readFile(
+        path.resolve(rootDir, 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v2.png'),
+        'utf8',
+      ),
+    ).toBe('storyboard:2')
+    expect(descriptor.artifactId).toBe('storyboard-image-alpha')
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

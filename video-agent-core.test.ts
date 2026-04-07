@@ -127,7 +127,7 @@ async function createTestRepo() {
         images: [
           {
             frameType: 'start',
-            goal: 'TBD',
+            prompt: 'TBD',
             camera: {
               shotSize: 'medium-shot',
               cameraPosition: 'eye-level',
@@ -536,7 +536,7 @@ test('loadWorkflowSummary distinguishes storyboard authoring from storyboard rev
           images: [
             {
               frameType: 'start',
-              goal: 'Establish the dog sitting by the bowl.',
+              prompt: 'Establish the dog sitting by the bowl.',
               camera: {
                 shotSize: 'medium-shot',
                 cameraPosition: 'eye-level',
@@ -621,7 +621,7 @@ test('writeWorkspaceFile bootstraps storyboard sidecar after the story is writte
           images: [
             {
               frameType: 'start',
-              goal: 'TBD',
+              prompt: 'TBD',
               camera: {
                 shotSize: 'medium-shot',
                 cameraPosition: 'eye-level',
