@@ -1589,6 +1589,12 @@ function renderPage(
         display: flex;
         flex-direction: column;
         gap: 18px;
+        position: sticky;
+        top: 28px;
+        align-self: start;
+        max-height: calc(100vh - 40px);
+        overflow-y: auto;
+        padding-right: 4px;
       }
 
       .storyboard-grid-panel {
@@ -1961,6 +1967,18 @@ function renderPage(
         appearance: none;
       }
 
+      select[data-empty="true"] {
+        color: var(--soft);
+      }
+
+      select option {
+        color: var(--text);
+      }
+
+      select option[value=""] {
+        color: var(--soft);
+      }
+
       textarea {
         min-height: 150px;
         resize: vertical;
@@ -1991,6 +2009,22 @@ function renderPage(
         display: flex;
         flex-direction: column;
         gap: 12px;
+      }
+
+      .camera-override-shell-stacked {
+        gap: 10px;
+      }
+
+      .camera-override-fields-vertical {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+
+      .form-field-stacked {
+        grid-template-columns: 1fr;
+        align-items: start;
+        gap: 8px;
       }
 
       .job-banner {
@@ -2034,6 +2068,14 @@ function renderPage(
         .shot-review-layout,
         .storyboard-editor-layout {
           grid-template-columns: 1fr;
+        }
+
+        .storyboard-editor-pane {
+          position: static;
+          top: auto;
+          max-height: none;
+          overflow: visible;
+          padding-right: 0;
         }
 
         .detail-side {
@@ -2622,7 +2664,12 @@ function renderStoryboardSummary(options: {
       selectionHelp,
       fastImageModel: options.config?.fastImageModel ?? null,
       referenceEditorValue: buildReferenceEditorValue(references),
-      cameraControlsHtml: cameraControl ? renderCameraOverrideControls(cameraControl) : '',
+      cameraControlsHtml: cameraControl
+        ? renderCameraOverrideControls(cameraControl, {
+            showLabel: false,
+            stacked: true,
+          })
+        : '',
       saveButtonLabel,
       primaryButtonLabel,
       showDirectionField: options.selectedCard?.imageExists ?? false,
@@ -2927,17 +2974,33 @@ function buildCameraOverrideControl(
   }
 }
 
-function renderCameraOverrideControls(cameraControl: CameraOverrideControl) {
+function renderCameraOverrideControls(
+  cameraControl: CameraOverrideControl,
+  options: {
+    showLabel?: boolean
+    stacked?: boolean
+  } = {},
+) {
+  const shellClass = options.stacked
+    ? 'camera-override-shell camera-override-shell-stacked'
+    : 'camera-override-shell'
+  const fieldsClass = options.stacked ? 'camera-override-fields-vertical' : 'form-grid'
+  const fieldClass = options.stacked ? 'form-field form-field-stacked' : 'form-field'
+
   return `
-    <div class="camera-override-shell">
-      <p class="section-title">Camera Overrides</p>
-      <div class="form-grid">
+    <div class="${shellClass}">
+      ${options.showLabel === false ? '' : '<p class="section-title">Camera Overrides</p>'}
+      <div class="${fieldsClass}">
         ${cameraControl.fields
           .map(
             (field) => `
-              <label class="form-field">
+              <label class="${fieldClass}">
                 <span class="field-label">${escapeHtml(field.label)}</span>
-                <select name="${escapeHtml(field.inputName)}">
+                <select
+                  name="${escapeHtml(field.inputName)}"
+                  data-empty="true"
+                  onchange="this.dataset.empty = this.value.length === 0 ? 'true' : 'false'"
+                >
                   <option value="">${escapeHtml(`Keep current (${field.currentLabel})`)}</option>
                   ${field.options
                     .map(

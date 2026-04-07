@@ -327,7 +327,7 @@ test('artifact review server renders storyboard camera controls in the editor pa
       const html = await response.text()
 
       expect(response.status).toBe(200)
-      expect(html).toContain('Camera Overrides')
+      expect(html).not.toContain('Camera Overrides')
       expect(html).toContain('name="cameraOverrideShotSize"')
       expect(html).toContain('name="cameraOverrideCameraPosition"')
       expect(html).toContain('name="cameraOverrideCameraAngle"')
@@ -335,6 +335,11 @@ test('artifact review server renders storyboard camera controls in the editor pa
       expect(html).toContain('Keep current (Eye Level)')
       expect(html).toContain('Keep current (Level Angle)')
       expect(html).not.toContain('name="cameraOverrideCameraMovement"')
+      expect(html).toContain('camera-override-fields-vertical')
+      expect(html).toContain('form-field-stacked')
+      expect(html).toContain('select[data-empty="true"]')
+      expect(html).toContain('.storyboard-editor-pane {')
+      expect(html).toContain('position: sticky;')
     } finally {
       await server.stop()
     }
