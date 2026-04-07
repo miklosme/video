@@ -42,16 +42,17 @@ interface RenderMediaBlockOptions {
 export interface StoryboardPageRenderOptions {
   boardTiles: StoryboardBoardTile[]
   selected: StoryboardPageSelectionState
-  selectionLabel: string
-  selectionHelp: string
   fastImageModel: string | null
   referenceEditorValue: string
   cameraControlsHtml: string
   saveButtonLabel: string
   primaryButtonLabel: string
   showDirectionField: boolean
-  showDropImageAction: boolean
-  dropImageConfirmMessage: string | null
+  destructiveAction: {
+    formAction: string
+    buttonLabel: string
+    confirmMessage: string
+  } | null
   jobBannerHtml: string
 }
 
@@ -364,18 +365,12 @@ export function renderStoryboardPageContent(
       <div class="storyboard-editor-pane">
         ${options.jobBannerHtml}
         <section class="panel">
-          <div class="meta-stack">
-            <p class="section-title">${utils.escapeHtml(options.selectionLabel)}</p>
-            <p class="form-note">${utils.escapeHtml(options.selectionHelp)}</p>
-            <p class="small">Each render creates one minimal sketch-style storyboard frame with ${utils.escapeHtml(options.fastImageModel ?? 'the configured fast image model')}.</p>
-          </div>
           <form method="post" action="/storyboard/save">
             <input type="hidden" name="selectedImageId" value="${utils.escapeHtml(options.selected.selectedImageId)}">
+            <input type="hidden" name="referencesJson" value="${utils.escapeHtml(options.referenceEditorValue)}">
             <label class="field-label" for="storyboard-goal">Goal</label>
             <textarea id="storyboard-goal" name="goal" required>${utils.escapeHtml(options.selected.selectedEntry?.entry.goal ?? '')}</textarea>
             ${options.cameraControlsHtml}
-            <label class="field-label" for="storyboard-references">Source References</label>
-            <textarea id="storyboard-references" name="referencesJson" spellcheck="false">${utils.escapeHtml(options.referenceEditorValue)}</textarea>
             ${
               options.showDirectionField
                 ? `<label class="field-label" for="storyboard-direction">Direction</label>
@@ -385,29 +380,16 @@ export function renderStoryboardPageContent(
             <div class="form-actions">
               <button class="button-secondary" type="submit" formaction="/storyboard/save">${utils.escapeHtml(options.saveButtonLabel)}</button>
               <button class="button-primary" type="submit" formaction="/storyboard/render">${utils.escapeHtml(options.primaryButtonLabel)}</button>
+              ${
+                options.destructiveAction && options.selected.selectedEntry
+                  ? `<button class="button-danger" type="submit" formaction="${utils.escapeHtml(options.destructiveAction.formAction)}" formnovalidate onclick="return window.confirm(${utils.escapeHtml(
+                      JSON.stringify(options.destructiveAction.confirmMessage),
+                    )})">${utils.escapeHtml(options.destructiveAction.buttonLabel)}</button>`
+                  : ''
+              }
             </div>
           </form>
         </section>
-        ${
-          options.showDropImageAction &&
-          options.selected.selectedEntry &&
-          options.dropImageConfirmMessage
-            ? `
-              <section class="panel">
-                <p class="section-title">Drop Image</p>
-                <p class="form-note">${utils.escapeHtml(
-                  'Remove the current storyboard image artifact while keeping this storyboard slot and its planning data in place.',
-                )}</p>
-                <form method="post" action="/storyboard/drop-image" onsubmit="return window.confirm(${utils.escapeHtml(
-                  JSON.stringify(options.dropImageConfirmMessage),
-                )})">
-                  <input type="hidden" name="selectedImageId" value="${utils.escapeHtml(options.selected.selectedImageId)}">
-                  <button class="button-danger" type="submit">Drop image</button>
-                </form>
-              </section>
-            `
-            : ''
-        }
       </div>
     </section>`,
     extraBodyHtml: options.boardTiles.length > 0 ? renderStoryboardReorderScript() : '',

@@ -219,7 +219,8 @@ test('artifact review server renders an empty storyboard editor when no storyboa
 
       expect(response.status).toBe(200)
       expect(html).toContain('storyboard-thumb-add-icon')
-      expect(html).toContain('New storyboard start frame')
+      expect(html).not.toContain('New storyboard start frame')
+      expect(html).not.toContain('Source References')
       expect(html).not.toContain('Storyboard Editor')
       expect(html).not.toContain('Source Storyboard')
     } finally {
@@ -432,6 +433,239 @@ test('artifact review server renders optional end frame tiles without a visible 
       )
       expect(html).not.toContain('>Optional end frame<')
       expect(html).not.toContain('placeholder placeholder-omitted')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server renders delete thumbnail action when a selected storyboard entry has no image artifact', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'Keep the empty storyboard slot editable until it is deleted.',
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+              references: [],
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard?image=0', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('action="/storyboard/delete"')
+      expect(html).toContain('>Delete thumbnail<')
+      expect(html).not.toContain('>Drop image<')
+      expect(html).not.toContain('Source References')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server renders delete thumbnail action for selected end frames with missing images', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'The dog hesitates at the window.',
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+            },
+            {
+              frameType: 'end',
+              goal: 'The dog bolts toward the back door.',
+              imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/storyboard-image-alpha.png',
+      'storyboard-image',
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard?image=1', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('action="/storyboard/delete"')
+      expect(html).toContain('>Delete thumbnail<')
+      expect(html).not.toContain('>Drop image<')
+      expect(html).not.toContain('SHOT-01 • End Frame')
+      expect(html).not.toContain('Source References')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server delete thumbnail endpoint promotes a paired end frame when deleting a missing start', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'The crowd jolts as the dog notices the crack.',
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+            },
+            {
+              frameType: 'end',
+              goal: 'The dog lands at the door in a new pose.',
+              imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard/delete', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+        body: new URLSearchParams({
+          selectedImageId: '0',
+        }),
+      })
+
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toContain('/storyboard')
+      expect(response.headers.get('location')).toContain('image=0')
+
+      const storyboard = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+      ) as {
+        images: Array<{
+          frameType: 'start' | 'end'
+          goal: string
+          imagePath: string | null
+        }>
+      }
+
+      expect(storyboard.images).toEqual([
+        {
+          frameType: 'start',
+          goal: 'The dog lands at the door in a new pose.',
+          imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
+        },
+      ])
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server delete thumbnail endpoint removes a missing end frame entry', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'The dog freezes at the first tremor.',
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+            },
+            {
+              frameType: 'end',
+              goal: 'The dog races toward the hallway.',
+              imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/storyboard-image-alpha.png',
+      'storyboard-image',
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard/delete', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+        body: new URLSearchParams({
+          selectedImageId: '1',
+        }),
+      })
+
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toContain('/storyboard')
+      expect(response.headers.get('location')).toContain('image=0')
+
+      const storyboard = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+      ) as {
+        images: Array<{
+          frameType: 'start' | 'end'
+          goal: string
+          imagePath: string | null
+        }>
+      }
+
+      expect(storyboard.images).toEqual([
+        {
+          frameType: 'start',
+          goal: 'The dog freezes at the first tremor.',
+          imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+        },
+      ])
     } finally {
       await server.stop()
     }

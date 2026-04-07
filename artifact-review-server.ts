@@ -2022,9 +2022,9 @@ function renderPage(
       }
 
       .form-field-stacked {
-        grid-template-columns: 1fr;
-        align-items: start;
-        gap: 8px;
+        grid-template-columns: auto minmax(0, 1fr);
+        align-items: center;
+        gap: 12px;
       }
 
       .job-banner {
@@ -2603,18 +2603,36 @@ function renderStoryboardSummary(options: {
   job: ArtifactJobState | null
 }) {
   const selectedEntry = options.selected.selectedEntry
-  const pendingEndFor = options.selected.pendingEndFor
   const references =
     options.selected.kind === 'existing' ? (selectedEntry?.entry.references ?? []) : []
   const pairedEnd = selectedEntry
     ? getStoryboardPairedEnd(options.storyboard, options.selected.selectedImageId)
+    : null
+  const selectedHasImage = options.selectedCard?.imageExists ?? false
+  const destructiveAction = selectedEntry
+    ? selectedHasImage
+      ? {
+          formAction: '/storyboard/drop-image',
+          buttonLabel: 'Drop image',
+          confirmMessage: `Drop the current image for ${selectedEntry.storyboardImageId}? The storyboard entry will stay in place.`,
+        }
+      : {
+          formAction: '/storyboard/delete',
+          buttonLabel: 'Delete thumbnail',
+          confirmMessage:
+            selectedEntry.entry.frameType === 'start' &&
+            pairedEnd &&
+            pairedEnd.imageIndex !== selectedEntry.imageIndex
+              ? `Delete ${selectedEntry.storyboardImageId} from STORYBOARD.json? The paired end frame will remain and become the shot start frame.`
+              : `Delete ${selectedEntry.storyboardImageId} from STORYBOARD.json?`,
+        }
     : null
   const primaryButtonLabel =
     options.selected.kind === 'new-start'
       ? 'Add thumbnail'
       : options.selected.kind === 'missing-end'
         ? 'Generate end frame'
-        : options.selectedCard?.imageExists
+        : selectedHasImage
           ? 'Regenerate thumbnail'
           : 'Generate thumbnail'
   const saveButtonLabel =
@@ -2623,22 +2641,6 @@ function renderStoryboardSummary(options: {
       : options.selected.kind === 'missing-end'
         ? 'Add end draft'
         : 'Save goal'
-  const selectionLabel =
-    options.selected.kind === 'existing' && selectedEntry
-      ? `${selectedEntry.shotId} • ${frameTypeLabel(selectedEntry.entry.frameType)} Frame`
-      : options.selected.kind === 'missing-end' && pendingEndFor
-        ? `${pendingEndFor.shotId} • End Frame`
-        : 'New storyboard start frame'
-  const selectionHelp =
-    options.selected.kind === 'existing' && selectedEntry
-      ? selectedEntry.entry.frameType === 'end'
-        ? 'This is the optional closing frame for the previous storyboard thumbnail.'
-        : pairedEnd
-          ? `This start frame is paired with ${pairedEnd.storyboardImageId}.`
-          : 'This start frame currently stands on its own. Select the placeholder beside it to add a closing frame.'
-      : options.selected.kind === 'missing-end' && pendingEndFor
-        ? `This end frame is still virtual. Saving or generating it will insert ${getStoryboardImageId({ shotId: pendingEndFor.shotId, frameType: 'end' })} after ${pendingEndFor.storyboardImageId}.`
-        : 'The extra tile stays at the end of the board so you can append a new planned frame.'
   const cameraControl = buildStoryboardCameraOverrideControl(
     options.storyboard,
     options.selected.selectedImageId,
@@ -2660,8 +2662,6 @@ function renderStoryboardSummary(options: {
             }
           : null,
       },
-      selectionLabel,
-      selectionHelp,
       fastImageModel: options.config?.fastImageModel ?? null,
       referenceEditorValue: buildReferenceEditorValue(references),
       cameraControlsHtml: cameraControl
@@ -2672,11 +2672,8 @@ function renderStoryboardSummary(options: {
         : '',
       saveButtonLabel,
       primaryButtonLabel,
-      showDirectionField: options.selectedCard?.imageExists ?? false,
-      showDropImageAction: Boolean(selectedEntry && options.selectedCard?.imageExists),
-      dropImageConfirmMessage: selectedEntry
-        ? `Drop the current image for ${selectedEntry.storyboardImageId}? The storyboard entry will stay in place.`
-        : null,
+      showDirectionField: selectedHasImage,
+      destructiveAction,
       jobBannerHtml: renderJobBanner(options.job),
     },
     {
@@ -4536,6 +4533,49 @@ async function dropStoryboardImageArtifact(entry: StoryboardDerivedImageEntry, c
   ).catch(() => undefined)
 }
 
+async function deleteStoryboardThumbnailEntry(
+  storyboard: StoryboardSidecar,
+  entry: StoryboardDerivedImageEntry,
+  cwd: string,
+) {
+  if (
+    entry.entry.imagePath !== null &&
+    (await fileExists(resolveRepoPath(entry.entry.imagePath, cwd)))
+  ) {
+    throw new Error(
+      `Storyboard image "${entry.storyboardImageId}" still has an image artifact. Drop the image before deleting the thumbnail.`,
+    )
+  }
+
+  const nextImages = storyboard.images.filter((_, index) => index !== entry.imageIndex)
+  const promotedEntry = nextImages[entry.imageIndex]
+
+  if (entry.entry.frameType === 'start' && promotedEntry?.frameType === 'end') {
+    nextImages[entry.imageIndex] = {
+      ...promotedEntry,
+      frameType: 'start',
+    }
+  }
+
+  return writeStoryboardManifest(
+    {
+      images: nextImages,
+    },
+    cwd,
+  )
+}
+
+function resolveStoryboardSelectionAfterDelete(
+  storyboard: StoryboardSidecar,
+  deletedImageIndex: number,
+) {
+  if (storyboard.images.length === 0) {
+    return STORYBOARD_NEW_SELECTION_ID
+  }
+
+  return getStoryboardSelectionId(Math.min(deletedImageIndex, storyboard.images.length - 1))
+}
+
 interface StoryboardEditorFormInput {
   selectedImageId: string
   goal: string
@@ -5053,6 +5093,32 @@ async function handleStoryboardDropImage(request: Request, cwd: string) {
   return redirectTo(
     appendSearchParams(buildPostActionRedirectLocation('/storyboard', request, { updated: true }), {
       image: getStoryboardSelectionId(current.imageIndex),
+    }),
+  )
+}
+
+async function handleStoryboardDeleteThumbnail(request: Request, cwd: string) {
+  const formData = await request.formData()
+  const selectedImageId = String(formData.get('selectedImageId') ?? '').trim()
+  const storyboard = await loadStoryboardOrEmpty(cwd)
+
+  if (!storyboard || selectedImageId.length === 0) {
+    throw new Error('Select a storyboard thumbnail before deleting it.')
+  }
+
+  const current = findStoryboardImage(storyboard, selectedImageId)
+
+  if (!current) {
+    throw new Error(
+      `Storyboard image "${selectedImageId}" is missing from workspace/STORYBOARD.json.`,
+    )
+  }
+
+  const savedStoryboard = await deleteStoryboardThumbnailEntry(storyboard, current, cwd)
+
+  return redirectTo(
+    appendSearchParams(buildPostActionRedirectLocation('/storyboard', request, { updated: true }), {
+      image: resolveStoryboardSelectionAfterDelete(savedStoryboard, current.imageIndex),
     }),
   )
 }
@@ -5596,7 +5662,7 @@ export function startArtifactReviewServer(
           }
 
           if (request.method === 'POST' && url.pathname === '/storyboard/delete') {
-            return await handleStoryboardDropImage(request, cwd)
+            return await handleStoryboardDeleteThumbnail(request, cwd)
           }
 
           if (request.method === 'POST' && /\/references$/.test(url.pathname)) {
