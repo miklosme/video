@@ -62,7 +62,7 @@ Your job as an LLM is to be a senior creative development partner helping the us
 - Shot `camera` should use `CAMERA_VOCABULARY.json` ids with the shape `shotSize`, `cameraPosition`, `cameraAngle`, `cameraMovement`.
 - If the storyboard does not imply a stronger motion choice, default shot `camera` to `medium-shot`, `eye-level`, `level-angle`, `static-shot`.
 - `STORYBOARD.json` is the canonical storyboard plan and must use the exact shape `{ "images": [...] }`.
-- Each `STORYBOARD.json.images[]` entry should keep one storyboard image scoped to one shot anchor, using `frameType`, `goal`, nullable `imagePath`, and optional `references`. Shot ids and storyboard image ids are derived from board order, not stored.
+- Each `STORYBOARD.json.images[]` entry should keep one storyboard image scoped to one shot anchor, using `frameType`, `goal`, optional `camera`, nullable `imagePath`, and optional `references`. Storyboard `camera` should use `CAMERA_VOCABULARY.json` ids with the shape `shotSize`, `cameraPosition`, `cameraAngle`. If the board does not imply a stronger framing choice, default storyboard `camera` to `medium-shot`, `eye-level`, `level-angle`. Shot ids and storyboard image ids are derived from board order, not stored.
 - `workspace/STORYBOARD/` stores the rendered storyboard images, one PNG per storyboard image item.
 - Keep storyboard shots and keyframes as different concepts. `SHOTS.json.keyframes` must use distinct keyframe IDs such as `SHOT-01-START` or `SHOT-01-END`, with each keyframe linked back to its parent shot entry.
 - By default, plan one `start` keyframe per storyboard shot. Add an `end` keyframe only when the shot needs a materially different closing anchor. One-anchor `start` or `end` shots remain valid. Do not use `single`.

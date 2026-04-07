@@ -3,6 +3,7 @@ import { randomUUID } from 'node:crypto'
 import { appendFile, mkdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
+import { formatKeyframeCameraPlan } from './camera-utils'
 import type { PromptTextBuilderInput } from './generate-imagen-options'
 import { buildStoryboardDerivedImages } from './storyboard-utils'
 import {
@@ -385,6 +386,10 @@ export function buildStoryboardPrompt(
     `Frame: ${current.entry.frameType}`,
     `Storyboard Image: ${current.storyboardImageId}`,
     `Goal: ${current.entry.goal.trim()}`,
+    '',
+    'Use this camera plan for this frame:',
+    formatKeyframeCameraPlan(current.entry.camera),
+    'Treat this camera plan as the framing anchor for the storyboard thumbnail.',
   ].join('\n')
 }
 
@@ -395,8 +400,9 @@ export function buildStoryboardRegeneratePrompt(
       shotId: string
       frameType: StoryboardImageEntry['frameType']
       goal: string
+      camera?: StoryboardImageEntry['camera']
     },
-    'storyboardImageId' | 'shotId' | 'frameType' | 'goal'
+    'storyboardImageId' | 'shotId' | 'frameType' | 'goal' | 'camera'
   >,
   regenerateRequest?: string | null,
 ) {
@@ -410,6 +416,10 @@ export function buildStoryboardRegeneratePrompt(
     `Shot: ${generation.shotId}`,
     `Frame: ${generation.frameType}`,
     `Goal: ${generation.goal.trim()}`,
+    '',
+    'Use this camera plan for this regeneration:',
+    formatKeyframeCameraPlan(generation.camera),
+    'Preserve the rest of the storyboard readability and continuity unless the direction below explicitly asks for broader changes.',
   ]
 
   if (trimmedRequest.length > 0) {

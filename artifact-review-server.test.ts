@@ -36,6 +36,7 @@ async function writeConfigFixture(
   overrides: Partial<{
     agentModel: string
     imageModel: string
+    fastImageModel: string
     videoModel: string
     variantCount: number
   }> = {},
@@ -47,6 +48,7 @@ async function writeConfigFixture(
       {
         agentModel: 'agent-test',
         imageModel: 'image-test',
+        fastImageModel: 'image-fast-test',
         videoModel: 'video-test',
         variantCount: 1,
         ...overrides,
@@ -276,6 +278,63 @@ test('artifact review server renders the storyboard board before the editor and 
         html.indexOf('class="storyboard-editor-pane"'),
       )
       expect(html).toContain('grid-template-columns: repeat(2, minmax(0, 1fr));')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server renders storyboard camera controls in the editor pane', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeCameraVocabularyFixture(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'Establish the dog noticing something wrong in the glass.',
+              camera: {
+                shotSize: 'medium-shot',
+                cameraPosition: 'eye-level',
+                cameraAngle: 'level-angle',
+              },
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+              references: [],
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/storyboard-image-alpha.png',
+      'storyboard-image',
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard', server.url))
+      const html = await response.text()
+
+      expect(response.status).toBe(200)
+      expect(html).toContain('Camera Overrides')
+      expect(html).toContain('name="cameraOverrideShotSize"')
+      expect(html).toContain('name="cameraOverrideCameraPosition"')
+      expect(html).toContain('name="cameraOverrideCameraAngle"')
+      expect(html).toContain('Keep current (Medium Shot)')
+      expect(html).toContain('Keep current (Eye Level)')
+      expect(html).toContain('Keep current (Level Angle)')
+      expect(html).not.toContain('name="cameraOverrideCameraMovement"')
     } finally {
       await server.stop()
     }
@@ -2097,6 +2156,115 @@ test('artifact review server persists shot camera overrides to the sidecar witho
   }
 })
 
+test('artifact review server persists storyboard camera overrides from the board editor', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+  let capturedPrompt = ''
+
+  try {
+    await writeConfigFixture(rootDir)
+    await writeCameraVocabularyFixture(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'Establish the dog noticing something wrong in the glass.',
+              camera: {
+                shotSize: 'medium-shot',
+                cameraPosition: 'eye-level',
+                cameraAngle: 'level-angle',
+              },
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+              references: [],
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/storyboard-image-alpha.png',
+      'storyboard-current',
+    )
+
+    const server = startArtifactReviewServer({
+      cwd: rootDir,
+      preferredPort: 0,
+      imageGenerator: async (input) => {
+        capturedPrompt = input.prompt
+
+        if (!input.outputPath) {
+          throw new Error('Expected outputPath for storyboard regeneration test.')
+        }
+
+        await writeRepoFile(rootDir, input.outputPath, 'storyboard-regenerated')
+
+        return {
+          generationId: 'gen-storyboard-regenerated',
+          model: input.model ?? 'image-fast-test',
+          outputPaths: [path.resolve(rootDir, input.outputPath)],
+        }
+      },
+    })
+
+    try {
+      const response = await fetch(new URL('/storyboard/render', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+        body: new URLSearchParams({
+          selectedImageId: '0',
+          goal: 'Establish the dog noticing something wrong in the glass.',
+          referencesJson: '[]',
+          regenerateRequest: '',
+          cameraOverrideShotSize: 'close-up',
+        }),
+      })
+
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toContain('/storyboard')
+
+      await waitFor(async () => {
+        expect(
+          await readFile(
+            path.resolve(rootDir, 'workspace/STORYBOARD/storyboard-image-alpha.png'),
+            'utf8',
+          ),
+        ).toBe('storyboard-regenerated')
+      })
+
+      const storyboard = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD.json'), 'utf8'),
+      ) as {
+        images: Array<{
+          camera?: {
+            shotSize: string
+            cameraPosition: string
+            cameraAngle: string
+          }
+        }>
+      }
+
+      expect(storyboard.images[0]?.camera).toEqual({
+        shotSize: 'close-up',
+        cameraPosition: 'eye-level',
+        cameraAngle: 'level-angle',
+      })
+      expect(capturedPrompt).toContain('Use this camera plan for this regeneration:')
+      expect(capturedPrompt).toContain('Shot Size: Close Up')
+      expect(capturedPrompt).not.toContain('Direction:')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
 test('runApprovedRegenerateAction passes shot camera overrides into regeneration prompts', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
   let capturedPrompt = ''
@@ -2160,6 +2328,76 @@ test('runApprovedRegenerateAction passes shot camera overrides into regeneration
     expect(capturedPrompt).toContain('Shot Size: Close Up')
     expect(capturedPrompt).toContain('Camera Movement: Tracking Shot')
     expect(capturedPrompt).not.toContain('Approved change:')
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('runApprovedRegenerateAction passes storyboard camera overrides into regeneration prompts', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+  let capturedPrompt = ''
+
+  try {
+    await writeConfigFixture(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'Establish the dog noticing something wrong in the glass.',
+              camera: {
+                shotSize: 'medium-shot',
+                cameraPosition: 'eye-level',
+                cameraAngle: 'level-angle',
+              },
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+              references: [],
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/storyboard-image-alpha.png',
+      'storyboard-current',
+    )
+
+    await runApprovedRegenerateAction(
+      '/storyboard/images/storyboard-image-alpha',
+      rootDir,
+      'current',
+      '',
+      {
+        cameraOverrides: {
+          shotSize: 'close-up',
+        },
+        imageGenerator: async (input) => {
+          capturedPrompt = input.prompt
+
+          if (!input.outputPath) {
+            throw new Error('Expected outputPath for storyboard camera override test.')
+          }
+
+          await writeRepoFile(rootDir, input.outputPath, 'storyboard-camera-override')
+
+          return {
+            generationId: 'gen-storyboard-camera-override',
+            model: input.model ?? 'image-fast-test',
+            outputPaths: [path.resolve(rootDir, input.outputPath)],
+          }
+        },
+      },
+    )
+
+    expect(capturedPrompt).toContain('Use this camera plan for this regeneration:')
+    expect(capturedPrompt).toContain('Shot Size: Close Up')
+    expect(capturedPrompt).not.toContain('Direction:')
   } finally {
     await rm(rootDir, { recursive: true, force: true })
   }

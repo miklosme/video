@@ -28,6 +28,11 @@ function createStoryboard(): StoryboardSidecar {
       {
         frameType: 'start',
         goal: 'Establish the dog noticing something off in the window reflection.',
+        camera: {
+          shotSize: 'medium-shot',
+          cameraPosition: 'eye-level',
+          cameraAngle: 'level-angle',
+        },
         imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
         references: [
           {
@@ -39,6 +44,11 @@ function createStoryboard(): StoryboardSidecar {
       {
         frameType: 'end',
         goal: 'Land the transformed dog staring directly at us.',
+        camera: {
+          shotSize: 'close-up',
+          cameraPosition: 'eye-level',
+          cameraAngle: 'level-angle',
+        },
         imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
         references: [],
       },
@@ -57,6 +67,8 @@ test('buildStoryboardPrompt targets a single storyboard image rather than a boar
   expect(prompt).toContain(
     'Goal: Establish the dog noticing something off in the window reflection.',
   )
+  expect(prompt).toContain('Use this camera plan for this frame:')
+  expect(prompt).toContain('Shot Size: Medium Shot')
   expect(prompt).not.toContain('storyboard template image')
 })
 
@@ -129,6 +141,11 @@ test('runStoryboardRegeneration keeps the selected storyboard image and retained
       shotId: 'SHOT-01',
       frameType: 'start',
       goal: 'Establish the dog noticing something off in the window reflection.',
+      camera: {
+        shotSize: 'medium-shot',
+        cameraPosition: 'eye-level',
+        cameraAngle: 'level-angle',
+      },
       artifactId: 'storyboard-image-alpha',
       model: 'image-test',
       prompt: 'Prompt',
@@ -162,6 +179,8 @@ test('runStoryboardRegeneration keeps the selected storyboard image and retained
     expect(result.prompt).toContain(
       'Goal: Establish the dog noticing something off in the window reflection.',
     )
+    expect(result.prompt).toContain('Use this camera plan for this regeneration:')
+    expect(result.prompt).toContain('Shot Size: Medium Shot')
     expect(result.prompt).toContain('Direction:')
     expect(result.prompt).toContain('Remove the extra background character.')
     expect(seenSize).toBe('896x512')

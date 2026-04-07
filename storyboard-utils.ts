@@ -6,6 +6,7 @@ import {
   getStoryboardImagePath,
   type ArtifactReferenceEntry,
   type FrameType,
+  type KeyframeCameraSpec,
   type StoryboardImageEntry,
   type StoryboardSidecar,
 } from './workflow-data'
@@ -83,12 +84,14 @@ export function getNextStoryboardShotId(images: readonly StoryboardImageEntry[])
 export function createStoryboardImageEntry(options: {
   frameType: FrameType
   goal: string
+  camera?: KeyframeCameraSpec
   imagePath?: string | null
   references?: ArtifactReferenceEntry[]
 }) {
   return {
     frameType: options.frameType,
     goal: options.goal.trim(),
+    ...(options.camera ? { camera: options.camera } : {}),
     imagePath: options.imagePath ?? null,
     ...(options.references && options.references.length > 0
       ? { references: [...options.references] }

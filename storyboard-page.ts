@@ -46,6 +46,7 @@ export interface StoryboardPageRenderOptions {
   selectionHelp: string
   fastImageModel: string | null
   referenceEditorValue: string
+  cameraControlsHtml: string
   saveButtonLabel: string
   primaryButtonLabel: string
   showDirectionField: boolean
@@ -372,6 +373,7 @@ export function renderStoryboardPageContent(
             <input type="hidden" name="selectedImageId" value="${utils.escapeHtml(options.selected.selectedImageId)}">
             <label class="field-label" for="storyboard-goal">Goal</label>
             <textarea id="storyboard-goal" name="goal" required>${utils.escapeHtml(options.selected.selectedEntry?.entry.goal ?? '')}</textarea>
+            ${options.cameraControlsHtml}
             <label class="field-label" for="storyboard-references">Source References</label>
             <textarea id="storyboard-references" name="referencesJson" spellcheck="false">${utils.escapeHtml(options.referenceEditorValue)}</textarea>
             ${

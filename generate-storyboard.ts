@@ -55,6 +55,7 @@ export interface PendingStoryboardGeneration {
   shotId: string
   frameType: StoryboardImageEntry['frameType']
   goal: string
+  camera?: StoryboardImageEntry['camera']
   previousFrameSummary?: string | null
   nextFrameSummary?: string | null
   artifactId: string
@@ -186,6 +187,7 @@ export function selectPendingStoryboardGenerations(
         shotId: entry.shotId,
         frameType: entry.entry.frameType,
         goal: entry.entry.goal,
+        camera: entry.entry.camera,
         previousFrameSummary: previousEntry
           ? `${previousEntry.storyboardImageId} (${previousEntry.entry.frameType}) — ${previousEntry.entry.goal.trim()}`
           : null,

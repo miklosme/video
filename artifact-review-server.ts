@@ -259,7 +259,7 @@ interface CameraOverrideField {
 }
 
 interface CameraOverrideControl {
-  artifactType: 'keyframe' | 'shot'
+  artifactType: 'keyframe' | 'shot' | 'storyboard'
   fields: CameraOverrideField[]
 }
 
@@ -613,6 +613,35 @@ function getStoryboardSelectionState(
     selectedEntry: fallbackEntry,
     pendingEndFor: null,
   }
+}
+
+function getStoryboardSelectionCamera(
+  storyboard: { images: StoryboardImageEntry[] } | null,
+  selectionId: string,
+) {
+  if (selectionId === STORYBOARD_NEW_SELECTION_ID) {
+    return undefined
+  }
+
+  const pendingEndFor = findStoryboardMissingEndTarget(storyboard, selectionId)
+
+  if (pendingEndFor) {
+    return pendingEndFor.entry.camera
+  }
+
+  return findStoryboardImage(storyboard, selectionId)?.entry.camera
+}
+
+function buildStoryboardCameraOverrideControl(
+  storyboard: { images: StoryboardImageEntry[] } | null,
+  selectionId: string,
+  vocabulary: CameraVocabularyData | null,
+) {
+  return buildCameraOverrideControl(
+    'storyboard',
+    getStoryboardSelectionCamera(storyboard, selectionId),
+    vocabulary,
+  )
 }
 
 function getStoryboardImageIndex(
@@ -2525,6 +2554,7 @@ function renderCharactersSummary(cards: CharacterReviewCard[]) {
 function renderStoryboardSummary(options: {
   storyboard: { images: StoryboardImageEntry[] } | null
   config: { fastImageModel: string } | null
+  cameraVocabulary: CameraVocabularyData | null
   boardTiles: StoryboardBoardTile[]
   selected: StoryboardSelectionState
   selectedCard: StoryboardReviewCard | null
@@ -2567,6 +2597,11 @@ function renderStoryboardSummary(options: {
       : options.selected.kind === 'missing-end' && pendingEndFor
         ? `This end frame is still virtual. Saving or generating it will insert ${getStoryboardImageId({ shotId: pendingEndFor.shotId, frameType: 'end' })} after ${pendingEndFor.storyboardImageId}.`
         : 'The extra tile stays at the end of the board so you can append a new planned frame.'
+  const cameraControl = buildStoryboardCameraOverrideControl(
+    options.storyboard,
+    options.selected.selectedImageId,
+    options.cameraVocabulary,
+  )
   const { content, extraBodyHtml } = renderStoryboardPageContent(
     {
       boardTiles: options.boardTiles,
@@ -2587,6 +2622,7 @@ function renderStoryboardSummary(options: {
       selectionHelp,
       fastImageModel: options.config?.fastImageModel ?? null,
       referenceEditorValue: buildReferenceEditorValue(references),
+      cameraControlsHtml: cameraControl ? renderCameraOverrideControls(cameraControl) : '',
       saveButtonLabel,
       primaryButtonLabel,
       showDirectionField: options.selectedCard?.imageExists ?? false,
@@ -2818,17 +2854,19 @@ function getCameraOptionLabel(entry: CameraVocabularyEntry) {
 }
 
 function buildCameraOverrideFields<T extends KeyframeCameraSpec | ShotCameraSpec>(
-  artifactType: 'keyframe' | 'shot',
+  artifactType: 'keyframe' | 'shot' | 'storyboard',
   camera: T,
   fields: readonly (keyof T & CameraFieldKey)[],
   vocabulary: CameraVocabularyData,
 ) {
+  const usesShotVocabulary = artifactType === 'shot'
+
   return fields.map((field) => {
     const options = vocabulary.entries
       .filter(
         (entry) =>
           entry.category === CAMERA_FIELD_CATEGORIES[field] &&
-          (artifactType === 'keyframe' ? entry.appliesToKeyframe : entry.appliesToShot),
+          (usesShotVocabulary ? entry.appliesToShot : entry.appliesToKeyframe),
       )
       .map<CameraOverrideOption>((entry) => ({
         value: entry.id,
@@ -2852,7 +2890,7 @@ function buildCameraOverrideFields<T extends KeyframeCameraSpec | ShotCameraSpec
 }
 
 function buildCameraOverrideControl(
-  artifactType: 'keyframe' | 'shot',
+  artifactType: 'keyframe' | 'shot' | 'storyboard',
   camera: KeyframeCameraSpec | ShotCameraSpec | undefined,
   vocabulary: CameraVocabularyData | null,
 ): CameraOverrideControl | null {
@@ -2860,7 +2898,7 @@ function buildCameraOverrideControl(
     return null
   }
 
-  if (artifactType === 'keyframe') {
+  if (artifactType !== 'shot') {
     const currentCamera = resolveKeyframeCameraSpec(camera as KeyframeCameraSpec | undefined)
     const fields = buildCameraOverrideFields(
       artifactType,
@@ -2951,6 +2989,10 @@ function getCurrentKeyframeCameraFromControl(cameraControl: CameraOverrideContro
       ?.currentValue,
     cameraAngle: cameraControl?.fields.find((field) => field.field === 'cameraAngle')?.currentValue,
   })
+}
+
+function getCurrentStoryboardCameraFromControl(cameraControl: CameraOverrideControl | null) {
+  return getCurrentKeyframeCameraFromControl(cameraControl)
 }
 
 function getCurrentShotCameraFromControl(cameraControl: CameraOverrideControl | null) {
@@ -3082,10 +3124,13 @@ async function writeArtifactSidecarReferences(
     const nextStoryboard = {
       images: storyboard.images.map((entry, index) =>
         index === current.imageIndex
-          ? {
-              ...entry,
-              references: references.length === 0 ? undefined : references,
-            }
+          ? createStoryboardImageEntry({
+              frameType: entry.frameType,
+              goal: entry.goal,
+              camera: entry.camera,
+              imagePath: entry.imagePath,
+              references,
+            })
           : entry,
       ),
     }
@@ -3114,7 +3159,11 @@ async function writeArtifactSidecarCamera(
     throw new Error(`${descriptor.displayName} does not expose a writable sidecar.`)
   }
 
-  if (descriptor.artifactType !== 'keyframe' && descriptor.artifactType !== 'shot') {
+  if (
+    descriptor.artifactType !== 'keyframe' &&
+    descriptor.artifactType !== 'shot' &&
+    descriptor.artifactType !== 'storyboard'
+  ) {
     throw new Error(`${descriptor.displayName} does not support camera settings.`)
   }
 
@@ -3123,6 +3172,37 @@ async function writeArtifactSidecarCamera(
 
   if (raw === null) {
     throw new Error(`${descriptor.displayName} is missing its source sidecar.`)
+  }
+
+  if (descriptor.artifactType === 'storyboard') {
+    const storyboard = await loadStoryboardOrEmpty(cwd)
+
+    if (!storyboard) {
+      throw new Error('workspace/STORYBOARD.json is missing.')
+    }
+
+    const current = findStoryboardImageByArtifactId(storyboard, descriptor.artifactId)
+
+    if (!current) {
+      throw new Error(`${descriptor.displayName} is missing from workspace/STORYBOARD.json.`)
+    }
+
+    const nextStoryboard = {
+      images: storyboard.images.map((entry, index) =>
+        index === current.imageIndex
+          ? createStoryboardImageEntry({
+              frameType: entry.frameType,
+              goal: entry.goal,
+              camera: resolveKeyframeCameraSpec(camera as KeyframeCameraSpec),
+              imagePath: entry.imagePath,
+              references: entry.references ?? [],
+            })
+          : entry,
+      ),
+    }
+
+    await writeFile(sidecarAbsolutePath, `${JSON.stringify(nextStoryboard, null, 2)}\n`, 'utf8')
+    return
   }
 
   const existing = JSON.parse(raw) as Record<string, unknown>
@@ -3621,9 +3701,10 @@ async function loadStoryboardDetail(
   cwd: string,
   requestedVersionId?: string | null,
 ) {
-  const [config, storyboard] = await Promise.all([
+  const [config, storyboard, cameraVocabulary] = await Promise.all([
     loadConfig(cwd).catch(() => null),
     loadStoryboardOrEmpty(cwd),
+    loadCameraVocabularyOrNull(cwd),
   ])
   const storyboardImage = findStoryboardImageByArtifactId(storyboard, storyboardArtifactId)
 
@@ -3677,7 +3758,11 @@ async function loadStoryboardDetail(
             actionUrl: getArtifactGenerateActionPath(descriptor),
             enabled: true,
           },
-    cameraControl: null,
+    cameraControl: buildCameraOverrideControl(
+      'storyboard',
+      storyboardImage.entry.camera,
+      cameraVocabulary,
+    ),
     anchorPlanningAction: null,
     extraSideHtml:
       dependentRefs.length > 0
@@ -3861,10 +3946,15 @@ export async function runApprovedRegenerateAction(
 
   if (storyboardMatch) {
     const storyboardArtifactId = decodeURIComponent(storyboardMatch[1]!)
-    const generation = await buildStoryboardPendingGeneration(storyboardArtifactId, cwd)
+    const pending = await buildStoryboardPendingGeneration(storyboardArtifactId, cwd)
 
-    if (!generation) {
+    if (!pending) {
       throw new Error(`Storyboard image "${storyboardArtifactId}" is missing valid planning data.`)
+    }
+
+    const generation = {
+      ...pending,
+      camera: resolveEffectiveKeyframeCamera(pending.camera, options.cameraOverrides),
     }
 
     const descriptor = getStoryboardArtifactDescriptor({
@@ -4248,6 +4338,17 @@ async function handleRegenerate(
     )
   }
 
+  if (cameraOverrides && detail.descriptor.artifactType === 'storyboard') {
+    await writeArtifactSidecarCamera(
+      detail.descriptor,
+      resolveEffectiveKeyframeCamera(
+        getCurrentStoryboardCameraFromControl(detail.cameraControl),
+        cameraOverrides,
+      ),
+      cwd,
+    )
+  }
+
   startArtifactJob(jobs, detail.descriptor, async () => {
     const result = await runApprovedRegenerateAction(
       pathname,
@@ -4377,24 +4478,44 @@ interface StoryboardEditorFormInput {
   goal: string
   references: ArtifactReferenceEntry[]
   regenerateRequest: string
+  camera?: KeyframeCameraSpec
 }
 
-async function parseStoryboardEditorForm(request: Request): Promise<StoryboardEditorFormInput> {
+async function parseStoryboardEditorForm(
+  request: Request,
+  storyboard: StoryboardSidecar | null,
+  cameraVocabulary: CameraVocabularyData | null,
+): Promise<StoryboardEditorFormInput> {
   const formData = await request.formData()
   const selectedImageId = String(formData.get('selectedImageId') ?? '').trim()
   const goal = String(formData.get('goal') ?? '').trim()
   const regenerateRequest = String(formData.get('regenerateRequest') ?? '').trim()
   const references = parseReferenceEditorInput(String(formData.get('referencesJson') ?? '[]'))
+  const normalizedSelectedImageId =
+    selectedImageId.length > 0 ? selectedImageId : STORYBOARD_NEW_SELECTION_ID
 
   if (goal.length === 0) {
     throw new Error('Goal is required.')
   }
 
+  const cameraControl = buildStoryboardCameraOverrideControl(
+    storyboard,
+    normalizedSelectedImageId,
+    cameraVocabulary,
+  )
+  const camera = cameraControl
+    ? resolveEffectiveKeyframeCamera(
+        getCurrentStoryboardCameraFromControl(cameraControl),
+        parseCameraOverrideInput(formData, cameraControl),
+      )
+    : getStoryboardSelectionCamera(storyboard, normalizedSelectedImageId)
+
   return {
-    selectedImageId: selectedImageId.length > 0 ? selectedImageId : STORYBOARD_NEW_SELECTION_ID,
+    selectedImageId: normalizedSelectedImageId,
     goal,
     references,
     regenerateRequest,
+    camera,
   }
 }
 
@@ -4402,6 +4523,7 @@ function createStoryboardDraftFromForm(input: StoryboardEditorFormInput, frameTy
   return createStoryboardImageEntry({
     frameType,
     goal: input.goal,
+    camera: input.camera,
     references: input.references,
   })
 }
@@ -4471,6 +4593,7 @@ function materializeStoryboardReorderTile(
   return createStoryboardImageEntry({
     frameType,
     goal: source.sourceImage.entry.goal,
+    camera: source.sourceImage.entry.camera,
     references: source.sourceImage.entry.references ?? [],
   })
 }
@@ -4652,14 +4775,17 @@ async function syncKeyframeStoryboardReference(keyframeId: string, cwd: string) 
   await writeFile(sidecarPath, `${JSON.stringify(ordered, null, 2)}\n`, 'utf8')
 }
 
-async function upsertStoryboardSelection(input: StoryboardEditorFormInput, cwd: string) {
-  const existingStoryboard = (await loadStoryboardOrEmpty(cwd)) ?? {
-    images: [],
-  }
+async function upsertStoryboardSelection(
+  input: StoryboardEditorFormInput,
+  cwd: string,
+  existingStoryboard: StoryboardSidecar | null = null,
+) {
+  const storyboard = existingStoryboard ?? (await loadStoryboardOrEmpty(cwd))
+  const currentStoryboard = storyboard ?? { images: [] }
 
   if (input.selectedImageId === STORYBOARD_NEW_SELECTION_ID) {
     const nextStoryboard = {
-      images: [...existingStoryboard.images, createStoryboardDraftFromForm(input, 'start')],
+      images: [...currentStoryboard.images, createStoryboardDraftFromForm(input, 'start')],
     } satisfies StoryboardSidecar
 
     const savedStoryboard = await writeStoryboardManifest(nextStoryboard, cwd)
@@ -4672,14 +4798,14 @@ async function upsertStoryboardSelection(input: StoryboardEditorFormInput, cwd: 
     }
   }
 
-  const pendingEndFor = findStoryboardMissingEndTarget(existingStoryboard, input.selectedImageId)
+  const pendingEndFor = findStoryboardMissingEndTarget(currentStoryboard, input.selectedImageId)
 
   if (pendingEndFor) {
     const nextStoryboard = {
       images: [
-        ...existingStoryboard.images.slice(0, pendingEndFor.imageIndex + 1),
+        ...currentStoryboard.images.slice(0, pendingEndFor.imageIndex + 1),
         createStoryboardDraftFromForm(input, 'end'),
-        ...existingStoryboard.images.slice(pendingEndFor.imageIndex + 1),
+        ...currentStoryboard.images.slice(pendingEndFor.imageIndex + 1),
       ],
     } satisfies StoryboardSidecar
 
@@ -4691,7 +4817,7 @@ async function upsertStoryboardSelection(input: StoryboardEditorFormInput, cwd: 
     }
   }
 
-  const current = findStoryboardImage(existingStoryboard, input.selectedImageId)
+  const current = findStoryboardImage(currentStoryboard, input.selectedImageId)
 
   if (!current) {
     if (parseStoryboardMissingEndSelectionId(input.selectedImageId) !== null) {
@@ -4705,14 +4831,16 @@ async function upsertStoryboardSelection(input: StoryboardEditorFormInput, cwd: 
     )
   }
 
-  const nextEntry = {
-    ...current.entry,
+  const nextEntry = createStoryboardImageEntry({
+    frameType: current.entry.frameType,
     goal: input.goal,
-    references: input.references.length > 0 ? input.references : undefined,
-  } satisfies StoryboardImageEntry
+    camera: input.camera,
+    imagePath: current.entry.imagePath,
+    references: input.references,
+  })
 
   const nextStoryboard = {
-    images: existingStoryboard.images.map((entry, index) =>
+    images: currentStoryboard.images.map((entry, index) =>
       index === current.imageIndex ? nextEntry : entry,
     ),
   } satisfies StoryboardSidecar
@@ -4726,8 +4854,12 @@ async function upsertStoryboardSelection(input: StoryboardEditorFormInput, cwd: 
 }
 
 async function handleStoryboardSave(request: Request, cwd: string) {
-  const input = await parseStoryboardEditorForm(request)
-  const entry = await upsertStoryboardSelection(input, cwd)
+  const [storyboard, cameraVocabulary] = await Promise.all([
+    loadStoryboardOrEmpty(cwd),
+    loadCameraVocabularyOrNull(cwd),
+  ])
+  const input = await parseStoryboardEditorForm(request, storyboard, cameraVocabulary)
+  const entry = await upsertStoryboardSelection(input, cwd, storyboard)
 
   return redirectTo(
     appendSearchParams(buildPostActionRedirectLocation('/storyboard', request, { updated: true }), {
@@ -4763,10 +4895,18 @@ async function handleStoryboardRender(
   jobs: Map<string, ArtifactJobState>,
   options: RegenerateActionOptions,
 ) {
-  const input = await parseStoryboardEditorForm(request)
-  const { storyboard, entry } = await upsertStoryboardSelection(input, cwd)
-  const preparedStoryboard = await ensureStoryboardImagePaths(
+  const [storyboard, cameraVocabulary] = await Promise.all([
+    loadStoryboardOrEmpty(cwd),
+    loadCameraVocabularyOrNull(cwd),
+  ])
+  const input = await parseStoryboardEditorForm(request, storyboard, cameraVocabulary)
+  const { storyboard: savedStoryboard, entry } = await upsertStoryboardSelection(
+    input,
+    cwd,
     storyboard,
+  )
+  const preparedStoryboard = await ensureStoryboardImagePaths(
+    savedStoryboard,
     { storyboardImageId: entry.storyboardImageId },
     cwd,
   )
@@ -5142,7 +5282,11 @@ export function startArtifactReviewServer(
             (request.method === 'GET' || request.method === 'HEAD') &&
             url.pathname === '/storyboard'
           ) {
-            const storyboard = await loadStoryboardOrEmpty(cwd)
+            const [storyboard, cameraVocabulary, config] = await Promise.all([
+              loadStoryboardOrEmpty(cwd),
+              loadCameraVocabularyOrNull(cwd),
+              loadConfig(cwd).catch(() => null),
+            ])
             const selected = getStoryboardSelectionState(storyboard, url.searchParams.get('image'))
             const boardTiles = await buildStoryboardBoardTiles(
               storyboard,
@@ -5172,7 +5316,8 @@ export function startArtifactReviewServer(
 
             return renderStoryboardSummary({
               storyboard,
-              config: await loadConfig(cwd).catch(() => null),
+              config,
+              cameraVocabulary,
               boardTiles,
               selected,
               selectedCard,

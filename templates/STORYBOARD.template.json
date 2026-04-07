@@ -3,6 +3,11 @@
     {
       "frameType": "start",
       "goal": "TBD",
+      "camera": {
+        "shotSize": "medium-shot",
+        "cameraPosition": "eye-level",
+        "cameraAngle": "level-angle"
+      },
       "imagePath": null,
       "references": []
     }
