@@ -41,14 +41,14 @@ Do not silently rewrite story canon, storyboard content, prompt content, or stru
 - When creating a missing workspace file, copy the matching file from `templates/` first and then replace the scaffold-only content.
 - Keep the placeholder convention consistent: `TBD` for unresolved creative content, `TODO` for coding-agent work.
 - Keep `templates/` and `workspace/` aligned: if a canonical workspace file's headings or schema changes, update the matching template in the same change.
-- For still-image generation sidecars, `references` are the source of truth for generation inputs. Do not silently append or infer storyboard, character, continuity, or other fresh-generation references at runtime.
+- For still-image generation sidecars that support `references`, those arrays are the source of truth for generation inputs. Do not silently append or infer character, continuity, or other fresh-generation references at runtime.
 
 ## Coding-Agent Responsibilities
 
 - Make technical changes without breaking the simplified creative file structure.
 - Prefer updating repo files over leaving important technical decisions only in chat.
 - If you create tooling or scripts that interact with creative files, preserve the simplified file responsibilities, schemas, and naming conventions.
-- If a workflow requires storyboard, character, continuity, or other still-image references, make them explicit in the relevant sidecar instead of relying on runtime defaults.
+- If a workflow requires character, continuity, or other still-image references, make them explicit in the relevant sidecar instead of relying on runtime defaults.
 - If you change a canonical `workspace/` file's expected structure, update the matching template in the same change.
 - If a requested technical change conflicts with established creative content, stop and surface the conflict instead of guessing.
 - When writing prompts for image generation models, consult the documentation on the matter: `MODEL_PROMPTING_GUIDE.md`.

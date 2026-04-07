@@ -28,12 +28,6 @@ function createStoryboard(): StoryboardSidecar {
         frameType: 'start',
         goal: 'Establish the dog noticing something off in the window reflection.',
         imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
-        references: [
-          {
-            kind: 'user-reference',
-            path: 'workspace/references/window.png',
-          },
-        ],
       },
     ],
   }

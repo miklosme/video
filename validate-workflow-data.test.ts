@@ -10,15 +10,7 @@ async function writeRepoFile(rootDir: string, relativePath: string, content: str
   await writeFile(filePath, content, 'utf8')
 }
 
-async function writeValidationBaseFiles(
-  rootDir: string,
-  storyboardReferences: Record<string, unknown>[] = [
-    {
-      kind: 'storyboard-template',
-      path: 'templates/STORYBOARD.template.png',
-    },
-  ],
-) {
+async function writeValidationBaseFiles(rootDir: string) {
   await writeRepoFile(
     rootDir,
     'CAMERA_VOCABULARY.json',
@@ -131,7 +123,6 @@ async function writeValidationBaseFiles(
             frameType: 'start',
             goal: 'Establish the storyboard validation fixture.',
             imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
-            references: storyboardReferences,
           },
         ],
       },
@@ -139,7 +130,6 @@ async function writeValidationBaseFiles(
       2,
     )}\n`,
   )
-  await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'template')
 }
 
 function runValidation(rootDir: string) {
@@ -311,32 +301,6 @@ test('validate-workflow-data rejects keyframe sidecars without explicit referenc
     expect(result.exitCode).toBe(1)
     expect(new TextDecoder().decode(result.stderr)).toContain(
       'Keyframe artifact "SHOT-01-START" must declare explicit references.',
-    )
-  } finally {
-    await rm(rootDir, { recursive: true, force: true })
-  }
-})
-
-test('validate-workflow-data rejects duplicate reference paths in storyboard sidecars', async () => {
-  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-validate-data-'))
-
-  try {
-    await writeValidationBaseFiles(rootDir, [
-      {
-        kind: 'storyboard-template',
-        path: 'templates/STORYBOARD.template.png',
-      },
-      {
-        kind: 'user-reference',
-        path: 'templates/STORYBOARD.template.png',
-      },
-    ])
-
-    const result = runValidation(rootDir)
-
-    expect(result.exitCode).toBe(1)
-    expect(new TextDecoder().decode(result.stderr)).toContain(
-      'workspace/STORYBOARD/STORYBOARD.json.images[0] has duplicate reference path "templates/STORYBOARD.template.png"',
     )
   } finally {
     await rm(rootDir, { recursive: true, force: true })

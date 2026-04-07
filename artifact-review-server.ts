@@ -2495,6 +2495,7 @@ function renderDetailPage(
   job: ArtifactJobState | null,
   options: { embedded?: boolean; refreshParentDetailUrl?: string | null } = {},
 ) {
+  const showReferenceEditor = context.canEditReferences || context.sourceReferences.length > 0
   const content = `
     <div class="stack">
       ${renderVersionRail(context, options)}
@@ -2528,15 +2529,19 @@ function renderDetailPage(
           ${renderEditComposer(context, options)}
           ${renderAnchorPlanningAction(context, options)}
           ${context.extraSideHtml ?? ''}
-          ${renderReferenceEditor(
-            getEmbeddedActionHref(
-              getArtifactReferencesActionPath(context.descriptor),
-              options.embedded,
-            ),
-            context.sourceReferences,
-            context.canEditReferences,
-            'Edit the source sidecar references as JSON. Use repo-relative paths, required kind, and optional label and notes fields.',
-          )}
+          ${
+            showReferenceEditor
+              ? renderReferenceEditor(
+                  getEmbeddedActionHref(
+                    getArtifactReferencesActionPath(context.descriptor),
+                    options.embedded,
+                  ),
+                  context.sourceReferences,
+                  context.canEditReferences,
+                  'Edit the source sidecar references as JSON. Use repo-relative paths, required kind, and optional label and notes fields.',
+                )
+              : ''
+          }
         </div>
       </section>
     </div>
@@ -2605,8 +2610,6 @@ function renderStoryboardSummary(options: {
   job: ArtifactJobState | null
 }) {
   const selectedEntry = options.selected.selectedEntry
-  const references =
-    options.selected.kind === 'existing' ? (selectedEntry?.entry.references ?? []) : []
   const pairedEnd = selectedEntry
     ? getStoryboardPairedEnd(options.storyboard, options.selected.selectedImageId)
     : null
@@ -2665,7 +2668,6 @@ function renderStoryboardSummary(options: {
           : null,
       },
       fastImageModel: options.config?.fastImageModel ?? null,
-      referenceEditorValue: buildReferenceEditorValue(references),
       cameraControlsHtml: cameraControl
         ? renderCameraOverrideControls(cameraControl, {
             showLabel: false,
@@ -2712,7 +2714,7 @@ async function loadWorkspaceMarkdownDocument(fileName: string, cwd: string) {
 
 async function loadRecentGenerationLogEntries(
   cwd: string,
-  limit = 5,
+  limit = 50,
 ): Promise<GenerationLogEntry[]> {
   try {
     const raw = await readFile(path.resolve(cwd, 'workspace', 'GENERATION-LOG.jsonl'), 'utf8')
@@ -3171,34 +3173,7 @@ async function writeArtifactSidecarReferences(
   }
 
   if (descriptor.artifactType === 'storyboard') {
-    const storyboard = await loadStoryboardOrEmpty(cwd)
-
-    if (!storyboard) {
-      throw new Error(`${STORYBOARD_SIDECAR_PATH} is missing.`)
-    }
-
-    const current = findStoryboardImageByArtifactId(storyboard, descriptor.artifactId)
-
-    if (!current) {
-      throw new Error(`${descriptor.displayName} is missing from ${STORYBOARD_SIDECAR_PATH}.`)
-    }
-
-    const nextStoryboard = {
-      images: storyboard.images.map((entry, index) =>
-        index === current.imageIndex
-          ? createStoryboardImageEntry({
-              frameType: entry.frameType,
-              goal: entry.goal,
-              camera: entry.camera,
-              imagePath: entry.imagePath,
-              references,
-            })
-          : entry,
-      ),
-    }
-
-    await writeFile(sidecarAbsolutePath, `${JSON.stringify(nextStoryboard, null, 2)}\n`, 'utf8')
-    return
+    throw new Error('Storyboard thumbnails do not support source references.')
   }
 
   const existing = raw ? (JSON.parse(raw) as Record<string, unknown>) : {}
@@ -3257,7 +3232,6 @@ async function writeArtifactSidecarCamera(
               goal: entry.goal,
               camera: resolveKeyframeCameraSpec(camera as KeyframeCameraSpec),
               imagePath: entry.imagePath,
-              references: entry.references ?? [],
             })
           : entry,
       ),
@@ -3800,14 +3774,14 @@ async function loadStoryboardDetail(
     mediaExists: activeVersionId !== null ? true : historyState.currentExists,
     mediaPlaceholder: 'No storyboard image yet',
     mediaPlaceholderVariant: 'missing',
-    sourceReferences: storyboardImage.entry.references ?? [],
+    sourceReferences: [],
     sourcePrompt: buildStoryboardPrompt(storyboard, storyboardImage.imageIndex),
     sourceModel: config?.fastImageModel ?? null,
     sourceStatus: null,
     historyState,
     notesHtml: `<section class="panel"><p class="section-title">Storyboard Plan</p><p class="muted">${escapeHtml(storyboardImage.storyboardImageId)}</p><p class="small">Shot: ${escapeHtml(storyboardImage.shotId)} • Frame: ${escapeHtml(storyboardImage.entry.frameType)}</p><p class="small">${escapeHtml(storyboardImage.entry.goal)}</p></section>`,
     canEdit: historyState.currentExists || historyState.activeVersionId !== null,
-    canEditReferences: true,
+    canEditReferences: false,
     primaryAction:
       historyState.currentExists || historyState.activeVersionId !== null
         ? {
@@ -4028,7 +4002,6 @@ export async function runApprovedRegenerateAction(
     return regenerateStoryboardArtifactVersion(generation, {
       regenerateRequest,
       selectedVersionPath: getBaseVersionMediaPath(descriptor, baseVersionId),
-      userReferences: generation.userReferences ?? [],
       cwd,
       generator: options.imageGenerator,
     })
@@ -4329,7 +4302,6 @@ async function handleGenerate(
     }
 
     const result = await generateStoryboardArtifactVersion(generation, {
-      userReferences: generation.userReferences ?? [],
       cwd,
       generator: options.imageGenerator,
     })
@@ -4581,7 +4553,6 @@ function resolveStoryboardSelectionAfterDelete(
 interface StoryboardEditorFormInput {
   selectedImageId: string
   goal: string
-  references: ArtifactReferenceEntry[]
   regenerateRequest: string
   camera?: KeyframeCameraSpec
 }
@@ -4595,7 +4566,6 @@ async function parseStoryboardEditorForm(
   const selectedImageId = String(formData.get('selectedImageId') ?? '').trim()
   const goal = String(formData.get('goal') ?? '').trim()
   const regenerateRequest = String(formData.get('regenerateRequest') ?? '').trim()
-  const references = parseReferenceEditorInput(String(formData.get('referencesJson') ?? '[]'))
   const normalizedSelectedImageId =
     selectedImageId.length > 0 ? selectedImageId : STORYBOARD_NEW_SELECTION_ID
 
@@ -4618,7 +4588,6 @@ async function parseStoryboardEditorForm(
   return {
     selectedImageId: normalizedSelectedImageId,
     goal,
-    references,
     regenerateRequest,
     camera,
   }
@@ -4629,7 +4598,6 @@ function createStoryboardDraftFromForm(input: StoryboardEditorFormInput, frameTy
     frameType,
     goal: input.goal,
     camera: input.camera,
-    references: input.references,
   })
 }
 
@@ -4699,7 +4667,6 @@ function materializeStoryboardReorderTile(
     frameType,
     goal: source.sourceImage.entry.goal,
     camera: source.sourceImage.entry.camera,
-    references: source.sourceImage.entry.references ?? [],
   })
 }
 
@@ -4941,7 +4908,6 @@ async function upsertStoryboardSelection(
     goal: input.goal,
     camera: input.camera,
     imagePath: current.entry.imagePath,
-    references: input.references,
   })
 
   const nextStoryboard = {
@@ -5045,7 +5011,6 @@ async function handleStoryboardRender(
       const result = await regenerateStoryboardArtifactVersion(generation, {
         regenerateRequest: input.regenerateRequest,
         selectedVersionPath: getBaseVersionMediaPath(descriptor, CURRENT_BASE_VERSION_ID),
-        userReferences: generation.userReferences ?? [],
         cwd,
         generator: options.imageGenerator,
       })
@@ -5056,7 +5021,6 @@ async function handleStoryboardRender(
     }
 
     const result = await generateStoryboardArtifactVersion(generation, {
-      userReferences: generation.userReferences ?? [],
       cwd,
       generator: options.imageGenerator,
     })

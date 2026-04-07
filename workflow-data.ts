@@ -132,7 +132,6 @@ export interface StoryboardImageEntry {
   camera?: KeyframeCameraSpec
   prompt?: string | null
   imagePath: string | null
-  references?: ArtifactReferenceEntry[]
 }
 
 export type StoryboardImagesData = StoryboardImageEntry[]
@@ -713,10 +712,6 @@ function parseStoryboardImageEntry(value: unknown, context: string): StoryboardI
       imagePathValue === null
         ? null
         : normalizeRepoRelativePath(imagePathValue, `${context}.imagePath`),
-    references:
-      object.references === undefined
-        ? undefined
-        : parseArtifactReferenceEntries(object.references, `${context}.references`),
   }
 }
 

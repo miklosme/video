@@ -355,8 +355,6 @@ export async function validateStoryboardSidecar(sidecar: StoryboardSidecar | nul
     if (image.frameType === 'end' && previousImage?.frameType !== 'start') {
       throw new Error(`${imageContext} must directly follow a matching start frame in ${context}.`)
     }
-
-    await validateArtifactReferencesExist(image.references, imageContext)
   }
 }
 

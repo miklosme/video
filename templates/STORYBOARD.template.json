@@ -8,8 +8,7 @@
         "cameraPosition": "eye-level",
         "cameraAngle": "level-angle"
       },
-      "imagePath": null,
-      "references": []
+      "imagePath": null
     }
   ]
 }

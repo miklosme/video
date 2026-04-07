@@ -34,12 +34,6 @@ function createStoryboard(): StoryboardSidecar {
           cameraAngle: 'level-angle',
         },
         imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
-        references: [
-          {
-            kind: 'user-reference',
-            path: 'workspace/references/window.png',
-          },
-        ],
       },
       {
         frameType: 'end',
@@ -50,7 +44,6 @@ function createStoryboard(): StoryboardSidecar {
           cameraAngle: 'level-angle',
         },
         imagePath: 'workspace/STORYBOARD/storyboard-image-beta.png',
-        references: [],
       },
     ],
   }
@@ -72,18 +65,13 @@ test('buildStoryboardPrompt targets a single storyboard image rather than a boar
   expect(prompt).not.toContain('storyboard template image')
 })
 
-test('selectPendingStoryboardGenerations preserves per-image references', () => {
+test('selectPendingStoryboardGenerations returns storyboard entries without authored references', () => {
   const generations = selectPendingStoryboardGenerations(createStoryboard(), 'image-test', {
     storyboardImageId: 'SHOT-01-START',
   })
 
   expect(generations).toHaveLength(1)
-  expect(generations[0]?.userReferences).toEqual([
-    {
-      kind: 'user-reference',
-      path: 'workspace/references/window.png',
-    },
-  ])
+  expect(generations[0]).not.toHaveProperty('userReferences')
 })
 
 test('selectPendingStoryboardGenerations rebuilds storyboard prompts even when legacy prompt data exists', () => {
@@ -124,7 +112,7 @@ test('resolveStoryboardGenerationPrompt rewrites storyboard prompts for rewrite 
   expect(prompt).toBe('Fresh storyboard prompt.')
 })
 
-test('runStoryboardRegeneration keeps the selected storyboard image and retained references', async () => {
+test('runStoryboardRegeneration keeps the selected storyboard image as the edit baseline', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-regenerate-'))
 
   try {
@@ -133,7 +121,6 @@ test('runStoryboardRegeneration keeps the selected storyboard image and retained
       'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v2.png',
       'selected-storyboard',
     )
-    await writeRepoFile(rootDir, 'workspace/references/window.png', 'reference-image')
 
     const generation: PendingStoryboardGeneration = {
       imageIndex: 0,
@@ -150,12 +137,6 @@ test('runStoryboardRegeneration keeps the selected storyboard image and retained
       model: 'image-test',
       prompt: 'Prompt',
       outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
-      userReferences: [
-        {
-          kind: 'user-reference',
-          path: 'workspace/references/window.png',
-        },
-      ],
     }
 
     let seenSize: string | undefined
@@ -189,7 +170,6 @@ test('runStoryboardRegeneration keeps the selected storyboard image and retained
         kind: 'selected-image',
         path: 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v2.png',
       },
-      { kind: 'user-reference', path: 'workspace/references/window.png' },
     ])
   } finally {
     await rm(rootDir, { recursive: true, force: true })
@@ -202,7 +182,6 @@ test('runStoryboardGeneration rewrites flux klein storyboard prompts before imag
   try {
     await writeRepoFile(rootDir, 'workspace/IDEA.md', '# IDEA\nComic market panic.\n')
     await writeRepoFile(rootDir, 'workspace/STORY.md', '# STORY\nThe merchant loses the bag.\n')
-    await writeRepoFile(rootDir, 'workspace/references/window.png', 'reference-image')
 
     let seenPrompt = ''
     let promptText = ''
@@ -221,12 +200,6 @@ test('runStoryboardGeneration rewrites flux klein storyboard prompts before imag
         rewriteModel: 'openai/gpt-5.4-mini',
         prompt: 'Base storyboard prompt.',
         outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
-        userReferences: [
-          {
-            kind: 'user-reference',
-            path: 'workspace/references/window.png',
-          },
-        ],
       },
       {
         cwd: rootDir,
@@ -310,7 +283,6 @@ test('syncStoryboardGeneration regenerates rewrite prompts without persisting th
     )
     await writeRepoFile(rootDir, 'workspace/IDEA.md', '# IDEA\nComic market panic.\n')
     await writeRepoFile(rootDir, 'workspace/STORY.md', '# STORY\nThe merchant loses the bag.\n')
-    await writeRepoFile(rootDir, 'workspace/references/window.png', 'reference-image')
 
     let seenPrompt = ''
     await syncStoryboardGeneration({
@@ -444,8 +416,6 @@ test('syncStoryboardGeneration renders variantCount retained versions and select
   })
 
   try {
-    await writeRepoFile(rootDir, 'workspace/references/window.png', 'window-reference')
-
     const sizes: Array<string | undefined> = []
     const seeds: number[] = []
     const summary = await syncStoryboardGeneration({

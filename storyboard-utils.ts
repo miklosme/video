@@ -4,7 +4,6 @@ import {
   getStoryboardArtifactIdFromPath,
   getStoryboardImageId,
   getStoryboardImagePath,
-  type ArtifactReferenceEntry,
   type FrameType,
   type KeyframeCameraSpec,
   type StoryboardImageEntry,
@@ -86,16 +85,12 @@ export function createStoryboardImageEntry(options: {
   goal: string
   camera?: KeyframeCameraSpec
   imagePath?: string | null
-  references?: ArtifactReferenceEntry[]
 }) {
   return {
     frameType: options.frameType,
     goal: options.goal.trim(),
     ...(options.camera ? { camera: options.camera } : {}),
     imagePath: options.imagePath ?? null,
-    ...(options.references && options.references.length > 0
-      ? { references: [...options.references] }
-      : {}),
   } satisfies StoryboardImageEntry
 }
 

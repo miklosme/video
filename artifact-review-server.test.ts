@@ -693,7 +693,6 @@ test('artifact review server does not persist storyboard prompt fields', async (
         body: new URLSearchParams({
           selectedImageId: '__new__',
           goal: 'Establish the dog noticing something wrong in the glass.',
-          referencesJson: '[]',
           regenerateRequest: '',
         }),
       })
@@ -812,9 +811,6 @@ test('artifact review server reorder endpoint flips frame sides and materializes
               frameType: 'start',
               goal: 'He rushes toward the library doors.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-gamma.png',
-              references: [
-                { kind: 'storyboard-template', path: 'templates/STORYBOARD.template.png' },
-              ],
             },
           ],
         },
@@ -855,7 +851,6 @@ test('artifact review server reorder endpoint flips frame sides and materializes
           goal: string
           imagePath: string | null
           prompt?: string | null
-          references?: Array<{ kind: string; path: string }>
         }>
       }
 
@@ -874,23 +869,11 @@ test('artifact review server reorder endpoint flips frame sides and materializes
           frameType: 'start',
           goal: 'He rushes toward the library doors.',
           imagePath: null,
-          references: [
-            {
-              kind: 'storyboard-template',
-              path: 'templates/STORYBOARD.template.png',
-            },
-          ],
         },
         {
           frameType: 'end',
           goal: 'He rushes toward the library doors.',
           imagePath: 'workspace/STORYBOARD/storyboard-image-gamma.png',
-          references: [
-            {
-              kind: 'storyboard-template',
-              path: 'templates/STORYBOARD.template.png',
-            },
-          ],
         },
       ])
     } finally {
@@ -2417,7 +2400,6 @@ test('artifact review server persists storyboard camera overrides from the board
                 cameraAngle: 'level-angle',
               },
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
-              references: [],
             },
           ],
         },
@@ -2458,7 +2440,6 @@ test('artifact review server persists storyboard camera overrides from the board
         body: new URLSearchParams({
           selectedImageId: '0',
           goal: 'Establish the dog noticing something wrong in the glass.',
-          referencesJson: '[]',
           regenerateRequest: '',
           cameraOverrideShotSize: 'close-up',
         }),
@@ -2593,7 +2574,6 @@ test('runApprovedRegenerateAction passes storyboard camera overrides into regene
                 cameraAngle: 'level-angle',
               },
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
-              references: [],
             },
           ],
         },
@@ -2671,7 +2651,6 @@ test('runApprovedRegenerateAction stays single-variant even when CONFIG.json.var
               frameType: 'start',
               goal: 'Establish the dog noticing something wrong in the glass.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
-              references: [],
             },
           ],
         },
@@ -2728,7 +2707,7 @@ test('runApprovedRegenerateAction stays single-variant even when CONFIG.json.var
   }
 })
 
-test('runApprovedRegenerateAction keeps storyboard sidecar references during regenerate', async () => {
+test('runApprovedRegenerateAction keeps the selected storyboard image during regenerate', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
 
   try {
@@ -2767,12 +2746,6 @@ test('runApprovedRegenerateAction keeps storyboard sidecar references during reg
               frameType: 'start',
               goal: 'Establish the dog noticing something wrong in the glass.',
               imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
-              references: [
-                {
-                  kind: 'storyboard-template',
-                  path: 'templates/STORYBOARD.template.png',
-                },
-              ],
             },
           ],
         },
@@ -2780,7 +2753,6 @@ test('runApprovedRegenerateAction keeps storyboard sidecar references during reg
         2,
       )}\n`,
     )
-    await writeRepoFile(rootDir, 'templates/STORYBOARD.template.png', 'storyboard-template')
 
     let capturedPrompt = ''
     let capturedReferences: { kind: string; path: string }[] = []
@@ -2817,7 +2789,6 @@ test('runApprovedRegenerateAction keeps storyboard sidecar references during reg
         kind: 'selected-image',
         path: 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v2.png',
       },
-      { kind: 'storyboard-template', path: 'templates/STORYBOARD.template.png' },
     ])
   } finally {
     await rm(rootDir, { recursive: true, force: true })

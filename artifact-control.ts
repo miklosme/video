@@ -502,25 +502,16 @@ function createSelectedImageReference(selectedVersionPath: string) {
   })
 }
 
-export function resolveStoryboardGenerationReferences(
-  userReferences: readonly ArtifactReferenceEntry[] = [],
-) {
-  const resolvedReferences = createUserReferences(userReferences)
-
+export function resolveStoryboardGenerationReferences() {
+  const resolvedReferences: ResolvedArtifactReference[] = []
   return {
     resolvedReferences,
     references: toGenerationReferences(resolvedReferences),
   }
 }
 
-export function resolveStoryboardRegenerationReferences(
-  selectedVersionPath: string,
-  userReferences: readonly ArtifactReferenceEntry[] = [],
-) {
-  const resolvedReferences = [
-    createSelectedImageReference(selectedVersionPath),
-    ...createUserReferences(userReferences),
-  ]
+export function resolveStoryboardRegenerationReferences(selectedVersionPath: string) {
+  const resolvedReferences = [createSelectedImageReference(selectedVersionPath)]
 
   return {
     resolvedReferences,

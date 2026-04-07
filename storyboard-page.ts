@@ -43,7 +43,6 @@ export interface StoryboardPageRenderOptions {
   boardTiles: StoryboardBoardTile[]
   selected: StoryboardPageSelectionState
   fastImageModel: string | null
-  referenceEditorValue: string
   cameraControlsHtml: string
   saveButtonLabel: string
   primaryButtonLabel: string
@@ -367,7 +366,6 @@ export function renderStoryboardPageContent(
         <section class="panel">
           <form method="post" action="/storyboard/save">
             <input type="hidden" name="selectedImageId" value="${utils.escapeHtml(options.selected.selectedImageId)}">
-            <input type="hidden" name="referencesJson" value="${utils.escapeHtml(options.referenceEditorValue)}">
             <label class="field-label" for="storyboard-goal">Goal</label>
             <textarea id="storyboard-goal" name="goal" required>${utils.escapeHtml(options.selected.selectedEntry?.entry.goal ?? '')}</textarea>
             ${options.cameraControlsHtml}

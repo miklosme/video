@@ -64,7 +64,6 @@ export interface PendingStoryboardGeneration {
   rewriteModel?: string | null
   prompt: string
   outputPath: string
-  userReferences?: StoryboardImageEntry['references']
 }
 
 export interface StoryboardGenerationSummary {
@@ -202,7 +201,6 @@ export function selectPendingStoryboardGenerations(
         rewriteModel: options.rewriteModel ?? null,
         prompt: buildStoryboardPrompt(storyboard, entry.imageIndex),
         outputPath: entry.entry.imagePath,
-        userReferences: entry.entry.references,
       }
     })
 }
@@ -254,7 +252,6 @@ export async function runStoryboardGeneration(
   generation: PendingStoryboardGeneration,
   options: {
     outputPath?: string
-    userReferences?: StoryboardImageEntry['references']
     logFile?: string
     cwd?: string
     seed?: number
@@ -263,9 +260,7 @@ export async function runStoryboardGeneration(
     promptRewriter?: StoryboardPromptRewriter
   } = {},
 ) {
-  const { resolvedReferences, references } = resolveStoryboardGenerationReferences(
-    options.userReferences ?? generation.userReferences ?? [],
-  )
+  const { resolvedReferences, references } = resolveStoryboardGenerationReferences()
   await assertResolvedReferencesExist(resolvedReferences, options.cwd)
   const prompt =
     options.resolvedPrompt ??
@@ -303,7 +298,6 @@ export async function runStoryboardGeneration(
 export async function generateStoryboardArtifactVersion(
   generation: PendingStoryboardGeneration,
   options: {
-    userReferences?: StoryboardImageEntry['references']
     logFile?: string
     cwd?: string
     seed?: number
@@ -325,7 +319,6 @@ export async function generateStoryboardArtifactVersion(
   try {
     const result = await runStoryboardGeneration(generation, {
       outputPath: stagedVersion.stagedPath,
-      userReferences: options.userReferences,
       logFile: options.logFile,
       cwd,
       seed: seed ?? undefined,
@@ -358,7 +351,6 @@ export async function runStoryboardRegeneration(
     outputPath?: string
     regenerateRequest?: string | null
     selectedVersionPath: string
-    userReferences?: StoryboardImageEntry['references']
     logFile?: string
     cwd?: string
     seed?: number
@@ -369,7 +361,6 @@ export async function runStoryboardRegeneration(
 ) {
   const { resolvedReferences, references } = resolveStoryboardRegenerationReferences(
     options.selectedVersionPath,
-    options.userReferences ?? generation.userReferences ?? [],
   )
   await assertResolvedReferencesExist(resolvedReferences, options.cwd)
 
@@ -413,7 +404,6 @@ export async function regenerateStoryboardArtifactVersion(
   options: {
     regenerateRequest?: string | null
     selectedVersionPath: string
-    userReferences?: StoryboardImageEntry['references']
     logFile?: string
     cwd?: string
     seed?: number
@@ -437,7 +427,6 @@ export async function regenerateStoryboardArtifactVersion(
       outputPath: stagedVersion.stagedPath,
       regenerateRequest: options.regenerateRequest,
       selectedVersionPath: options.selectedVersionPath,
-      userReferences: options.userReferences,
       logFile: options.logFile,
       cwd,
       seed: seed ?? undefined,
@@ -518,9 +507,7 @@ export async function syncStoryboardGeneration(options: {
       continue
     }
 
-    const generationReferences = resolveStoryboardGenerationReferences(
-      generation.userReferences ?? [],
-    ).references
+    const generationReferences = resolveStoryboardGenerationReferences().references
     const resolvedPrompt = await resolveStoryboardGenerationPrompt(
       generation,
       generationReferences,
@@ -543,7 +530,6 @@ export async function syncStoryboardGeneration(options: {
       }
 
       await generateStoryboardArtifactVersion(generation, {
-        userReferences: generation.userReferences ?? [],
         logFile: options.logFile,
         cwd,
         autoSelect: variantIndex === variantCount - 1,
