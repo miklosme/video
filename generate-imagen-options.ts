@@ -12,7 +12,7 @@ import {
   type GenerationReferenceEntry,
 } from './workflow-data'
 
-const DEFAULT_IMAGE_MODEL = 'google/gemini-3.1-flash-image-preview'
+const DEFAULT_IMAGE_MODEL = 'google/gemini-3-pro-image'
 
 export const REFERENCE_CAPABLE_IMAGE_MODELS = [
   'google/gemini-3.1-flash-image-preview',
