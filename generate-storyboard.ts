@@ -81,6 +81,16 @@ export {
   STORYBOARD_THUMBNAIL_IMAGE_SIZE,
 } from './storyboard-prompting'
 
+export function buildStoryboardDirectionPrompt(regenerateRequest: string) {
+  const trimmedRequest = regenerateRequest.trim()
+
+  if (trimmedRequest.length === 0) {
+    throw new Error('A direction request is required for storyboard direction edits.')
+  }
+
+  return trimmedRequest
+}
+
 function parseArgs(): GenerateStoryboardArgs {
   const args = arg({
     '--storyboard-image-id': String,
@@ -399,6 +409,47 @@ export async function runStoryboardRegeneration(
   }
 }
 
+export async function runStoryboardDirectionRegeneration(
+  generation: PendingStoryboardGeneration,
+  options: {
+    outputPath?: string
+    regenerateRequest: string
+    selectedVersionPath: string
+    logFile?: string
+    cwd?: string
+    seed?: number
+    generator?: ImageGenerator
+  },
+) {
+  const { resolvedReferences, references } = resolveStoryboardRegenerationReferences(
+    options.selectedVersionPath,
+  )
+  await assertResolvedReferencesExist(resolvedReferences, options.cwd)
+
+  const prompt = buildStoryboardDirectionPrompt(options.regenerateRequest)
+  const generator = options.generator ?? generateImagenOptions
+  const result = await generator({
+    prompt,
+    model: generation.model,
+    outputPath: options.outputPath ?? generation.outputPath,
+    size: STORYBOARD_THUMBNAIL_IMAGE_SIZE,
+    references,
+    logFile: options.logFile,
+    cwd: options.cwd,
+    seed: options.seed,
+    artifactType: 'storyboard',
+    artifactId: generation.artifactId,
+    promptTextBuilder: buildStoryboardDirectPromptText,
+  })
+
+  return {
+    ...result,
+    prompt,
+    resolvedReferences,
+    references,
+  }
+}
+
 export async function regenerateStoryboardArtifactVersion(
   generation: PendingStoryboardGeneration,
   options: {
@@ -434,6 +485,93 @@ export async function regenerateStoryboardArtifactVersion(
       resolvedPrompt: options.resolvedPrompt,
       promptRewriter: options.promptRewriter,
     })
+    const recorded = await recordArtifactVersionFromStage({
+      descriptor,
+      stagedPath: stagedVersion.stagedPath,
+      autoSelect: options.autoSelect,
+      cwd,
+    })
+
+    return {
+      ...result,
+      descriptor,
+      seed,
+      versionId: recorded.versionId,
+    }
+  } catch (error) {
+    await rm(path.resolve(cwd, stagedVersion.stagedPath), { force: true }).catch(() => undefined)
+    throw error
+  }
+}
+
+export async function renderStoryboardArtifactVersion(
+  generation: PendingStoryboardGeneration,
+  options: {
+    selectedVersionPath?: string | null
+    regenerateRequest?: string | null
+    directionOnly?: boolean
+    logFile?: string
+    cwd?: string
+    seed?: number
+    autoSelect?: boolean
+    generator?: ImageGenerator
+    resolvedPrompt?: string
+    promptRewriter?: StoryboardPromptRewriter
+  } = {},
+) {
+  const descriptor = getStoryboardArtifactDescriptor({
+    imagePath: generation.outputPath,
+    shotId: generation.shotId,
+    storyboardImageId: generation.storyboardImageId,
+  })
+  const cwd = options.cwd ?? process.cwd()
+  const stagedVersion = await prepareStagedArtifactVersion(descriptor, cwd)
+  const seed = options.seed ?? getVersionSeed(stagedVersion.versionId)
+  const trimmedRequest = options.regenerateRequest?.trim() ?? ''
+
+  try {
+    let result: Awaited<ReturnType<typeof runStoryboardGeneration>>
+
+    if (options.directionOnly) {
+      if (!options.selectedVersionPath) {
+        throw new Error(
+          'A selectedVersionPath is required for storyboard direction-only regeneration.',
+        )
+      }
+
+      result = await runStoryboardDirectionRegeneration(generation, {
+        outputPath: stagedVersion.stagedPath,
+        regenerateRequest: trimmedRequest,
+        selectedVersionPath: options.selectedVersionPath,
+        logFile: options.logFile,
+        cwd,
+        seed: seed ?? undefined,
+        generator: options.generator,
+      })
+    } else {
+      result = await runStoryboardGeneration(generation, {
+        outputPath: stagedVersion.stagedPath,
+        logFile: options.logFile,
+        cwd,
+        seed: seed ?? undefined,
+        generator: options.generator,
+        resolvedPrompt: options.resolvedPrompt,
+        promptRewriter: options.promptRewriter,
+      })
+
+      if (trimmedRequest.length > 0) {
+        result = await runStoryboardDirectionRegeneration(generation, {
+          outputPath: stagedVersion.stagedPath,
+          regenerateRequest: trimmedRequest,
+          selectedVersionPath: stagedVersion.stagedPath,
+          logFile: options.logFile,
+          cwd,
+          seed: seed ?? undefined,
+          generator: options.generator,
+        })
+      }
+    }
+
     const recorded = await recordArtifactVersionFromStage({
       descriptor,
       stagedPath: stagedVersion.stagedPath,

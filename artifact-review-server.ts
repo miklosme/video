@@ -52,6 +52,7 @@ import {
   ensureStoryboardImagePaths,
   generateStoryboardArtifactVersion,
   regenerateStoryboardArtifactVersion,
+  renderStoryboardArtifactVersion,
   selectPendingStoryboardGenerations,
   type PendingStoryboardGeneration,
 } from './generate-storyboard'
@@ -2714,7 +2715,7 @@ async function loadWorkspaceMarkdownDocument(fileName: string, cwd: string) {
 
 async function loadRecentGenerationLogEntries(
   cwd: string,
-  limit = 50,
+  limit = 5,
 ): Promise<GenerationLogEntry[]> {
   try {
     const raw = await readFile(path.resolve(cwd, 'workspace', 'GENERATION-LOG.jsonl'), 'utf8')
@@ -4557,6 +4558,21 @@ interface StoryboardEditorFormInput {
   camera?: KeyframeCameraSpec
 }
 
+function storyboardEditorInputMatchesEntry(
+  entry: StoryboardDerivedImageEntry,
+  input: StoryboardEditorFormInput,
+) {
+  const currentCamera = resolveKeyframeCameraSpec(entry.entry.camera)
+  const nextCamera = resolveKeyframeCameraSpec(input.camera)
+
+  return (
+    entry.entry.goal.trim() === input.goal.trim() &&
+    currentCamera.shotSize === nextCamera.shotSize &&
+    currentCamera.cameraPosition === nextCamera.cameraPosition &&
+    currentCamera.cameraAngle === nextCamera.cameraAngle
+  )
+}
+
 async function parseStoryboardEditorForm(
   request: Request,
   storyboard: StoryboardSidecar | null,
@@ -4971,11 +4987,19 @@ async function handleStoryboardRender(
     loadCameraVocabularyOrNull(cwd),
   ])
   const input = await parseStoryboardEditorForm(request, storyboard, cameraVocabulary)
-  const { storyboard: savedStoryboard, entry } = await upsertStoryboardSelection(
-    input,
-    cwd,
-    storyboard,
-  )
+  const existingEntry =
+    storyboard && input.selectedImageId !== STORYBOARD_NEW_SELECTION_ID
+      ? findStoryboardImage(storyboard, input.selectedImageId)
+      : null
+  const storyboardFieldsChanged =
+    existingEntry === null ? true : !storyboardEditorInputMatchesEntry(existingEntry, input)
+  const { storyboard: savedStoryboard, entry } =
+    existingEntry && !storyboardFieldsChanged
+      ? {
+          storyboard: storyboard!,
+          entry: existingEntry,
+        }
+      : await upsertStoryboardSelection(input, cwd, storyboard)
   const preparedStoryboard = await ensureStoryboardImagePaths(
     savedStoryboard,
     { storyboardImageId: entry.storyboardImageId },
@@ -5007,7 +5031,38 @@ async function handleStoryboardRender(
       )
     }
 
-    if (await fileExists(resolveRepoPath(preparedEntry.entry.imagePath!, cwd))) {
+    const currentImageExists = await fileExists(
+      resolveRepoPath(preparedEntry.entry.imagePath!, cwd),
+    )
+    const hasDirectionRequest = input.regenerateRequest.trim().length > 0
+
+    if (currentImageExists && !storyboardFieldsChanged && hasDirectionRequest) {
+      const result = await renderStoryboardArtifactVersion(generation, {
+        regenerateRequest: input.regenerateRequest,
+        selectedVersionPath: getBaseVersionMediaPath(descriptor, CURRENT_BASE_VERSION_ID),
+        directionOnly: true,
+        cwd,
+        generator: options.imageGenerator,
+      })
+
+      return {
+        versionId: result.versionId,
+      }
+    }
+
+    if (!currentImageExists || storyboardFieldsChanged) {
+      const result = await renderStoryboardArtifactVersion(generation, {
+        regenerateRequest: input.regenerateRequest,
+        cwd,
+        generator: options.imageGenerator,
+      })
+
+      return {
+        versionId: result.versionId,
+      }
+    }
+
+    if (currentImageExists) {
       const result = await regenerateStoryboardArtifactVersion(generation, {
         regenerateRequest: input.regenerateRequest,
         selectedVersionPath: getBaseVersionMediaPath(descriptor, CURRENT_BASE_VERSION_ID),

@@ -2474,9 +2474,227 @@ test('artifact review server persists storyboard camera overrides from the board
         cameraPosition: 'eye-level',
         cameraAngle: 'level-angle',
       })
-      expect(capturedPrompt).toContain('Use this camera plan for this regeneration:')
+      expect(capturedPrompt).toContain('Use this camera plan for this frame:')
       expect(capturedPrompt).toContain('Shot Size: Close Up')
       expect(capturedPrompt).not.toContain('Direction:')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server uses a direction-only edit path when the storyboard board form is otherwise unchanged', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+  const capturedPrompts: string[] = []
+
+  try {
+    await writeConfigFixture(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'The merchant arrives outside the library and scrambles to dismount.',
+              camera: {
+                shotSize: 'medium-shot',
+                cameraPosition: 'eye-level',
+                cameraAngle: 'level-angle',
+              },
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/storyboard-image-alpha.png',
+      'storyboard-current',
+    )
+
+    const initialStoryboard = await readFile(
+      path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'),
+      'utf8',
+    )
+
+    const server = startArtifactReviewServer({
+      cwd: rootDir,
+      preferredPort: 0,
+      imageGenerator: async (input) => {
+        capturedPrompts.push(input.prompt)
+
+        if (!input.outputPath) {
+          throw new Error('Expected outputPath for storyboard direction-only test.')
+        }
+
+        await writeRepoFile(rootDir, input.outputPath, 'storyboard-direction-edit')
+
+        return {
+          generationId: `gen-storyboard-direction-${capturedPrompts.length}`,
+          model: input.model ?? 'image-fast-test',
+          outputPaths: [path.resolve(rootDir, input.outputPath)],
+        }
+      },
+    })
+
+    try {
+      const response = await fetch(new URL('/storyboard/render', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+        body: new URLSearchParams({
+          selectedImageId: '0',
+          goal: 'The merchant arrives outside the library and scrambles to dismount.',
+          regenerateRequest: 'Make them face the door',
+        }),
+      })
+
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toContain('/storyboard')
+
+      await waitFor(async () => {
+        expect(
+          await readFile(
+            path.resolve(rootDir, 'workspace/STORYBOARD/storyboard-image-alpha.png'),
+            'utf8',
+          ),
+        ).toBe('storyboard-direction-edit')
+      })
+
+      expect(capturedPrompts).toEqual(['Make them face the door'])
+      expect(
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
+      ).toBe(initialStoryboard)
+      expect(
+        await readFile(
+          path.resolve(rootDir, 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v1.png'),
+          'utf8',
+        ),
+      ).toBe('storyboard-current')
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server does a fresh storyboard render before applying direction when board fields changed', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+  const capturedPrompts: string[] = []
+  const capturedReferences: Array<Array<{ kind: string; path: string }>> = []
+
+  try {
+    await writeConfigFixture(rootDir)
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              goal: 'The merchant arrives outside the library and scrambles to dismount.',
+              camera: {
+                shotSize: 'medium-shot',
+                cameraPosition: 'eye-level',
+                cameraAngle: 'level-angle',
+              },
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/storyboard-image-alpha.png',
+      'storyboard-current',
+    )
+
+    const server = startArtifactReviewServer({
+      cwd: rootDir,
+      preferredPort: 0,
+      imageGenerator: async (input) => {
+        capturedPrompts.push(input.prompt)
+        capturedReferences.push(
+          (input.references ?? []).map(({ kind, path: referencePath }) => ({
+            kind,
+            path: referencePath,
+          })),
+        )
+
+        if (!input.outputPath) {
+          throw new Error('Expected outputPath for storyboard fresh-render direction test.')
+        }
+
+        await writeRepoFile(
+          rootDir,
+          input.outputPath,
+          capturedPrompts.length === 1 ? 'storyboard-fresh-render' : 'storyboard-directed',
+        )
+
+        return {
+          generationId: `gen-storyboard-fresh-${capturedPrompts.length}`,
+          model: input.model ?? 'image-fast-test',
+          outputPaths: [path.resolve(rootDir, input.outputPath)],
+        }
+      },
+    })
+
+    try {
+      const response = await fetch(new URL('/storyboard/render', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+        body: new URLSearchParams({
+          selectedImageId: '0',
+          goal: 'The merchant reaches the library door and turns directly toward it while dismounting.',
+          regenerateRequest: 'Make them face the door',
+        }),
+      })
+
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toContain('/storyboard')
+
+      await waitFor(async () => {
+        expect(
+          await readFile(
+            path.resolve(rootDir, 'workspace/STORYBOARD/storyboard-image-alpha.png'),
+            'utf8',
+          ),
+        ).toBe('storyboard-directed')
+      })
+
+      expect(capturedPrompts).toHaveLength(2)
+      expect(capturedPrompts[0]).toContain(
+        'Goal: The merchant reaches the library door and turns directly toward it while dismounting.',
+      )
+      expect(capturedPrompts[1]).toBe('Make them face the door')
+      expect(capturedReferences[1]).toEqual([
+        {
+          kind: 'selected-image',
+          path: 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/.staged-v1.png',
+        },
+      ])
+      expect(
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
+      ).toContain(
+        'The merchant reaches the library door and turns directly toward it while dismounting.',
+      )
+      expect(
+        await readFile(
+          path.resolve(rootDir, 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v1.png'),
+          'utf8',
+        ),
+      ).toBe('storyboard-current')
     } finally {
       await server.stop()
     }

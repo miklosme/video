@@ -8,6 +8,7 @@ import { getStoryboardArtifactDescriptor } from './artifact-control'
 import {
   buildStoryboardPrompt,
   resolveStoryboardGenerationPrompt,
+  runStoryboardDirectionRegeneration,
   runStoryboardGeneration,
   runStoryboardRegeneration,
   selectPendingStoryboardGenerations,
@@ -165,6 +166,71 @@ test('runStoryboardRegeneration keeps the selected storyboard image as the edit 
     expect(result.prompt).toContain('Direction:')
     expect(result.prompt).toContain('Remove the extra background character.')
     expect(seenSize).toBe('896x512')
+    expect(result.references).toEqual([
+      {
+        kind: 'selected-image',
+        path: 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v2.png',
+      },
+    ])
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('runStoryboardDirectionRegeneration sends only the direction request as the prompt', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-direction-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v2.png',
+      'selected-storyboard',
+    )
+
+    const generation: PendingStoryboardGeneration = {
+      imageIndex: 0,
+      storyboardImageId: 'SHOT-01-START',
+      shotId: 'SHOT-01',
+      frameType: 'start',
+      goal: 'Establish the dog noticing something off in the window reflection.',
+      camera: {
+        shotSize: 'medium-shot',
+        cameraPosition: 'eye-level',
+        cameraAngle: 'level-angle',
+      },
+      artifactId: 'storyboard-image-alpha',
+      model: 'image-test',
+      prompt: 'Prompt',
+      outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+    }
+
+    let promptText = ''
+    const result = await runStoryboardDirectionRegeneration(generation, {
+      outputPath: 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/.staged-v3.png',
+      regenerateRequest: 'Make them face the door',
+      selectedVersionPath: 'workspace/STORYBOARD/HISTORY/storyboard-image-alpha/v2.png',
+      cwd: rootDir,
+      generator: async (input) => {
+        promptText =
+          input.promptTextBuilder?.({
+            prompt: input.prompt,
+            references: input.references ?? [],
+            aspectRatio: input.aspectRatio ?? '16:9',
+            model: input.model ?? 'image-test',
+            shotId: input.shotId,
+            size: input.size,
+          }) ?? ''
+
+        return {
+          generationId: 'gen-1',
+          model: input.model ?? 'image-test',
+          outputPaths: [path.resolve(rootDir, input.outputPath ?? 'out.png')],
+        }
+      },
+    })
+
+    expect(result.prompt).toBe('Make them face the door')
+    expect(promptText).toBe('Make them face the door')
     expect(result.references).toEqual([
       {
         kind: 'selected-image',
