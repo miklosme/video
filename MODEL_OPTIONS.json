@@ -1,11 +1,5 @@
 {
   "agentModels": ["openai/gpt-5.4-mini", "openai/gpt-5.4"],
-  "imageModels": [
-    "bfl/flux-2-klein-9b",
-    "google/gemini-3.1-flash-image-preview",
-    "google/gemini-3-pro-image",
-    "bfl/flux-kontext-pro",
-    "bfl/flux-kontext-max"
-  ],
+  "imageModels": ["google/gemini-3.1-flash-image-preview", "google/gemini-3-pro-image"],
   "videoModels": ["google/veo-3.1-fast-generate-001", "google/veo-3.1-generate-001"]
 }

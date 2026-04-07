@@ -1,4 +1,4 @@
-import { createGateway, generateImage, generateText } from 'ai'
+import { createGateway, generateText } from 'ai'
 import arg from 'arg'
 import { randomUUID } from 'node:crypto'
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises'
@@ -15,19 +15,11 @@ import {
 const DEFAULT_IMAGE_MODEL = 'google/gemini-3.1-flash-image-preview'
 
 export const REFERENCE_CAPABLE_IMAGE_MODELS = [
-  'bfl/flux-2-klein-9b',
   'google/gemini-3.1-flash-image-preview',
   'google/gemini-3-pro-image',
-  'bfl/flux-kontext-pro',
-  'bfl/flux-kontext-max',
 ] as const
 
 const REFERENCE_CAPABLE_IMAGE_MODEL_SET = new Set<string>(REFERENCE_CAPABLE_IMAGE_MODELS)
-const IMAGE_ONLY_MODELS = new Set<string>([
-  'bfl/flux-2-klein-9b',
-  'bfl/flux-kontext-pro',
-  'bfl/flux-kontext-max',
-])
 const LANGUAGE_IMAGE_MODELS = new Set<string>([
   'google/gemini-3.1-flash-image-preview',
   'google/gemini-3-pro-image',
@@ -232,28 +224,6 @@ async function generateImagesWithGateway(input: {
       input.size,
     )
   const loadedReferences = await loadReferenceImages(input.references, input.cwd)
-
-  if (IMAGE_ONLY_MODELS.has(input.model)) {
-    const result = await generateImage({
-      model: gateway.imageModel(input.model),
-      prompt:
-        loadedReferences.length === 0
-          ? promptText
-          : {
-              text: promptText,
-              images: loadedReferences.map((reference) => reference.data),
-            },
-      n: input.n,
-      seed: input.seed,
-      size: input.size,
-      aspectRatio: input.aspectRatio as `${number}:${number}`,
-    })
-
-    return result.images.map((image) => ({
-      data: image.uint8Array,
-      mediaType: image.mediaType,
-    }))
-  }
 
   if (LANGUAGE_IMAGE_MODELS.has(input.model)) {
     const result = await generateText({

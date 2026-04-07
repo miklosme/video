@@ -33,7 +33,8 @@ test('buildStoryboardPrompt combines the authored prompt with camera guidance', 
   expect(prompt).toContain(
     'A medium shot of a tense dog staring at a warped window reflection. Style: rough graphite storyboard sketch.',
   )
-  expect(prompt).toContain('Use this camera plan for this frame:')
+  expect(prompt).toContain('Style: black-and-white rough graphite sketch')
+  expect(prompt).toContain('- Shot Size: Medium Shot')
 })
 
 test('buildStoryboardPromptText appends reference instructions without rebuilding the prompt', () => {
@@ -42,7 +43,7 @@ test('buildStoryboardPromptText appends reference instructions without rebuildin
       'A medium shot of a tense dog staring at a warped window reflection. Style: rough graphite storyboard sketch.',
     references: [{ kind: 'storyboard-template', path: 'templates/STORYBOARD.template.png' }],
     aspectRatio: '16:9',
-    model: 'bfl/flux-2-klein-9b',
+    model: 'google/gemini-3.1-flash-image-preview',
     size: STORYBOARD_THUMBNAIL_IMAGE_SIZE,
     shotId: 'SHOT-01',
   })
@@ -72,7 +73,7 @@ test('buildStoryboardRegeneratePrompt preserves the authored prompt and layers e
   expect(prompt).toContain('Requested change: Remove the extra background character.')
 })
 
-test('buildStoryboardDirectionPrompt keeps the base frame prompt and applies only the requested change', () => {
+test('buildStoryboardDirectionPrompt creates an incremental edit instruction without restating the base frame prompt', () => {
   const prompt = buildStoryboardDirectionPrompt(
     {
       storyboardImageId: 'SHOT-01-START',
@@ -84,7 +85,10 @@ test('buildStoryboardDirectionPrompt keeps the base frame prompt and applies onl
     'Make the dog face the door instead.',
   )
 
-  expect(prompt).toContain('A medium shot of a tense dog staring at a warped window reflection.')
+  expect(prompt).not.toContain(
+    'A medium shot of a tense dog staring at a warped window reflection.',
+  )
+  expect(prompt).toContain('This is an incremental storyboard edit, not a fresh render.')
   expect(prompt).toContain('Apply only the requested change')
   expect(prompt).toContain('Requested change: Make the dog face the door instead.')
 })

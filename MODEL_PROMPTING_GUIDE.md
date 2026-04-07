@@ -21,9 +21,9 @@ three-quarter view], [plain background], [soft even lighting],
 [stable identity details that must persist]
 ```
 
-## BFL Flux 2 Klein
+## Storyboard Thumbnail Prompts
 
-for `bfl/flux-2-klein-9b`, assume the prompt you write is the prompt the model sees. there is no magical cleanup pass anymore, so storyboard prompts should already be explicit, visual, and model-ready.
+for fast storyboard iteration, assume the prompt you write is effectively the scene description the model has to work from. storyboard prompts should already be explicit, visual, and model-ready.
 
 **the core approach**
 
@@ -100,7 +100,7 @@ atmospheric, sublime
 
 **key differences from your other tools:**
 
-|                          | imagen 4 fast    | veo 3.1           | comfyui/flux              |
+|                          | imagen 4 fast    | veo 3.1           | custom diffusion stack    |
 | ------------------------ | ---------------- | ----------------- | ------------------------- |
 | think like a...          | photographer     | director          | photographer + technician |
 | temporal                 | single frame     | sequence          | single frame              |
@@ -138,7 +138,7 @@ sweet spot is **3-6 sentences, \~100-150 words**. enough to be specific, not so 
 
 ### **key differences from image prompting**
 
-this is where your midjourney/flux instincts need recalibration:
+this is where your still-image-tool instincts need recalibration:
 
 - **no photographer/lens spec stacking** like you'd do for stills. veo wants cinematic language — shot types, camera movements, lighting mood. it's more "DP on set" than "photographer choosing glass"
 - **temporal thinking is mandatory.** you're describing a _sequence_, not a frame. what changes? what moves? what enters/exits?

@@ -59,7 +59,8 @@ test('buildStoryboardPrompt returns the authored prompt plus deterministic camer
   expect(prompt).toContain(
     'A medium shot of a tense dog noticing something off in the window reflection. Style: rough graphite storyboard sketch.',
   )
-  expect(prompt).toContain('Use this camera plan for this frame:')
+  expect(prompt).toContain('Style: black-and-white rough graphite sketch')
+  expect(prompt).toContain('- Shot Size: Medium Shot')
   expect(prompt).toContain('Shot Size: Medium Shot')
 })
 
@@ -79,7 +80,7 @@ test('resolveStoryboardGenerationPrompt returns the authored prompt by default',
     shotId: 'SHOT-01',
     frameType: 'start',
     artifactId: 'storyboard-image-alpha',
-    model: 'bfl/flux-2-klein-9b',
+    model: 'google/gemini-3.1-flash-image-preview',
     prompt:
       'A medium shot of a tense dog noticing something off in the window reflection. Style: rough graphite storyboard sketch.',
     outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
@@ -148,7 +149,7 @@ test('runStoryboardRegeneration keeps the selected storyboard image as the edit 
   }
 })
 
-test('runStoryboardDirectionRegeneration keeps the base prompt and applies the direction request', async () => {
+test('runStoryboardDirectionRegeneration uses the selected image as an incremental edit baseline', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-direction-'))
 
   try {
@@ -195,12 +196,16 @@ test('runStoryboardDirectionRegeneration keeps the base prompt and applies the d
       },
     })
 
-    expect(result.prompt).toContain(
+    expect(result.prompt).toContain('This is an incremental storyboard edit, not a fresh render.')
+    expect(result.prompt).not.toContain(
       'A medium shot of a tense dog noticing something off in the window reflection.',
     )
     expect(result.prompt).toContain('Apply only the requested change')
     expect(result.prompt).toContain('Requested change: Make them face the door.')
     expect(promptText).toContain('Reference 1 is the currently selected storyboard thumbnail.')
+    expect(promptText).not.toContain(
+      'A medium shot of a tense dog noticing something off in the window reflection.',
+    )
     expect(result.references).toEqual([
       {
         kind: 'selected-image',
@@ -212,7 +217,7 @@ test('runStoryboardDirectionRegeneration keeps the base prompt and applies the d
   }
 })
 
-test('runStoryboardGeneration uses the authored prompt directly for flux klein generation', async () => {
+test('runStoryboardGeneration passes the authored storyboard prompt through for fast image generation', async () => {
   const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-storyboard-direct-prompt-'))
 
   try {
@@ -225,7 +230,7 @@ test('runStoryboardGeneration uses the authored prompt directly for flux klein g
         shotId: 'SHOT-01',
         frameType: 'start',
         artifactId: 'storyboard-image-alpha',
-        model: 'bfl/flux-2-klein-9b',
+        model: 'google/gemini-3.1-flash-image-preview',
         prompt:
           'A frantic merchant freezes beside a market stall, clutching an empty satchel as the crowd swirls behind him. Style: rough graphite storyboard sketch.',
         outputPath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
@@ -239,14 +244,14 @@ test('runStoryboardGeneration uses the authored prompt directly for flux klein g
               prompt: input.prompt,
               references: input.references ?? [],
               aspectRatio: input.aspectRatio ?? '16:9',
-              model: input.model ?? 'bfl/flux-2-klein-9b',
+              model: input.model ?? 'google/gemini-3.1-flash-image-preview',
               shotId: input.shotId,
               size: input.size,
             }) ?? ''
 
           return {
             generationId: 'gen-1',
-            model: input.model ?? 'bfl/flux-2-klein-9b',
+            model: input.model ?? 'google/gemini-3.1-flash-image-preview',
             outputPaths: [path.resolve(rootDir, input.outputPath ?? 'out.png')],
           }
         },
@@ -279,7 +284,7 @@ test('syncStoryboardGeneration keeps storyboard prompts persisted as authored', 
     let seenPrompt = ''
     await syncStoryboardGeneration({
       storyboard,
-      model: 'bfl/flux-2-klein-9b',
+      model: 'google/gemini-3.1-flash-image-preview',
       cwd: rootDir,
       generator: async (input) => {
         seenPrompt = input.prompt
@@ -292,7 +297,7 @@ test('syncStoryboardGeneration keeps storyboard prompts persisted as authored', 
 
         return {
           generationId: 'gen-1',
-          model: input.model ?? 'bfl/flux-2-klein-9b',
+          model: input.model ?? 'google/gemini-3.1-flash-image-preview',
           outputPaths: [path.resolve(rootDir, input.outputPath)],
         }
       },
@@ -303,7 +308,8 @@ test('syncStoryboardGeneration keeps storyboard prompts persisted as authored', 
     ) as StoryboardSidecar
 
     expect(seenPrompt).toContain(storyboard.images[0]?.prompt ?? '')
-    expect(seenPrompt).toContain('Use this camera plan for this frame:')
+    expect(seenPrompt).toContain('Style: black-and-white rough graphite sketch')
+    expect(seenPrompt).toContain('- Shot Size: Medium Shot')
     expect(savedStoryboard.images[0]?.prompt).toBe(storyboard.images[0]?.prompt)
   } finally {
     await rm(rootDir, { recursive: true, force: true })

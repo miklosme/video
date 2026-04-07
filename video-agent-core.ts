@@ -502,7 +502,7 @@ function buildRuntimeDirective(
     `- ${getStoryboardSidecarPath()} is the canonical storyboard plan. It stores an ordered images array where each storyboard image item owns frameType, prompt, nullable imagePath, and optional camera. Storyboard images do not carry authored references. Derive shot ids and storyboard image ids from board order instead of storing them.`,
   )
   lines.push(
-    '- Storyboard prompts are authored directly for FLUX Klein. Write 2-4 sentences of concrete visual prose, front-load the subject and action, specify environment and lighting, make framing explicit, and end with a `Style:` line for the rough monochrome storyboard treatment.',
+    '- Storyboard prompts are authored directly for the fast storyboard image model. Write concrete visual prose, front-load the subject and action, specify environment and lighting, make framing explicit, and end with a `Style:` line for the rough monochrome storyboard treatment.',
   )
   lines.push(
     `- Storyboard review now happens per image under workspace/STORYBOARD/*.png, generated one image at a time from ${getStoryboardSidecarPath()}.`,

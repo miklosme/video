@@ -367,7 +367,7 @@ export function renderStoryboardPageContent(
           <form method="post" action="/storyboard/save">
             <input type="hidden" name="selectedImageId" value="${utils.escapeHtml(options.selected.selectedImageId)}">
             <label class="field-label" for="storyboard-prompt">Prompt</label>
-            <textarea id="storyboard-prompt" name="prompt" placeholder="Write the explicit FLUX Klein prompt for this storyboard frame." required>${utils.escapeHtml(options.selected.selectedEntry?.entry.prompt ?? '')}</textarea>
+            <textarea id="storyboard-prompt" name="prompt" placeholder="Write the storyboard thumbnail prompt for this frame." required>${utils.escapeHtml(options.selected.selectedEntry?.entry.prompt ?? '')}</textarea>
             ${options.cameraControlsHtml}
             ${
               options.showDirectionField

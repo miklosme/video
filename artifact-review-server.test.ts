@@ -2474,7 +2474,7 @@ test('artifact review server persists storyboard camera overrides from the board
         cameraPosition: 'eye-level',
         cameraAngle: 'level-angle',
       })
-      expect(capturedPrompt).toContain('Use this camera plan for this frame:')
+      expect(capturedPrompt).toContain('Style: black-and-white rough graphite sketch')
       expect(capturedPrompt).toContain('Shot Size: Close Up')
       expect(capturedPrompt).not.toContain('Requested change:')
     } finally {
@@ -2569,6 +2569,9 @@ test('artifact review server uses a direction-only edit path when the storyboard
 
       expect(capturedPrompts).toHaveLength(1)
       expect(capturedPrompts[0]).toContain(
+        'This is an incremental storyboard edit, not a fresh render.',
+      )
+      expect(capturedPrompts[0]).not.toContain(
         'The merchant arrives outside the library and scrambles to dismount.',
       )
       expect(capturedPrompts[0]).toContain('Requested change: Make them face the door')
@@ -2680,6 +2683,12 @@ test('artifact review server does a fresh storyboard render before applying dire
 
       expect(capturedPrompts).toHaveLength(2)
       expect(capturedPrompts[0]).toContain(
+        'The merchant reaches the library door and turns directly toward it while dismounting.',
+      )
+      expect(capturedPrompts[1]).toContain(
+        'This is an incremental storyboard edit, not a fresh render.',
+      )
+      expect(capturedPrompts[1]).not.toContain(
         'The merchant reaches the library door and turns directly toward it while dismounting.',
       )
       expect(capturedPrompts[1]).toContain('Requested change: Make them face the door')
@@ -2837,7 +2846,7 @@ test('runApprovedRegenerateAction passes storyboard camera overrides into regene
       },
     )
 
-    expect(capturedPrompt).toContain('Use this camera plan for this frame:')
+    expect(capturedPrompt).toContain('Style: black-and-white rough graphite sketch')
     expect(capturedPrompt).toContain('Shot Size: Close Up')
     expect(capturedPrompt).not.toContain('Requested change:')
   } finally {

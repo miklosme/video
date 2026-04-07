@@ -178,7 +178,7 @@ export function buildStoryboardRegeneratePrompt(
 }
 
 export function buildStoryboardDirectionPrompt(
-  generation: Pick<
+  _generation: Pick<
     {
       storyboardImageId: string
       shotId: string
@@ -197,10 +197,9 @@ export function buildStoryboardDirectionPrompt(
   }
 
   return [
-    appendStoryboardCameraPrompt(generation.prompt, generation.camera),
-    '',
     'Use the attached current storyboard thumbnail as the direct visual baseline.',
-    'Apply only the requested change and preserve the rest of the frame, including subject identity, staging, continuity, and rough monochrome storyboard readability.',
+    'This is an incremental storyboard edit, not a fresh render.',
+    'Apply only the requested change and preserve the rest of the frame, including subject identity, staging, continuity, composition, and rough monochrome storyboard readability unless the request explicitly changes them.',
     '',
     `Requested change: ${trimmedRequest}`,
   ].join('\n')
