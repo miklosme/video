@@ -47,6 +47,10 @@ export interface StoryboardPageRenderOptions {
   saveButtonLabel: string
   primaryButtonLabel: string
   showDirectionField: boolean
+  duplicateAction: {
+    formAction: string
+    buttonLabel: string
+  } | null
   destructiveAction: {
     formAction: string
     buttonLabel: string
@@ -378,6 +382,11 @@ export function renderStoryboardPageContent(
             <div class="form-actions">
               <button class="button-secondary" type="submit" formaction="/storyboard/save">${utils.escapeHtml(options.saveButtonLabel)}</button>
               <button class="button-primary" type="submit" formaction="/storyboard/render">${utils.escapeHtml(options.primaryButtonLabel)}</button>
+              ${
+                options.duplicateAction && options.selected.selectedEntry
+                  ? `<button class="button-secondary" type="submit" formaction="${utils.escapeHtml(options.duplicateAction.formAction)}" formnovalidate>${utils.escapeHtml(options.duplicateAction.buttonLabel)}</button>`
+                  : ''
+              }
               ${
                 options.destructiveAction && options.selected.selectedEntry
                   ? `<button class="button-danger" type="submit" formaction="${utils.escapeHtml(options.destructiveAction.formAction)}" formnovalidate onclick="return window.confirm(${utils.escapeHtml(

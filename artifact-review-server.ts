@@ -1,4 +1,4 @@
-import { access, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
+import { access, copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import process from 'node:process'
 
@@ -61,6 +61,7 @@ import {
   buildStoryboardDerivedImages,
   buildStoryboardShotSlots,
   createStoryboardImageEntry,
+  createStoryboardImagePath,
   findStoryboardDerivedImageByArtifactId,
   findStoryboardDerivedImageBySelectionId,
   findStoryboardImageForShotIndex,
@@ -2614,6 +2615,12 @@ function renderStoryboardSummary(options: {
     ? getStoryboardPairedEnd(options.storyboard, options.selected.selectedImageId)
     : null
   const selectedHasImage = options.selectedCard?.imageExists ?? false
+  const duplicateAction = selectedEntry
+    ? {
+        formAction: '/storyboard/duplicate',
+        buttonLabel: 'Duplicate',
+      }
+    : null
   const destructiveAction = selectedEntry
     ? selectedHasImage
       ? {
@@ -2677,6 +2684,7 @@ function renderStoryboardSummary(options: {
       saveButtonLabel,
       primaryButtonLabel,
       showDirectionField: selectedHasImage,
+      duplicateAction,
       destructiveAction,
       jobBannerHtml: renderJobBanner(options.job),
     },
@@ -4472,6 +4480,83 @@ async function writeStoryboardManifest(
   return storyboard
 }
 
+async function duplicateStoryboardImagePathIfPresent(imagePath: string | null, cwd: string) {
+  if (imagePath === null) {
+    return null
+  }
+
+  const sourcePath = resolveRepoPath(imagePath, cwd)
+
+  if (!(await fileExists(sourcePath))) {
+    return null
+  }
+
+  const nextImagePath = createStoryboardImagePath()
+  const destinationPath = resolveRepoPath(nextImagePath, cwd)
+
+  await mkdir(path.dirname(destinationPath), { recursive: true })
+  await copyFile(sourcePath, destinationPath)
+
+  return nextImagePath
+}
+
+function resolveStoryboardDuplicateInsertion(
+  storyboard: StoryboardSidecar,
+  entry: StoryboardDerivedImageEntry,
+) {
+  if (entry.entry.frameType === 'start') {
+    const pairedEnd = getStoryboardPairedEnd(storyboard, getStoryboardSelectionId(entry.imageIndex))
+
+    if (pairedEnd === null) {
+      return {
+        frameType: 'end' as const,
+        insertAt: entry.imageIndex + 1,
+      }
+    }
+
+    return {
+      frameType: 'start' as const,
+      insertAt: pairedEnd.imageIndex + 1,
+    }
+  }
+
+  return {
+    frameType: 'start' as const,
+    insertAt: entry.imageIndex + 1,
+  }
+}
+
+async function duplicateStoryboardThumbnailEntry(
+  storyboard: StoryboardSidecar,
+  entry: StoryboardDerivedImageEntry,
+  cwd: string,
+) {
+  const insertion = resolveStoryboardDuplicateInsertion(storyboard, entry)
+  const duplicatedImagePath = await duplicateStoryboardImagePathIfPresent(
+    entry.entry.imagePath,
+    cwd,
+  )
+  const duplicatedEntry = createStoryboardImageEntry({
+    frameType: insertion.frameType,
+    prompt: entry.entry.prompt,
+    camera: entry.entry.camera,
+    imagePath: duplicatedImagePath,
+  })
+  const nextStoryboard = {
+    images: [
+      ...storyboard.images.slice(0, insertion.insertAt),
+      duplicatedEntry,
+      ...storyboard.images.slice(insertion.insertAt),
+    ],
+  } satisfies StoryboardSidecar
+  const savedStoryboard = await writeStoryboardManifest(nextStoryboard, cwd)
+
+  return {
+    storyboard: savedStoryboard,
+    entry: buildStoryboardDerivedImages(savedStoryboard.images)[insertion.insertAt]!,
+  }
+}
+
 async function dropStoryboardImageArtifact(entry: StoryboardDerivedImageEntry, cwd: string) {
   if (entry.entry.imagePath === null) {
     throw new Error(`Storyboard image "${entry.storyboardImageId}" is missing imagePath.`)
@@ -5086,6 +5171,39 @@ async function handleStoryboardRender(
   )
 }
 
+async function handleStoryboardDuplicate(request: Request, cwd: string) {
+  const formData = await request.formData()
+  const selectedImageId = String(formData.get('selectedImageId') ?? '').trim()
+  const storyboard = await loadStoryboardOrEmpty(cwd)
+
+  if (!storyboard || selectedImageId.length === 0) {
+    throw new Error('Select a storyboard thumbnail before duplicating it.')
+  }
+
+  const current = findStoryboardImage(storyboard, selectedImageId)
+
+  if (!current) {
+    if (
+      selectedImageId === STORYBOARD_NEW_SELECTION_ID ||
+      parseStoryboardMissingEndSelectionId(selectedImageId) !== null
+    ) {
+      throw new Error('Select an existing storyboard thumbnail before duplicating it.')
+    }
+
+    throw new Error(
+      `Storyboard image "${selectedImageId}" is missing from ${STORYBOARD_SIDECAR_PATH}.`,
+    )
+  }
+
+  const duplicated = await duplicateStoryboardThumbnailEntry(storyboard, current, cwd)
+
+  return redirectTo(
+    appendSearchParams(buildPostActionRedirectLocation('/storyboard', request, { updated: true }), {
+      image: getStoryboardSelectionId(duplicated.entry.imageIndex),
+    }),
+  )
+}
+
 async function handleStoryboardDropImage(request: Request, cwd: string) {
   const formData = await request.formData()
   const selectedImageId = String(formData.get('selectedImageId') ?? '').trim()
@@ -5670,6 +5788,10 @@ export function startArtifactReviewServer(
 
           if (request.method === 'POST' && url.pathname === '/storyboard/render') {
             return await handleStoryboardRender(request, cwd, activeJobs, generatorOverrides)
+          }
+
+          if (request.method === 'POST' && url.pathname === '/storyboard/duplicate') {
+            return await handleStoryboardDuplicate(request, cwd)
           }
 
           if (request.method === 'POST' && url.pathname === '/storyboard/drop-image') {

@@ -471,6 +471,8 @@ test('artifact review server renders delete thumbnail action when a selected sto
       const html = await response.text()
 
       expect(response.status).toBe(200)
+      expect(html).toContain('action="/storyboard/duplicate"')
+      expect(html).toContain('>Duplicate<')
       expect(html).toContain('action="/storyboard/delete"')
       expect(html).toContain('>Delete thumbnail<')
       expect(html).not.toContain('>Drop image<')
@@ -664,6 +666,267 @@ test('artifact review server delete thumbnail endpoint removes a missing end fra
           frameType: 'start',
           prompt: 'The dog freezes at the first tremor.',
           imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+        },
+      ])
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server duplicate endpoint fills a missing end frame and clones the image artifact', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              prompt: 'The dog squares up to the cracked glass.',
+              camera: {
+                shotSize: 'medium',
+                cameraPosition: 'eye_level',
+                cameraAngle: 'straight_on',
+              },
+              imagePath: 'workspace/STORYBOARD/storyboard-image-alpha.png',
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/storyboard-image-alpha.png',
+      'storyboard-alpha',
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard/duplicate', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+        body: new URLSearchParams({
+          selectedImageId: '0',
+        }),
+      })
+
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toContain('/storyboard')
+      expect(response.headers.get('location')).toContain('image=1')
+
+      const storyboard = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
+      ) as {
+        images: Array<{
+          frameType: 'start' | 'end'
+          prompt: string
+          imagePath: string | null
+          camera?: {
+            shotSize: string
+            cameraPosition: string
+            cameraAngle: string
+          }
+        }>
+      }
+
+      expect(storyboard.images).toHaveLength(2)
+      expect(storyboard.images[1]?.frameType).toBe('end')
+      expect(storyboard.images[1]?.prompt).toBe('The dog squares up to the cracked glass.')
+      expect(storyboard.images[1]?.camera).toEqual({
+        shotSize: 'medium',
+        cameraPosition: 'eye_level',
+        cameraAngle: 'straight_on',
+      })
+      expect(storyboard.images[1]?.imagePath).toMatch(
+        /^workspace\/STORYBOARD\/storyboard-image-[a-f0-9]{8}\.png$/,
+      )
+      expect(storyboard.images[1]?.imagePath).not.toBe(
+        'workspace/STORYBOARD/storyboard-image-alpha.png',
+      )
+      expect(await readFile(path.resolve(rootDir, storyboard.images[1]!.imagePath!), 'utf8')).toBe(
+        'storyboard-alpha',
+      )
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server duplicate endpoint inserts a new start frame after a selected shot that already has an end frame', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              prompt: 'Shot one opens on the dog at the window.',
+              imagePath: null,
+            },
+            {
+              frameType: 'end',
+              prompt: 'Shot one ends as the dog recoils.',
+              imagePath: null,
+            },
+            {
+              frameType: 'start',
+              prompt: 'Shot two starts in the hallway.',
+              imagePath: null,
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard/duplicate', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+        body: new URLSearchParams({
+          selectedImageId: '0',
+        }),
+      })
+
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toContain('/storyboard')
+      expect(response.headers.get('location')).toContain('image=2')
+
+      const storyboard = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
+      ) as {
+        images: Array<{
+          frameType: 'start' | 'end'
+          prompt: string
+          imagePath: string | null
+        }>
+      }
+
+      expect(storyboard.images).toEqual([
+        {
+          frameType: 'start',
+          prompt: 'Shot one opens on the dog at the window.',
+          imagePath: null,
+        },
+        {
+          frameType: 'end',
+          prompt: 'Shot one ends as the dog recoils.',
+          imagePath: null,
+        },
+        {
+          frameType: 'start',
+          prompt: 'Shot one opens on the dog at the window.',
+          imagePath: null,
+        },
+        {
+          frameType: 'start',
+          prompt: 'Shot two starts in the hallway.',
+          imagePath: null,
+        },
+      ])
+    } finally {
+      await server.stop()
+    }
+  } finally {
+    await rm(rootDir, { recursive: true, force: true })
+  }
+})
+
+test('artifact review server duplicate endpoint inserts a new start frame after a selected end frame', async () => {
+  const rootDir = await mkdtemp(path.join(os.tmpdir(), 'video-artifact-review-'))
+
+  try {
+    await writeRepoFile(
+      rootDir,
+      'workspace/STORYBOARD/STORYBOARD.json',
+      `${JSON.stringify(
+        {
+          images: [
+            {
+              frameType: 'start',
+              prompt: 'Shot one opens on the dog at the window.',
+              imagePath: null,
+            },
+            {
+              frameType: 'end',
+              prompt: 'Shot one ends as the dog recoils.',
+              imagePath: null,
+            },
+            {
+              frameType: 'start',
+              prompt: 'Shot two starts in the hallway.',
+              imagePath: null,
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    )
+
+    const server = startArtifactReviewServer({ cwd: rootDir, preferredPort: 0 })
+
+    try {
+      const response = await fetch(new URL('/storyboard/duplicate', server.url), {
+        method: 'POST',
+        redirect: 'manual',
+        body: new URLSearchParams({
+          selectedImageId: '1',
+        }),
+      })
+
+      expect(response.status).toBe(303)
+      expect(response.headers.get('location')).toContain('/storyboard')
+      expect(response.headers.get('location')).toContain('image=2')
+
+      const storyboard = JSON.parse(
+        await readFile(path.resolve(rootDir, 'workspace/STORYBOARD/STORYBOARD.json'), 'utf8'),
+      ) as {
+        images: Array<{
+          frameType: 'start' | 'end'
+          prompt: string
+          imagePath: string | null
+        }>
+      }
+
+      expect(storyboard.images).toEqual([
+        {
+          frameType: 'start',
+          prompt: 'Shot one opens on the dog at the window.',
+          imagePath: null,
+        },
+        {
+          frameType: 'end',
+          prompt: 'Shot one ends as the dog recoils.',
+          imagePath: null,
+        },
+        {
+          frameType: 'start',
+          prompt: 'Shot one ends as the dog recoils.',
+          imagePath: null,
+        },
+        {
+          frameType: 'start',
+          prompt: 'Shot two starts in the hallway.',
+          imagePath: null,
         },
       ])
     } finally {
