@@ -46,9 +46,8 @@ export function appendStoryboardCameraPrompt(prompt: string, camera?: KeyframeCa
   return [
     trimmedPrompt,
     '',
-    'Use this camera plan for this frame:',
+    'Style: black-and-white rough graphite sketch, loose previs linework, light grayscale shading, readable silhouettes, unfinished but cinematic.',
     formatKeyframeCameraPlan(camera),
-    'Keep this framing explicit in the storyboard composition.',
   ].join('\n')
 }
 
